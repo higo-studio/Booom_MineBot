@@ -1,0 +1,27 @@
+{
+    "name": "McpBridge.MultiplayerPlayMode.Editor",
+    "rootNamespace": "McpBridge.Editor",
+    "references": [
+        "McpBridge.Runtime",
+        "McpBridge.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_MPPM_INSTALLED"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.multiplayer.playmode",
+            "expression": "",
+            "define": "UNITY_MPPM_INSTALLED"
+        }
+    ],
+    "noEngineReferences": false
+}

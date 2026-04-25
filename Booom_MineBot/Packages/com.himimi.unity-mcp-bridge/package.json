@@ -1,0 +1,10 @@
+{
+  "name": "com.himimi.unity-mcp-bridge",
+  "displayName": "Unity MCP Bridge",
+  "version": "0.3.0",
+  "unity": "6000.0",
+  "description": "Embedded Unity package that exposes editor, scene, asset, compile, and Multiplayer Play Mode operations through a local MCP bridge host.",
+  "author": {
+    "name": "himimi"
+  }
+}
