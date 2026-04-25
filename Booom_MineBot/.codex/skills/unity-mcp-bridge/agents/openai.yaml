@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity MCP Bridge"
+  short_description: "Unity MCP workflow for Minebot"
+  default_prompt: "Use $unity-mcp-bridge to handle Unity compile, play mode, console, scene, asset, or test tasks through Unity MCP in BOOOM Minebot."

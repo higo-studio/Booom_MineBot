@@ -1,0 +1,29 @@
+schema: spec-driven
+context: |
+  项目：BOOOM Minebot
+  引擎：Unity 6.0.59f2
+  语言：C#
+  当前包：URP、Input System、UGUI、Unity Test Framework、2D Feature Set
+  产品范围：单人 GameJam 项目，核心是俯视角方格挖掘、生存、扫雷式风险判断、从属机器人和地震波压力
+  架构偏好：玩法规则采用确定性的方格模拟；数值与内容配置优先使用 ScriptableObject；场景层使用轻量 MonoBehaviour 表现层；除非用户显式改变方向，否则不引入 DOTS 或多人联机
+  仓库要求：按 Runtime、Editor、Tests 和能力模块拆分 asmdef；基础设施与玩法系统分离；优先数据驱动而不是硬编码场景逻辑
+  Agent 工作流：使用 lark-doc/lark-wiki 读取策划源，使用 OpenSpec 管理实现顺序，新增项目流程时优先沉淀到仓库内 skill
+  人审约束：所有需要人工审查、确认、评估或评审的文档默认使用简体中文；OpenSpec spec 文件仅保留 `ADDED Requirements`、`Requirement`、`Scenario` 等必需结构关键字为英文，其余内容使用中文
+
+rules:
+  proposal:
+    - 所有面向人工审查的内容使用简体中文。
+    - 范围限制在 GameJam MVP 基础框架及其所需开发流程，不提前扩张到非 MVP 能力。
+    - 每个 capability 都要映射回策划案中的明确玩法需求或产研需求。
+  design:
+    - 所有面向人工审查的内容使用简体中文。
+    - 必须包含目录布局、asmdef 策略、启动场景流程、数据配置方式和明确的开发顺序。
+    - 明确确认采用的 Unity 技术栈，并显式标出本阶段故意不采用的栈。
+  specs:
+    - 所有面向人工审查的内容使用简体中文；仅保留 OpenSpec 必需英文结构关键字。
+    - Requirement 必须写成可观察的 MVP 行为或开发环境保证。
+    - capability 边界要与运行时系统所有权一致，便于后续并行实现。
+  tasks:
+    - 所有面向人工审查的内容使用简体中文。
+    - 任务顺序必须从项目基础到核心循环再到支撑系统，并在每个阶段末尾加入验证项。
+    - 在广义玩法开发前，先完成面向 Agent 的项目 skill 与流程文档初始化。

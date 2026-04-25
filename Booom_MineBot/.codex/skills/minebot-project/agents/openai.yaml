@@ -1,0 +1,4 @@
+interface:
+  display_name: "Minebot 项目约束"
+  short_description: "BOOOM Minebot 项目最高优先级约束"
+  default_prompt: "使用 $minebot-project 处理 BOOOM Minebot 仓库任务，并遵守项目内最高优先级的中文审查、OpenSpec 与 Unity 架构约束。"
