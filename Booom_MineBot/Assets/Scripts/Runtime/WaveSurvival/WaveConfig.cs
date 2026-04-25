@@ -6,14 +6,18 @@ namespace Minebot.WaveSurvival
     [CreateAssetMenu(menuName = "Minebot/Wave Survival/Wave Config")]
     public sealed class WaveConfig : ScriptableObject
     {
-        [SerializeField]
-        private float firstWaveDelay = 30f;
+        public const float DefaultFirstWaveDelay = 30f;
+        public const int DefaultBaseDangerRadius = 1;
+        public const int DefaultRadiusGrowthEveryWaves = 2;
 
         [SerializeField]
-        private int baseDangerRadius = 1;
+        private float firstWaveDelay = DefaultFirstWaveDelay;
 
         [SerializeField]
-        private int radiusGrowthEveryWaves = 2;
+        private int baseDangerRadius = DefaultBaseDangerRadius;
+
+        [SerializeField]
+        private int radiusGrowthEveryWaves = DefaultRadiusGrowthEveryWaves;
 
         [SerializeField]
         private ResourceAmount robotRecycleDrop = new ResourceAmount(2, 0, 0);

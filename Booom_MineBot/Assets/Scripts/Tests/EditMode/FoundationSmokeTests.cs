@@ -73,16 +73,55 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void DefaultBootstrapSeedsBombsOutsideStarterSafeRadius()
+        {
+            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
+            int bombCount = 0;
+
+            foreach (GridPosition position in registry.Grid.Positions())
+            {
+                GridCellState cell = registry.Grid.GetCell(position);
+                if (!cell.HasBomb)
+                {
+                    continue;
+                }
+
+                bombCount++;
+                Assert.That(position.ManhattanDistance(registry.Grid.PlayerSpawn), Is.GreaterThan(HazardRules.DefaultBombSafeRadius));
+            }
+
+            Assert.That(bombCount, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void GeneratedMapContainsEnergyRewardPockets()
+        {
+            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
+            int energyRewardCells = 0;
+
+            foreach (GridPosition position in registry.Grid.Positions())
+            {
+                if (registry.Grid.GetCell(position).Reward.Energy > 0)
+                {
+                    energyRewardCells++;
+                }
+            }
+
+            Assert.That(energyRewardCells, Is.GreaterThan(0));
+        }
+
+        [Test]
         public void SessionMiningAddsEconomyAndExperienceRewards()
         {
             RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
+            int metalBefore = registry.Economy.Resources.Metal;
             GridPosition target = new GridPosition(registry.Grid.PlayerSpawn.X, registry.Grid.PlayerSpawn.Y + 2);
             Assert.That(registry.Session.Move(GridPosition.Up), Is.EqualTo(MineInteractionResult.Moved));
 
             MineInteractionResult result = registry.Session.Mine(target);
 
             Assert.That(result, Is.EqualTo(MineInteractionResult.Mined));
-            Assert.That(registry.Economy.Resources.Metal, Is.EqualTo(1));
+            Assert.That(registry.Economy.Resources.Metal, Is.EqualTo(metalBefore + 1));
             Assert.That(registry.Experience.Experience, Is.EqualTo(1));
         }
 
@@ -93,12 +132,13 @@ namespace Minebot.Tests.EditMode
             GridPosition target = new GridPosition(registry.Grid.PlayerSpawn.X, registry.Grid.PlayerSpawn.Y + 1);
             ref GridCellState targetCell = ref registry.Grid.GetCellRef(target);
             targetCell.StaticFlags |= CellStaticFlags.Bomb;
+            int energyBefore = registry.Economy.Resources.Energy;
 
             ScanResult result = registry.Session.Scan(registry.Grid.PlayerSpawn);
 
             Assert.That(result.Success, Is.True);
             Assert.That(result.BombCount, Is.EqualTo(1));
-            Assert.That(registry.Economy.Resources.Energy, Is.EqualTo(2));
+            Assert.That(registry.Economy.Resources.Energy, Is.EqualTo(energyBefore - HazardRules.DefaultScanEnergyCost));
         }
 
         [Test]

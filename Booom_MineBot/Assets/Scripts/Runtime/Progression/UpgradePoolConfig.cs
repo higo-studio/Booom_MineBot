@@ -7,7 +7,7 @@ namespace Minebot.Progression
     public sealed class UpgradeDefinition
     {
         public string id = "upgrade";
-        public string displayName = "Upgrade";
+        public string displayName = "升级";
         public int drillTierDelta;
         public int maxHealthDelta;
         public int weight = 1;

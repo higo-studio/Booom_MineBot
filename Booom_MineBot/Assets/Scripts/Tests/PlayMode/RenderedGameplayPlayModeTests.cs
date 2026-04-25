@@ -29,7 +29,9 @@ namespace Minebot.Tests.PlayMode
             yield return null;
 
             MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            RuntimeServiceRegistry services = MinebotServices.Current;
             Assert.That(presentation, Is.Not.Null);
+            Assert.That(presentation.IsUsingConfiguredArtSet, Is.True);
             Assert.That(Camera.main, Is.Not.Null);
             Assert.That(Object.FindAnyObjectByType<GameplayInputController>(), Is.Not.Null);
             Assert.That(GameObject.Find(MinebotGameplayPresentation.PlayerViewName), Is.Not.Null);
@@ -40,11 +42,15 @@ namespace Minebot.Tests.PlayMode
 
             Tilemap terrain = GameObject.Find(MinebotGameplayPresentation.TerrainTilemapName).GetComponent<Tilemap>();
             Assert.That(terrain, Is.Not.Null);
-            Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(MinebotServices.Current.Grid.PlayerSpawn)), Is.Not.Null);
+            Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(services.Grid.PlayerSpawn)).name, Does.Contain("FloorCave"));
+            GridPosition hardRockPosition = new GridPosition(services.Grid.PlayerSpawn.X, services.Grid.PlayerSpawn.Y + 2);
+            SetMineableHardness(services, hardRockPosition, HardnessTier.HardRock);
+            presentation.RefreshAll();
+            Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(hardRockPosition)).name, Does.Contain("WallHardRock"));
 
             Tilemap overlay = GameObject.Find(MinebotGameplayPresentation.OverlayTilemapName).GetComponent<Tilemap>();
             Assert.That(overlay.GetTile(new Vector3Int(1, 1, 0)), Is.Not.Null);
-            Assert.That(presentation.HudSummary, Does.Contain("HP"));
+            Assert.That(presentation.HudSummary, Does.Contain("生命"));
             Assert.That(presentation.HudSummary, Does.Contain("波次"));
         }
 
@@ -71,9 +77,11 @@ namespace Minebot.Tests.PlayMode
 
             Assert.That(input.ScanCurrentCell(), Is.True);
             Assert.That(presentation.FeedbackMessage, Does.Contain("探测"));
+            Assert.That(presentation.WarningSummary, Does.Contain("周边 8 格炸药"));
             Assert.That(input.ToggleMarkerFacingCell(), Is.True);
             Assert.That(services.Grid.GetCell(minedPosition).IsMarked, Is.True);
             Assert.That(presentation.FeedbackMessage, Does.Contain("机器人会避开"));
+            Assert.That(presentation.WarningSummary, Does.Contain("已标记 1 格"));
 
             Assert.That(input.MineFacingCell(), Is.True);
             yield return null;
@@ -98,6 +106,10 @@ namespace Minebot.Tests.PlayMode
             presentation.RefreshAll();
             yield return null;
             Assert.That(presentation.IsUpgradePanelShowing, Is.True);
+            GridPosition positionBeforeUpgrade = services.PlayerMiningState.Position;
+            Assert.That(input.Move(GridPosition.Up), Is.False);
+            Assert.That(services.PlayerMiningState.Position, Is.EqualTo(positionBeforeUpgrade));
+            Assert.That(presentation.FeedbackMessage, Does.Contain("升级待选择"));
             Assert.That(input.SelectUpgrade(0), Is.True);
             yield return null;
             Assert.That(presentation.IsUpgradePanelShowing, Is.False);
@@ -108,7 +120,7 @@ namespace Minebot.Tests.PlayMode
             Assert.That(input.Repair(), Is.True);
             yield return null;
             Assert.That(services.Vitals.CurrentHealth, Is.EqualTo(services.Vitals.MaxHealth));
-            Assert.That(presentation.HudSummary, Does.Contain($"HP {services.Vitals.MaxHealth}/{services.Vitals.MaxHealth}"));
+            Assert.That(presentation.HudSummary, Does.Contain($"生命 {services.Vitals.MaxHealth}/{services.Vitals.MaxHealth}"));
 
             services.PlayerMiningState.Teleport(presentation.RobotFactoryPosition);
             Assert.That(input.BuildRobot(), Is.True);
@@ -128,6 +140,13 @@ namespace Minebot.Tests.PlayMode
             MinebotServices.ResetForTests();
             yield return SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Single);
             yield return WaitUntilSceneIsActive("Gameplay");
+        }
+
+        private static void SetMineableHardness(RuntimeServiceRegistry services, GridPosition position, HardnessTier hardness)
+        {
+            ref GridCellState cell = ref services.Grid.GetCellRef(position);
+            cell.TerrainKind = TerrainKind.MineableWall;
+            cell.HardnessTier = hardness;
         }
 
         private static IEnumerator WaitUntilSceneIsActive(string sceneName)

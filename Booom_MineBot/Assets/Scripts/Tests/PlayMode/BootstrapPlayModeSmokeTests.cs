@@ -69,6 +69,16 @@ namespace Minebot.Tests.PlayMode
 
         private static void MineEnoughForUpgradeRepairAndRobot(RuntimeServiceRegistry services)
         {
+            ClearBombs(
+                services,
+                new GridPosition(6, 8),
+                new GridPosition(6, 9),
+                new GridPosition(6, 10),
+                new GridPosition(7, 10),
+                new GridPosition(7, 9),
+                new GridPosition(5, 10),
+                new GridPosition(5, 9));
+
             Assert.That(services.Session.Move(GridPosition.Up), Is.EqualTo(MineInteractionResult.Moved));
 
             MineAndEnter(services, new GridPosition(6, 8), GridPosition.Up);
@@ -83,6 +93,17 @@ namespace Minebot.Tests.PlayMode
 
             Assert.That(services.Economy.Resources.Metal, Is.GreaterThanOrEqualTo(7));
             Assert.That(services.Experience.Experience, Is.GreaterThanOrEqualTo(5));
+        }
+
+        private static void ClearBombs(RuntimeServiceRegistry services, params GridPosition[] positions)
+        {
+            foreach (GridPosition position in positions)
+            {
+                if (services.Grid.IsInside(position))
+                {
+                    services.Grid.GetCellRef(position).ClearBomb();
+                }
+            }
         }
 
         private static void MineAndEnter(RuntimeServiceRegistry services, GridPosition target, GridPosition direction)

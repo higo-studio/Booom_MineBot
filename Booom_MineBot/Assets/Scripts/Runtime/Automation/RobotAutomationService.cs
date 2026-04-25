@@ -28,11 +28,15 @@ namespace Minebot.Automation
 
     public sealed class RobotAutomationService
     {
-        private readonly LogicalGridState grid;
+        public const int DefaultMaxTargetDistance = 7;
 
-        public RobotAutomationService(LogicalGridState grid)
+        private readonly LogicalGridState grid;
+        private readonly int maxTargetDistance;
+
+        public RobotAutomationService(LogicalGridState grid, int maxTargetDistance = DefaultMaxTargetDistance)
         {
             this.grid = grid;
+            this.maxTargetDistance = Mathf.Max(1, maxTargetDistance);
         }
 
         public bool TrySelectNearestSafeMineTarget(RobotState robot, out GridPosition target)
@@ -50,7 +54,7 @@ namespace Minebot.Automation
                 }
 
                 int distance = robot.Position.ManhattanDistance(position);
-                if (distance < bestDistance)
+                if (distance <= maxTargetDistance && distance < bestDistance)
                 {
                     bestDistance = distance;
                     target = position;

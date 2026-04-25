@@ -97,7 +97,7 @@ namespace Minebot.Presentation
                 case TerrainKind.Empty:
                     return assets.EmptyTile;
                 case TerrainKind.MineableWall:
-                    return assets.WallTile;
+                    return assets.WallTileForHardness(cell.HardnessTier);
                 case TerrainKind.Indestructible:
                     return assets.BoundaryTile;
                 default:

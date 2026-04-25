@@ -279,8 +279,9 @@ TilemapBakeProfile
 
 说明：
 
-- 虽然 `com.unity.visualscripting` 当前存在于工程依赖中，但不作为本项目主开发路线，可在后续清理阶段评估是否移除。
-- `com.unity.multiplayer.center` 当前存在于工程依赖中，但不进入 MVP 设计，也不参与架构决策。
+- `com.unity.visualscripting` 已在集成打磨阶段从显式工程依赖中移除，避免误导主实现路线。
+- `com.unity.multiplayer.center` 已在集成打磨阶段从显式工程依赖中移除；MVP 不做联机或多人入口。
+- 具体包复查结果记录在 `openspec/changes/bootstrap-minebot-foundation/package-review.md`。
 
 ### 7. 按“可玩闭环”排列开发顺序，而不是按功能列表平铺
 

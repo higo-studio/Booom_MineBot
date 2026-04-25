@@ -33,11 +33,11 @@ namespace Minebot.UI
         {
             if (!MinebotServices.IsInitialized)
             {
-                return "Minebot services are not initialized.";
+                return "游戏服务尚未初始化。";
             }
 
             RuntimeServiceRegistry services = MinebotServices.Current;
-            return $"HP {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | Metal {services.Economy.Resources.Metal} | Energy {services.Economy.Resources.Energy} | Wave {services.Waves.CurrentWave}";
+            return $"生命 {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {services.Economy.Resources.Metal} | 能量 {services.Economy.Resources.Energy} | 波次 {services.Waves.CurrentWave}";
         }
     }
 }
