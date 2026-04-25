@@ -320,6 +320,49 @@ TilemapBakeProfile
 - 后续 Agent 不需要反复从零解释项目是什么、哪些技术栈故意不用、应该先改哪里。
 - 项目级 skill 比会话内临时说明更稳定，适合持续开发。
 
+### 9. 将 UnityMCP 纳入编辑器工作流
+
+项目已经接入 `unity-mcp-bridge`，因此基础框架阶段不需要再维护一套独立于 UnityMCP 的“手工点编辑器”流程。更合理的做法是把 UnityMCP 视为编辑器自动化入口，而不是把它和运行时架构混在一起。
+
+推荐分层：
+
+```text
+Explore
+  unity.instances / unity.editor_state / unity.scene_list_opened / unity.screenshot
+
+Apply
+  unity.scene_create / unity.scene_open / unity.prefab_*
+  unity.gameobject_* / unity.component_*   // 仅在当前会话确实暴露时使用
+
+Verify
+  unity.compile
+  unity.tests_run / unity.console_logs     // 仅在当前会话确实暴露时使用
+```
+
+各层职责：
+
+- `Explore`：用于确认当前 Unity 主实例、已打开场景、编辑器状态和必要截图，为讨论和排障提供事实依据
+- `Apply`：用于搭建 `Bootstrap`、`Gameplay`、`DebugSandbox` 的场景脚手架，以及表现层 Prefab、Tilemap 和调试对象
+- `Verify`：用于把基础阶段与集成阶段的验证收敛到同一入口，先确认 Unity 编译状态，再决定是否继续测试和烟雾检查
+
+约束边界：
+
+- `Scene` / `Prefab` / `Tilemap` 只承担编辑期装配和表现层脚手架职责，不承担玩法权威状态
+- `MapDefinition`、`LogicalGridState` 和 Bootstrap 初始化后的运行时服务仍然是规则与数据流的权威来源
+- 当任务落在 `1.1`、`1.4`、`1.7`、`6.4` 这类基础框架与验证节点时，应优先从 UnityMCP 工作流切入，而不是补一套平行的手工流程
+
+能力探测规则：
+
+- Agent 在使用 UnityMCP 前，应先确认当前会话实际暴露的工具集合，不直接假设所有 upstream `unity.scene_*`、`unity.gameobject_*`、`unity.component_*`、`unity.tests_run`、`unity.console_logs` 都可用
+- 对当前会话未暴露的工具，文档应将其视为“可选增强路径”，而不是基础框架的硬前提
+- 无论会话是否暴露其它增强工具，`unity.compile` 都应被视为编译校验的统一入口；如果因 Play Mode 被阻塞，则按 `exitPlayMode=true` 的方式重试
+
+这样设计的原因是：
+
+- 场景与 Prefab 的自动化搭建确实能提升基础框架阶段的执行效率
+- 运行时真相继续留在纯逻辑资产和服务层，能够维持当前设计对测试性和确定性的要求
+- 文档把“必选路径”和“能力增强路径”分开后，Agent 更容易在不同 Codex 会话和不同 UnityMCP 暴露面之间稳定切换
+
 ## 风险 / 权衡
 
 - [风险] 过早拆太多模块，反而拖慢 GameJam 初期开发速度。

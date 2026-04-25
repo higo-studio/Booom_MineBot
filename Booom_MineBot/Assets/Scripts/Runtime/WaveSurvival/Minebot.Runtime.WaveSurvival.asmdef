@@ -1,0 +1,19 @@
+{
+  "name": "Minebot.Runtime.WaveSurvival",
+  "rootNamespace": "Minebot.WaveSurvival",
+  "references": [
+    "Minebot.Runtime.Common",
+    "Minebot.Runtime.GridMining",
+    "Minebot.Runtime.Automation",
+    "Minebot.Runtime.Progression"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,0 +1,20 @@
+{
+  "name": "Minebot.Runtime.UI",
+  "rootNamespace": "Minebot.UI",
+  "references": [
+    "Minebot.Runtime.Bootstrap",
+    "Minebot.Runtime.Common",
+    "Minebot.Runtime.Progression",
+    "Minebot.Runtime.WaveSurvival",
+    "Minebot.Runtime.GridMining"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
