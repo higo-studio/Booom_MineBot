@@ -1,0 +1,26 @@
+{
+  "name": "Minebot.Tests.PlayMode",
+  "rootNamespace": "Minebot.Tests.PlayMode",
+  "references": [
+    "Minebot.Runtime.Bootstrap",
+    "Minebot.Runtime.Common",
+    "Minebot.Runtime.GridMining",
+    "Minebot.Runtime.Progression",
+    "Minebot.Runtime.Automation",
+    "Minebot.Runtime.Presentation",
+    "Unity.TextMeshPro",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

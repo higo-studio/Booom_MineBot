@@ -1,0 +1,18 @@
+{
+  "name": "Minebot.Runtime.Automation",
+  "rootNamespace": "Minebot.Automation",
+  "references": [
+    "Minebot.Runtime.Common",
+    "Minebot.Runtime.GridMining",
+    "Minebot.Runtime.Progression"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

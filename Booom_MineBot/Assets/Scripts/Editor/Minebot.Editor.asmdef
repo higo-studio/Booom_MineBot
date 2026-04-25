@@ -1,0 +1,19 @@
+{
+  "name": "Minebot.Editor",
+  "rootNamespace": "Minebot.Editor",
+  "references": [
+    "Minebot.Runtime.Common",
+    "Minebot.Runtime.GridMining"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

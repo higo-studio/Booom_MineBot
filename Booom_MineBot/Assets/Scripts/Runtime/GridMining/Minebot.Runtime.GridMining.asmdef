@@ -1,0 +1,16 @@
+{
+  "name": "Minebot.Runtime.GridMining",
+  "rootNamespace": "Minebot.GridMining",
+  "references": [
+    "Minebot.Runtime.Common"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
