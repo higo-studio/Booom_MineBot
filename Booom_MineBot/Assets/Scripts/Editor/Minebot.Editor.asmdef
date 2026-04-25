@@ -3,7 +3,8 @@
   "rootNamespace": "Minebot.Editor",
   "references": [
     "Minebot.Runtime.Common",
-    "Minebot.Runtime.GridMining"
+    "Minebot.Runtime.GridMining",
+    "Minebot.Runtime.Presentation"
   ],
   "includePlatforms": [
     "Editor"

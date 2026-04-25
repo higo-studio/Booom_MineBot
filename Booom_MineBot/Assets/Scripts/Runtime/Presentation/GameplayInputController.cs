@@ -84,7 +84,7 @@ namespace Minebot.Presentation
                 return true;
             }
 
-            presentation.ShowFeedback($"移动受阻：{result}");
+            presentation.ShowFeedback($"移动受阻：{ToChineseResultText(result)}");
             return false;
         }
 
@@ -98,8 +98,8 @@ namespace Minebot.Presentation
             GridPosition target = services.PlayerMiningState.Position + lastDirection;
             MineInteractionResult result = services.Session.Mine(target);
             presentation.ShowFeedback(result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb
-                ? $"挖掘 {target}: {result}"
-                : $"无法挖掘 {target}: {result}");
+                ? $"挖掘 {target}：{ToChineseResultText(result)}"
+                : $"无法挖掘 {target}：{ToChineseResultText(result)}");
             return result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb;
         }
 
@@ -167,7 +167,18 @@ namespace Minebot.Presentation
 
         private bool CanAcceptGameplayInput()
         {
-            return EnsureServices() && !services.Vitals.IsDead;
+            if (!EnsureServices() || services.Vitals.IsDead)
+            {
+                return false;
+            }
+
+            if (services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
+            {
+                presentation.ShowFeedback("升级待选择，普通操作已暂停。请按 1/2/3 或点击升级项。");
+                return false;
+            }
+
+            return true;
         }
 
         private bool EnsureServices()
@@ -239,7 +250,7 @@ namespace Minebot.Presentation
         {
             if (EnsureServices())
             {
-                presentation.ShowFeedback("暂停输入已收到；MVP 暂未冻结时间。");
+                presentation.ShowFeedback("暂停输入已收到；当前版本暂未冻结时间。");
             }
         }
 
@@ -256,6 +267,27 @@ namespace Minebot.Presentation
             }
 
             return value.y > 0f ? GridPosition.Up : GridPosition.Down;
+        }
+
+        private static string ToChineseResultText(MineInteractionResult result)
+        {
+            switch (result)
+            {
+                case MineInteractionResult.InvalidTarget:
+                    return "目标无效";
+                case MineInteractionResult.Moved:
+                    return "移动成功";
+                case MineInteractionResult.BlockedByTerrain:
+                    return "被地形阻挡";
+                case MineInteractionResult.DrillTooWeak:
+                    return "钻头强度不足";
+                case MineInteractionResult.Mined:
+                    return "已挖开";
+                case MineInteractionResult.TriggeredBomb:
+                    return "触发炸药";
+                default:
+                    return "未知结果";
+            }
         }
     }
 }

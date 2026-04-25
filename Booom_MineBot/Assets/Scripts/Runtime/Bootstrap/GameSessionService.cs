@@ -71,8 +71,8 @@ namespace Minebot.Bootstrap
 
             if (result == MineInteractionResult.TriggeredBomb)
             {
-                int radius = hazardRules != null ? hazardRules.ExplosionRadius : 1;
-                int damage = hazardRules != null ? hazardRules.DirectBombDamage : 1;
+                int radius = hazardRules != null ? hazardRules.ExplosionRadius : HazardRules.DefaultExplosionRadius;
+                int damage = hazardRules != null ? hazardRules.DirectBombDamage : HazardRules.DefaultDirectBombDamage;
                 ExplosionResolution resolution = hazards.ResolveExplosion(target, radius, damage);
                 vitals.Damage(resolution.DirectDamage);
             }
@@ -87,7 +87,7 @@ namespace Minebot.Bootstrap
 
         public ScanResult Scan(GridPosition origin)
         {
-            int cost = hazardRules != null ? hazardRules.ScanEnergyCost : 1;
+            int cost = hazardRules != null ? hazardRules.ScanEnergyCost : HazardRules.DefaultScanEnergyCost;
             if (!economy.TrySpend(new ResourceAmount(0, cost, 0)))
             {
                 return new ScanResult(false, 0);

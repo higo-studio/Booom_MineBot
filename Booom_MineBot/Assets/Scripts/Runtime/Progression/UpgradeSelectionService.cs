@@ -58,8 +58,8 @@ namespace Minebot.Progression
         {
             return new[]
             {
-                new UpgradeDefinition { id = "drill", displayName = "Drill Upgrade", drillTierDelta = 1, weight = 1 },
-                new UpgradeDefinition { id = "armor", displayName = "Reinforced Shell", maxHealthDelta = 1, weight = 1 }
+                new UpgradeDefinition { id = "drill", displayName = "钻头强化", drillTierDelta = 1, weight = 1 },
+                new UpgradeDefinition { id = "armor", displayName = "加固外壳", maxHealthDelta = 1, weight = 1 }
             };
         }
     }

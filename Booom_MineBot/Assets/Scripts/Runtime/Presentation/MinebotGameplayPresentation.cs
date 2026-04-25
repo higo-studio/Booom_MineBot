@@ -33,6 +33,9 @@ namespace Minebot.Presentation
         [SerializeField]
         private bool enableWaveTick = true;
 
+        [SerializeField]
+        private MinebotPresentationArtSet artSet;
+
         private RuntimeServiceRegistry services;
         private MinebotPresentationAssets assets;
         private TilemapGridPresentation gridPresentation;
@@ -52,7 +55,7 @@ namespace Minebot.Presentation
         private GridPosition robotFactoryPosition;
         private GridPosition? scanOrigin;
         private int lastScanCount;
-        private string feedbackMessage = "WASD/方向键移动，Space/E 挖掘。";
+        private string feedbackMessage = "WASD/方向键移动，空格/E 挖掘。";
         private bool isSubscribed;
 
         public TilemapGridPresentation GridPresentation => gridPresentation;
@@ -60,9 +63,27 @@ namespace Minebot.Presentation
         public GridPosition RobotFactoryPosition => robotFactoryPosition;
         public string HudSummary => hudText != null ? hudText.text : string.Empty;
         public string FeedbackMessage => feedbackMessage;
-        public int ActiveRobotViewCount => robotViews.Count;
+        public string WarningSummary => warningText != null ? warningText.text : string.Empty;
+        public int ActiveRobotViewCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (SpriteRenderer view in robotViews)
+                {
+                    if (view != null && view.gameObject.activeSelf)
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+        }
+
         public bool IsUpgradePanelShowing => upgradePanel != null && upgradePanel.activeSelf;
         public bool IsGameOver => services != null && services.Vitals.IsDead;
+        public bool IsUsingConfiguredArtSet => assets != null && assets.IsUsingConfiguredArtSet;
 
         private void Awake()
         {
@@ -131,7 +152,7 @@ namespace Minebot.Presentation
             scanOrigin = origin;
             lastScanCount = bombCount;
             gridPresentation.ShowScanAt(origin);
-            ShowFeedback($"探测 {origin}: 周围炸药数 {bombCount}");
+            ShowFeedback($"探测 {origin}：周边 8 格炸药 {bombCount} 个，蓝色格为探测中心。");
         }
 
         public bool TryRepairAtStation(int metalCost)
@@ -214,7 +235,7 @@ namespace Minebot.Presentation
 
         private void EnsureSceneInfrastructure()
         {
-            assets = assets ?? MinebotPresentationAssets.Create();
+            assets = assets ?? MinebotPresentationAssets.Create(ResolveArtSet());
             EnsureCamera();
             EnsureLight();
 
@@ -246,6 +267,11 @@ namespace Minebot.Presentation
             playerView = EnsureSpriteRenderer(actorRoot, PlayerViewName, assets.PlayerSprite, 30);
             EnsureHud();
             EnsureEventSystem();
+        }
+
+        private MinebotPresentationArtSet ResolveArtSet()
+        {
+            return artSet != null ? artSet : Resources.Load<MinebotPresentationArtSet>("Minebot/MinebotPresentationArtSet_Default");
         }
 
         private void EnsureCamera()
@@ -575,7 +601,7 @@ namespace Minebot.Presentation
 
         private static void WarmupMinebotGlyphs(TMP_FontAsset fontAsset)
         {
-            fontAsset.TryAddCharacters("方向键移动挖掘金属能量等级经验波次当前位置钻头可交互维修站机器人工厂恢复生命生产从属机器人升级可用点击地震倒计时红色区域危险立即避开尚未探测上次任务失败核心机体失效炸药标记取消不足完成应用选择暂停");
+            fontAsset.TryAddCharacters("方向键移动挖掘金属能量等级经验波次当前位置钻头可交互维修站机器人工厂恢复生命生产从属机器人升级可用点击地震倒计时红色区域危险立即避开尚未探测上次任务失败核心机体失效炸药标记取消不足完成应用选择暂停土层石层硬岩极硬已挖开触发目标无效地形阻挡强度未知结果空格当前版本暂未冻结时间周边蓝色中心输入已锁定先选择升级下一波半径已标记格");
         }
 
         private static bool IsOsFontInstalled(string fontName)
@@ -670,7 +696,7 @@ namespace Minebot.Presentation
             lastScanCount = bombCount;
             scanOrigin = services.PlayerMiningState.Position;
             gridPresentation.ShowScanAt(scanOrigin.Value);
-            feedbackMessage = $"探测完成：周围炸药数 {bombCount}";
+            feedbackMessage = $"探测完成：周边 8 格炸药 {bombCount} 个。";
         }
 
         private void RefreshActors()
@@ -719,13 +745,16 @@ namespace Minebot.Presentation
 
             ResourceAmount resources = services.Economy.Resources;
             hudText.text =
-                $"HP {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy}\n" +
+                $"生命 {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy}\n" +
                 $"等级 {services.Experience.Level} | 经验 {services.Experience.Experience}/{services.Experience.NextThreshold} | 波次 {services.Waves.CurrentWave}\n" +
-                $"当前位置 {services.PlayerMiningState.Position} | 钻头 {services.PlayerMiningState.DrillTier}";
+                $"当前位置 {services.PlayerMiningState.Position} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}";
 
             interactionText.text = BuildInteractionText();
             feedbackText.text = feedbackMessage;
             warningText.text = BuildWarningText();
+            warningText.color = PlayerIsInDangerZone() || services.Waves.TimeUntilNextWave <= 5f
+                ? new Color(1f, 0.36f, 0.24f, 1f)
+                : new Color(1f, 0.91f, 0.58f, 1f);
             gameOverText.gameObject.SetActive(services.Vitals.IsDead);
             gameOverText.text = services.Vitals.IsDead ? "任务失败\n核心机体已失效" : string.Empty;
             RefreshUpgradePanel();
@@ -733,7 +762,12 @@ namespace Minebot.Presentation
 
         private string BuildInteractionText()
         {
-            string baseHint = "WASD/方向键 移动 | Space/E 挖掘 | Q 探测 | F 标记 | R 维修 | B 造机器人 | 1/2/3 选择升级";
+            string baseHint = "WASD/方向键 移动 | 空格/E 挖掘 | Q 探测 | F 标记 | R 维修 | B 造机器人 | 1/2/3 选择升级";
+            if (services.Experience.HasPendingUpgrade)
+            {
+                return "升级待选择：普通操作已暂停。按 1/2/3 或点击升级项继续。\n" + baseHint;
+            }
+
             if (IsNearRepairStation() && IsNearRobotFactory())
             {
                 return baseHint + "\n可交互：维修站、机器人工厂";
@@ -754,14 +788,36 @@ namespace Minebot.Presentation
 
         private string BuildWarningText()
         {
-            string scanLine = scanOrigin.HasValue ? $"上次探测 {scanOrigin.Value}: {lastScanCount}" : "尚未探测";
-            string countdown = $"地震波倒计时 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s";
+            string scanLine = scanOrigin.HasValue
+                ? $"探测结果：{scanOrigin.Value} 周边 8 格炸药 {lastScanCount} 个"
+                : "尚未探测：按 Q 消耗能量显示数字风险";
+            string countdown = $"地震波倒计时 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s | 下一波半径 {services.Waves.NextDangerRadius}";
+            string statusLine = PlayerIsInDangerZone()
+                ? "你位于红色危险区，地震结算会失败！"
+                : $"红色覆盖为危险区 | 已标记 {CountMarkedCells()} 格";
             if (services.Waves.TimeUntilNextWave <= 5f)
             {
-                return $"{countdown}\n红色区域危险，立即避开。\n{scanLine}";
+                return $"{countdown}\n红色区域危险，立即避开。\n{statusLine}\n{scanLine}";
             }
 
-            return $"{countdown}\n红色覆盖为危险区。\n{scanLine}";
+            return $"{countdown}\n{statusLine}\n{scanLine}";
+        }
+
+        private static string ToChineseHardnessText(HardnessTier hardness)
+        {
+            switch (hardness)
+            {
+                case HardnessTier.Soil:
+                    return "土层";
+                case HardnessTier.Stone:
+                    return "石层";
+                case HardnessTier.HardRock:
+                    return "硬岩";
+                case HardnessTier.UltraHard:
+                    return "极硬岩";
+                default:
+                    return "未知";
+            }
         }
 
         private void RefreshUpgradePanel()
@@ -782,8 +838,48 @@ namespace Minebot.Presentation
 
                 TMP_Text label = button.GetComponentInChildren<TMP_Text>();
                 UpgradeDefinition upgrade = currentCandidates[i];
-                label.text = $"{i + 1}. {upgrade.displayName}";
+                label.text = $"{i + 1}. {upgrade.displayName} - {DescribeUpgrade(upgrade)}";
             }
+        }
+
+        private static string DescribeUpgrade(UpgradeDefinition upgrade)
+        {
+            if (upgrade.drillTierDelta > 0 && upgrade.maxHealthDelta > 0)
+            {
+                return $"钻头 +{upgrade.drillTierDelta}，最大生命 +{upgrade.maxHealthDelta}";
+            }
+
+            if (upgrade.drillTierDelta > 0)
+            {
+                return $"钻头 +{upgrade.drillTierDelta}";
+            }
+
+            if (upgrade.maxHealthDelta > 0)
+            {
+                return $"最大生命 +{upgrade.maxHealthDelta}";
+            }
+
+            return "立即生效";
+        }
+
+        private int CountMarkedCells()
+        {
+            int count = 0;
+            foreach (GridPosition position in services.Grid.Positions())
+            {
+                if (services.Grid.GetCell(position).IsMarked)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private bool PlayerIsInDangerZone()
+        {
+            GridPosition position = services.PlayerMiningState.Position;
+            return services.Grid.IsInside(position) && services.Grid.GetCell(position).IsDangerZone;
         }
 
         private void EvaluateDangerZones()

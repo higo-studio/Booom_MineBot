@@ -32,12 +32,15 @@ namespace Minebot.WaveSurvival
         {
             this.grid = grid;
             this.config = config;
-            timeUntilNextWave = config != null ? config.FirstWaveDelay : 30f;
+            timeUntilNextWave = config != null ? config.FirstWaveDelay : WaveConfig.DefaultFirstWaveDelay;
         }
 
         public int CurrentWave { get; private set; }
         public int BestSurvivedWave { get; private set; }
         public float TimeUntilNextWave => timeUntilNextWave;
+        public int NextDangerRadius => config != null
+            ? config.DangerRadiusForWave(CurrentWave + 1)
+            : WaveConfig.DefaultBaseDangerRadius + CurrentWave / WaveConfig.DefaultRadiusGrowthEveryWaves;
 
         public bool Tick(float deltaTime)
         {
@@ -53,7 +56,7 @@ namespace Minebot.WaveSurvival
                 cell.IsDangerZone = false;
             }
 
-            int radius = config != null ? config.DangerRadiusForWave(CurrentWave + 1) : 1;
+            int radius = NextDangerRadius;
             foreach (GridPosition origin in unstableOrigins)
             {
                 foreach (GridPosition position in grid.Positions())
@@ -70,7 +73,7 @@ namespace Minebot.WaveSurvival
         public WaveResolution ResolveWave(GridPosition playerPosition, PlayerVitals vitals, IList<RobotState> robots)
         {
             CurrentWave++;
-            timeUntilNextWave = config != null ? config.FirstWaveDelay : 30f;
+            timeUntilNextWave = config != null ? config.FirstWaveDelay : WaveConfig.DefaultFirstWaveDelay;
             bool playerKilled = grid.IsInside(playerPosition) && grid.GetCell(playerPosition).IsDangerZone;
             if (playerKilled)
             {

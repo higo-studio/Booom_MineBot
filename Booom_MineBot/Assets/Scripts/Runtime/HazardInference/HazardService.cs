@@ -27,11 +27,22 @@ namespace Minebot.HazardInference
 
         public void SeedBombs(int seed, float chance)
         {
+            SeedBombs(seed, chance, grid.PlayerSpawn, 0);
+        }
+
+        public void SeedBombs(int seed, float chance, GridPosition safeOrigin, int safeRadius)
+        {
             var random = new DeterministicRandom(seed);
+            float clampedChance = UnityEngine.Mathf.Clamp01(chance);
             foreach (GridPosition position in grid.Positions())
             {
                 ref GridCellState cell = ref grid.GetCellRef(position);
-                if (cell.IsMineable && !cell.IsRevealed && random.Value() < chance)
+                if (position.ManhattanDistance(safeOrigin) <= safeRadius)
+                {
+                    continue;
+                }
+
+                if (cell.IsMineable && !cell.IsRevealed && random.Value() < clampedChance)
                 {
                     cell.StaticFlags |= CellStaticFlags.Bomb;
                 }

@@ -6,7 +6,10 @@ namespace Minebot.Presentation
     internal sealed class MinebotPresentationAssets
     {
         public Tile EmptyTile { get; private set; }
-        public Tile WallTile { get; private set; }
+        public Tile SoilWallTile { get; private set; }
+        public Tile StoneWallTile { get; private set; }
+        public Tile HardRockWallTile { get; private set; }
+        public Tile UltraHardWallTile { get; private set; }
         public Tile BoundaryTile { get; private set; }
         public Tile DangerTile { get; private set; }
         public Tile MarkerTile { get; private set; }
@@ -15,13 +18,59 @@ namespace Minebot.Presentation
         public Tile ScanHintTile { get; private set; }
         public Sprite PlayerSprite { get; private set; }
         public Sprite RobotSprite { get; private set; }
+        public bool IsUsingConfiguredArtSet { get; private set; }
 
-        public static MinebotPresentationAssets Create()
+        public static MinebotPresentationAssets Create(MinebotPresentationArtSet artSet)
+        {
+            MinebotPresentationAssets fallback = CreateFallback();
+            if (artSet == null)
+            {
+                return fallback;
+            }
+
+            return new MinebotPresentationAssets
+            {
+                EmptyTile = artSet.EmptyTile != null ? artSet.EmptyTile : fallback.EmptyTile,
+                SoilWallTile = artSet.SoilWallTile != null ? artSet.SoilWallTile : fallback.SoilWallTile,
+                StoneWallTile = artSet.StoneWallTile != null ? artSet.StoneWallTile : fallback.StoneWallTile,
+                HardRockWallTile = artSet.HardRockWallTile != null ? artSet.HardRockWallTile : fallback.HardRockWallTile,
+                UltraHardWallTile = artSet.UltraHardWallTile != null ? artSet.UltraHardWallTile : fallback.UltraHardWallTile,
+                BoundaryTile = artSet.BoundaryTile != null ? artSet.BoundaryTile : fallback.BoundaryTile,
+                DangerTile = artSet.DangerTile != null ? artSet.DangerTile : fallback.DangerTile,
+                MarkerTile = artSet.MarkerTile != null ? artSet.MarkerTile : fallback.MarkerTile,
+                RepairStationTile = artSet.RepairStationTile != null ? artSet.RepairStationTile : fallback.RepairStationTile,
+                RobotFactoryTile = artSet.RobotFactoryTile != null ? artSet.RobotFactoryTile : fallback.RobotFactoryTile,
+                ScanHintTile = artSet.ScanHintTile != null ? artSet.ScanHintTile : fallback.ScanHintTile,
+                PlayerSprite = artSet.PlayerSprite != null ? artSet.PlayerSprite : fallback.PlayerSprite,
+                RobotSprite = artSet.RobotSprite != null ? artSet.RobotSprite : fallback.RobotSprite,
+                IsUsingConfiguredArtSet = true
+            };
+        }
+
+        public Tile WallTileForHardness(Minebot.GridMining.HardnessTier hardness)
+        {
+            switch (hardness)
+            {
+                case Minebot.GridMining.HardnessTier.Stone:
+                    return StoneWallTile;
+                case Minebot.GridMining.HardnessTier.HardRock:
+                    return HardRockWallTile;
+                case Minebot.GridMining.HardnessTier.UltraHard:
+                    return UltraHardWallTile;
+                default:
+                    return SoilWallTile;
+            }
+        }
+
+        private static MinebotPresentationAssets CreateFallback()
         {
             return new MinebotPresentationAssets
             {
                 EmptyTile = CreateTile("Empty Tile", new Color(0.13f, 0.18f, 0.19f, 1f), new Color(0.07f, 0.09f, 0.1f, 1f)),
-                WallTile = CreateTile("Wall Tile", new Color(0.43f, 0.34f, 0.24f, 1f), new Color(0.24f, 0.19f, 0.15f, 1f)),
+                SoilWallTile = CreateTile("Soil Wall Tile", new Color(0.43f, 0.34f, 0.24f, 1f), new Color(0.24f, 0.19f, 0.15f, 1f)),
+                StoneWallTile = CreateTile("Stone Wall Tile", new Color(0.36f, 0.36f, 0.34f, 1f), new Color(0.18f, 0.18f, 0.17f, 1f)),
+                HardRockWallTile = CreateTile("Hard Rock Wall Tile", new Color(0.24f, 0.26f, 0.28f, 1f), new Color(0.1f, 0.11f, 0.13f, 1f)),
+                UltraHardWallTile = CreateTile("Ultra Hard Wall Tile", new Color(0.18f, 0.16f, 0.23f, 1f), new Color(0.08f, 0.07f, 0.11f, 1f)),
                 BoundaryTile = CreateTile("Boundary Tile", new Color(0.05f, 0.05f, 0.06f, 1f), new Color(0.17f, 0.17f, 0.18f, 1f)),
                 DangerTile = CreateTile("Danger Tile", new Color(0.86f, 0.12f, 0.1f, 0.62f), new Color(1f, 0.36f, 0.22f, 0.82f)),
                 MarkerTile = CreateTile("Marker Tile", new Color(0.95f, 0.05f, 0.05f, 0.84f), new Color(1f, 0.85f, 0.25f, 0.92f)),
