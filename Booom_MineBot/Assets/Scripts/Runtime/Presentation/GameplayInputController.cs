@@ -18,7 +18,7 @@ namespace Minebot.Presentation
         private GridPosition lastDirection = GridPosition.Up;
         private Vector2 currentMoveInput;
         private Vector2 pointerPosition;
-        private float autoMineTimer;
+        private AutoMineContactState autoMineState = AutoMineContactState.None;
 
         [SerializeField]
         private float freeMoveStepSeconds = 0.25f;
@@ -106,20 +106,20 @@ namespace Minebot.Presentation
 
             if (direction.sqrMagnitude < 0.0001f)
             {
-                autoMineTimer = 0f;
+                ResetAutoMineState();
                 return false;
             }
 
             lastDirection = QuantizeDirection(direction);
-            bool moved = presentation.TryMovePlayerFreeform(direction, deltaTime, out GridPosition contactCell);
-            if (moved)
+            CharacterMoveResult2D moveResult = presentation.TryMovePlayerFreeform(direction, deltaTime);
+            if (moveResult.HasMoved)
             {
-                autoMineTimer = 0f;
+                ResetAutoMineState();
                 presentation.RefreshAll();
                 return true;
             }
 
-            return TryAutoMineContact(contactCell, deltaTime);
+            return TryAutoMineContact(moveResult, deltaTime);
         }
 
         public bool MineFacingCell()
@@ -142,14 +142,13 @@ namespace Minebot.Presentation
 
             GridPosition origin = services.PlayerMiningState.Position;
             ScanResult result = services.Session.Scan(origin);
-            if (result.Success)
+            if (!result.Success)
             {
-                presentation.RecordScan(origin, result.BombCount);
-                return true;
+                presentation.ShowFeedback("能量不足，无法探测。");
+                return false;
             }
 
-            presentation.ShowFeedback("能量不足，无法探测。");
-            return false;
+            return true;
         }
 
         public bool ToggleMarkerFacingCell()
@@ -330,7 +329,7 @@ namespace Minebot.Presentation
         private void OnMoveCanceled(InputAction.CallbackContext context)
         {
             currentMoveInput = Vector2.zero;
-            autoMineTimer = 0f;
+            ResetAutoMineState();
         }
 
         private void OnScanPerformed(InputAction.CallbackContext context)
@@ -414,35 +413,35 @@ namespace Minebot.Presentation
             return value.y > 0f ? GridPosition.Up : GridPosition.Down;
         }
 
-        private bool TryAutoMineContact(GridPosition contactCell, float deltaTime)
+        private bool TryAutoMineContact(CharacterMoveResult2D moveResult, float deltaTime)
         {
-            if (!services.Grid.IsInside(contactCell) || !services.Grid.GetCell(contactCell).IsMineable)
+            AutoMineContactDecision decision = AutoMineContactResolver.Advance(
+                autoMineState,
+                moveResult,
+                services.Grid,
+                services.PlayerMiningState.Position,
+                lastDirection,
+                deltaTime,
+                autoMineInterval);
+
+            autoMineState = decision.NextState;
+            if (decision.ShouldShowFeedback)
+            {
+                presentation.ShowFeedback($"正在挖掘 {decision.TargetCell}...");
+            }
+
+            if (!decision.ShouldMine)
             {
                 return false;
             }
 
-            if (services.PlayerMiningState.Position.ManhattanDistance(contactCell) != 1)
-            {
-                GridPosition staging = services.PlayerMiningState.Position + lastDirection;
-                if (services.Grid.IsInside(staging) && services.Grid.GetCell(staging).IsMineable)
-                {
-                    contactCell = staging;
-                }
-                else
-                {
-                    return false;
-                }
-            }
+            ResetAutoMineState();
+            return MineTarget(decision.TargetCell);
+        }
 
-            autoMineTimer += Mathf.Max(0f, deltaTime);
-            if (autoMineTimer < Mathf.Max(0.01f, autoMineInterval))
-            {
-                presentation.ShowFeedback($"正在挖掘 {contactCell}...");
-                return false;
-            }
-
-            autoMineTimer = 0f;
-            return MineTarget(contactCell);
+        private void ResetAutoMineState()
+        {
+            autoMineState = AutoMineContactState.None;
         }
 
         private bool MineTarget(GridPosition target)

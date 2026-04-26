@@ -68,11 +68,21 @@ namespace Minebot.Tests.PlayMode
             Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(services.Grid.PlayerSpawn)).name, Does.Contain("FloorCave"));
             GridPosition hardRockPosition = new GridPosition(services.Grid.PlayerSpawn.X, services.Grid.PlayerSpawn.Y + 2);
             SetMineableHardness(services, hardRockPosition, HardnessTier.HardRock);
+            SetEmpty(services, new GridPosition(1, 1));
             presentation.RefreshAll();
             Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(hardRockPosition)).name, Does.Contain("WallHardRock"));
 
-            Tilemap overlay = GameObject.Find(MinebotGameplayPresentation.OverlayTilemapName).GetComponent<Tilemap>();
-            Assert.That(overlay.GetTile(new Vector3Int(1, 1, 0)), Is.Not.Null);
+            Tilemap marker = GameObject.Find(MinebotGameplayPresentation.MarkerTilemapName).GetComponent<Tilemap>();
+            Tilemap danger = GameObject.Find(MinebotGameplayPresentation.DangerTilemapName).GetComponent<Tilemap>();
+            Tilemap buildPreview = GameObject.Find(MinebotGameplayPresentation.BuildPreviewTilemapName).GetComponent<Tilemap>();
+            Assert.That(marker, Is.Not.Null);
+            Assert.That(danger, Is.Not.Null);
+            Assert.That(buildPreview, Is.Not.Null);
+            Assert.That(GameObject.Find(MinebotGameplayPresentation.ScanIndicatorRootName), Is.Not.Null);
+            Assert.That(HasAnyTile(danger), Is.True);
+            CircleCollider2D playerCollider = GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<CircleCollider2D>();
+            FreeformActorController freeform = GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<FreeformActorController>();
+            Assert.That(playerCollider.radius, Is.EqualTo(freeform.CollisionRadius).Within(0.001f));
             Assert.That(presentation.HudSummary, Does.Contain("生命"));
             Assert.That(presentation.HudSummary, Does.Contain("波次"));
             Assert.That(hud.transform.Find(MinebotHudView.BuildSlotName), Is.Not.Null);
@@ -97,29 +107,109 @@ namespace Minebot.Tests.PlayMode
             Assert.That(services.PlayerMiningState.Position, Is.EqualTo(start + GridPosition.Up));
             Assert.That(GameObject.Find(MinebotGameplayPresentation.PlayerViewName).transform.position, Is.EqualTo(presentation.GridToWorld(services.PlayerMiningState.Position)));
 
+            SetBombWall(services, minedPosition);
+            SetBombWall(services, minedPosition + GridPosition.Right);
+            presentation.RefreshAll();
+            yield return null;
+
             Tilemap terrain = presentation.GridPresentation.TerrainTilemap;
             TileBase beforeTile = terrain.GetTile(TilemapGridPresentation.ToTilePosition(minedPosition));
             Assert.That(beforeTile, Is.Not.Null);
 
             Assert.That(input.ScanCurrentCell(), Is.True);
-            Assert.That(presentation.FeedbackMessage, Does.Contain("探测"));
-            Assert.That(presentation.WarningSummary, Does.Contain("周边 8 格炸药"));
+            yield return null;
+            Assert.That(presentation.FeedbackMessage, Does.Contain("探测完成"));
+            Assert.That(presentation.WarningSummary, Does.Contain("最近探测"));
+            Assert.That(ActiveScanLabelCount(), Is.GreaterThan(0));
             Assert.That(input.ToggleMarkerMode(), Is.True);
             Assert.That(presentation.InteractionMode, Is.EqualTo(GameplayInteractionMode.Marker));
             Assert.That(input.ClickGridCell(minedPosition), Is.True);
             Assert.That(services.Grid.GetCell(minedPosition).IsMarked, Is.True);
             Assert.That(presentation.FeedbackMessage, Does.Contain("机器人会避开"));
             Assert.That(presentation.WarningSummary, Does.Contain("已标记 1 格"));
+            Assert.That(presentation.GridPresentation.MarkerTilemap.GetTile(TilemapGridPresentation.ToTilePosition(minedPosition)), Is.Not.Null);
+            Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(minedPosition)), Is.EqualTo(beforeTile));
             Assert.That(input.ToggleMarkerMode(), Is.True);
             Assert.That(presentation.InteractionMode, Is.EqualTo(GameplayInteractionMode.Normal));
 
-            Assert.That(input.Move(GridPosition.Up), Is.True);
-            yield return null;
+            for (int i = 0; i < 4 && services.Grid.GetCell(minedPosition).TerrainKind != TerrainKind.Empty; i++)
+            {
+                Assert.That(input.Move(GridPosition.Up), Is.True);
+                yield return null;
+            }
 
             Assert.That(services.Grid.GetCell(minedPosition).TerrainKind, Is.EqualTo(TerrainKind.Empty));
             Assert.That(services.Grid.GetCell(minedPosition).IsMarked, Is.False);
             Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(minedPosition)), Is.Not.EqualTo(beforeTile));
             Assert.That(presentation.HudSummary, Does.Contain("经验"));
+        }
+
+        [UnityTest]
+        public IEnumerator FreeformMovementSlidesAlongWallWithoutImmediateAutoMine()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            RuntimeServiceRegistry services = MinebotServices.Current;
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
+            FreeformActorController freeform = GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<FreeformActorController>();
+            GridPosition start = services.PlayerMiningState.Position;
+            GridPosition wall = start + GridPosition.Right;
+
+            SetMineableHardness(services, wall, HardnessTier.Stone);
+            SetEmpty(services, start + GridPosition.Up);
+            presentation.RefreshAll();
+            yield return null;
+
+            Vector3 startWorld = freeform.transform.position;
+            Assert.That(input.MoveFreeform(new Vector2(1f, 1f), 0.25f), Is.True);
+            yield return null;
+
+            Vector3 endWorld = freeform.transform.position;
+            Assert.That(endWorld.y, Is.GreaterThan(startWorld.y + 0.2f));
+            Assert.That(endWorld.x, Is.LessThan(wall.X - freeform.CollisionRadius + 0.05f));
+            Assert.That(services.PlayerMiningState.Position, Is.EqualTo(start + GridPosition.Up));
+            Assert.That(presentation.FeedbackMessage, Does.Not.Contain("正在挖掘"));
+        }
+
+        [UnityTest]
+        public IEnumerator FreeformMovementSlidesPastConvexCornerWithoutSnagging()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            RuntimeServiceRegistry services = MinebotServices.Current;
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            FreeformActorController freeform = GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<FreeformActorController>();
+            GridPosition start = new GridPosition(1, 1);
+            GridPosition cornerWall = start + GridPosition.Right + GridPosition.Up;
+
+            services.PlayerMiningState.Teleport(start);
+            presentation.SnapPlayerToLogicalPosition();
+            SetEmpty(services, start + GridPosition.Right);
+            SetEmpty(services, start + GridPosition.Up);
+            SetEmpty(services, start);
+            SetMineableHardness(services, cornerWall, HardnessTier.Stone);
+            presentation.RefreshAll();
+            yield return null;
+
+            SetEmpty(services, start);
+            SetEmpty(services, start + GridPosition.Right);
+            SetEmpty(services, start + GridPosition.Up);
+            GridCellState aboveCell = services.Grid.GetCell(start + GridPosition.Up);
+            Assert.That(aboveCell.IsPassable, Is.True);
+
+            freeform.transform.position = new Vector3(start.X + 0.5f, start.Y + 0.8f, freeform.transform.position.z);
+            Vector3 startWorld = freeform.transform.position;
+            CharacterMoveResult2D result = presentation.TryMovePlayerFreeform(Vector2.right, 0.25f);
+            Assert.That(result.HasMoved, Is.True);
+            Assert.That(result.WasSliding, Is.True);
+
+            Vector3 endWorld = freeform.transform.position;
+            Assert.That(endWorld.x, Is.GreaterThan(startWorld.x + 0.2f));
+            Assert.That(endWorld.y, Is.LessThan(startWorld.y - 0.05f));
+            Assert.That(presentation.FeedbackMessage, Does.Not.Contain("正在挖掘"));
         }
 
         [UnityTest]
@@ -145,7 +235,7 @@ namespace Minebot.Tests.PlayMode
             Assert.That(input.ToggleBuildMode(), Is.True);
             presentation.SetSelectedBuilding(drill);
             presentation.SetBuildPreview(origin);
-            Assert.That(presentation.GridPresentation.HintTilemap.GetTile(TilemapGridPresentation.ToTilePosition(origin)), Is.Not.Null);
+            Assert.That(presentation.GridPresentation.BuildPreviewTilemap.GetTile(TilemapGridPresentation.ToTilePosition(origin)), Is.Not.Null);
             Assert.That(input.ClickGridCell(origin), Is.True);
             yield return null;
 
@@ -272,6 +362,45 @@ namespace Minebot.Tests.PlayMode
             Assert.That(services.Robots.Count, Is.EqualTo(robotsBeforeGameOverClick));
         }
 
+        [UnityTest]
+        public IEnumerator LayeredOverlaysKeepMarkerDangerBuildPreviewAndScanIndicatorsIndependent()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            RuntimeServiceRegistry services = MinebotServices.Current;
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
+            GridPosition scanWall = services.Grid.PlayerSpawn + GridPosition.Up + GridPosition.Up;
+            GridPosition previewOrigin = services.Grid.PlayerSpawn + GridPosition.Down;
+
+            SetBombWall(services, scanWall);
+            SetBombWall(services, scanWall + GridPosition.Right);
+            SetEmpty(services, new GridPosition(1, 1));
+            SetEmpty(services, previewOrigin);
+            presentation.RefreshAll();
+            yield return null;
+
+            Assert.That(input.ScanCurrentCell(), Is.True);
+            yield return null;
+            Assert.That(HasScanLabelAboveWall(presentation, scanWall), Is.True);
+
+            Assert.That(input.ToggleMarkerMode(), Is.True);
+            Assert.That(input.ClickGridCell(scanWall), Is.True);
+            yield return null;
+            Assert.That(presentation.GridPresentation.MarkerTilemap.GetTile(TilemapGridPresentation.ToTilePosition(scanWall)), Is.Not.Null);
+
+            Assert.That(input.ToggleMarkerMode(), Is.True);
+            Assert.That(input.ToggleBuildMode(), Is.True);
+            presentation.SetBuildPreview(previewOrigin);
+            yield return null;
+
+            Assert.That(presentation.GridPresentation.BuildPreviewTilemap.GetTile(TilemapGridPresentation.ToTilePosition(previewOrigin)), Is.Not.Null);
+            Assert.That(presentation.GridPresentation.MarkerTilemap.GetTile(TilemapGridPresentation.ToTilePosition(scanWall)), Is.Not.Null);
+            Assert.That(HasAnyTile(presentation.GridPresentation.DangerTilemap), Is.True);
+            Assert.That(ActiveScanLabelCount(), Is.GreaterThan(0));
+        }
+
         private static IEnumerator LoadBootstrapAndWaitForGameplay()
         {
             MinebotServices.ResetForTests();
@@ -286,13 +415,27 @@ namespace Minebot.Tests.PlayMode
             cell.HardnessTier = hardness;
         }
 
+        private static void SetBombWall(RuntimeServiceRegistry services, GridPosition position)
+        {
+            ref GridCellState cell = ref services.Grid.GetCellRef(position);
+            cell.TerrainKind = TerrainKind.MineableWall;
+            cell.HardnessTier = HardnessTier.Soil;
+            cell.IsRevealed = false;
+            cell.StaticFlags |= CellStaticFlags.Bomb;
+            cell.IsMarked = false;
+        }
+
         private static void SetEmpty(RuntimeServiceRegistry services, GridPosition position)
         {
             ref GridCellState cell = ref services.Grid.GetCellRef(position);
             cell.TerrainKind = TerrainKind.Empty;
+            cell.HardnessTier = HardnessTier.Soil;
             cell.IsMarked = false;
+            cell.IsDangerZone = false;
+            cell.IsRevealed = true;
             cell.IsOccupiedByBuilding = false;
             cell.OccupyingBuildingId = null;
+            cell.StaticFlags &= ~CellStaticFlags.Bomb;
         }
 
         private static Button FindBuildingInteractionButton(string buttonName)
@@ -314,6 +457,62 @@ namespace Minebot.Tests.PlayMode
                 Assert.That(Time.realtimeSinceStartup, Is.LessThan(timeoutAt), $"Timed out waiting for {sceneName}.");
                 yield return null;
             }
+        }
+
+        private static bool HasAnyTile(Tilemap tilemap)
+        {
+            foreach (Vector3Int position in tilemap.cellBounds.allPositionsWithin)
+            {
+                if (tilemap.GetTile(position) != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int ActiveScanLabelCount()
+        {
+            int count = 0;
+            Transform scanRoot = GameObject.Find(MinebotGameplayPresentation.ScanIndicatorRootName).transform;
+            foreach (Transform child in scanRoot)
+            {
+                if (child.gameObject.activeSelf)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static bool HasScanLabelAboveWall(MinebotGameplayPresentation presentation, GridPosition wallPosition)
+        {
+            Transform scanRoot = GameObject.Find(MinebotGameplayPresentation.ScanIndicatorRootName).transform;
+            Vector3 wallCenter = presentation.GridToWorld(wallPosition);
+            foreach (Transform child in scanRoot)
+            {
+                if (!child.gameObject.activeSelf)
+                {
+                    continue;
+                }
+
+                TMP_Text label = child.GetComponent<TMP_Text>();
+                if (label == null)
+                {
+                    continue;
+                }
+
+                bool alignedToWall = Mathf.Abs(label.transform.position.x - wallCenter.x) < 0.1f;
+                bool aboveWall = label.transform.position.y > wallCenter.y;
+                if (alignedToWall && aboveWall)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

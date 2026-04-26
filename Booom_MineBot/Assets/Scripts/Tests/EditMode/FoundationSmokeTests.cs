@@ -6,6 +6,7 @@ using Minebot.Automation;
 using Minebot.Progression;
 using Minebot.WaveSurvival;
 using NUnit.Framework;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Minebot.Tests.EditMode
@@ -126,19 +127,69 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void ScanConsumesEnergyAndReturnsBombCount()
+        public void ScanConsumesEnergyAndReturnsGroupedFrontierReadings()
         {
-            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
-            GridPosition target = new GridPosition(registry.Grid.PlayerSpawn.X, registry.Grid.PlayerSpawn.Y + 1);
-            ref GridCellState targetCell = ref registry.Grid.GetCellRef(target);
-            targetCell.StaticFlags |= CellStaticFlags.Bomb;
-            int energyBefore = registry.Economy.Resources.Energy;
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            SetMineableWall(grid, new GridPosition(3, 5), true);
+            SetMineableWall(grid, new GridPosition(4, 4), true);
+            SetMineableWall(grid, new GridPosition(1, 1), true);
+            GameSessionService session = CreateSession(grid, new ResourceAmount(0, 4, 0), out PlayerEconomy economy);
 
-            ScanResult result = registry.Session.Scan(registry.Grid.PlayerSpawn);
+            ScanResult result = session.Scan(grid.PlayerSpawn);
 
             Assert.That(result.Success, Is.True);
-            Assert.That(result.BombCount, Is.EqualTo(1));
-            Assert.That(registry.Economy.Resources.Energy, Is.EqualTo(energyBefore - HazardRules.DefaultScanEnergyCost));
+            Assert.That(result.Readings.Count, Is.EqualTo(2));
+            Assert.That(FindReading(result.Readings, new GridPosition(3, 5)).BombCount, Is.EqualTo(2));
+            Assert.That(FindReading(result.Readings, new GridPosition(4, 4)).BombCount, Is.EqualTo(2));
+            Assert.That(economy.Resources.Energy, Is.EqualTo(4 - HazardRules.DefaultScanEnergyCost));
+        }
+
+        [Test]
+        public void ScanFailsWhenEnergyIsInsufficient()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            SetMineableWall(grid, new GridPosition(3, 5), true);
+            GameSessionService session = CreateSession(grid, ResourceAmount.Zero, out PlayerEconomy economy);
+
+            ScanResult result = session.Scan(grid.PlayerSpawn);
+
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Readings, Is.Empty);
+            Assert.That(economy.Resources.Energy, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ScanConsumesEnergyAndReturnsEmptyWhenNoFrontierWallsExist()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GameSessionService session = CreateSession(grid, new ResourceAmount(0, 3, 0), out PlayerEconomy economy);
+
+            ScanResult result = session.Scan(grid.PlayerSpawn);
+
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.Readings, Is.Empty);
+            Assert.That(economy.Resources.Energy, Is.EqualTo(3 - HazardRules.DefaultScanEnergyCost));
+        }
+
+        [Test]
+        public void HazardServiceOnlyReturnsNearbyWallsThatTouchEmptyFrontier()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(8, 8), new GridPosition(3, 3));
+            var hazards = new HazardService(grid);
+
+            SetMineableWall(grid, new GridPosition(3, 5), false);
+            SetMineableWall(grid, new GridPosition(6, 6), false);
+            SetMineableWall(grid, new GridPosition(2, 2), false);
+            SetMineableWall(grid, new GridPosition(2, 3), false);
+            SetMineableWall(grid, new GridPosition(3, 2), false);
+            SetMineableWall(grid, new GridPosition(1, 3), false);
+            SetMineableWall(grid, new GridPosition(2, 4), false);
+
+            IReadOnlyList<ScanReading> readings = hazards.ScanFrontierWalls(grid.PlayerSpawn, HazardRules.DefaultScanFrontierRange);
+
+            Assert.That(ContainsReading(readings, new GridPosition(3, 5)), Is.True);
+            Assert.That(ContainsReading(readings, new GridPosition(6, 6)), Is.False);
+            Assert.That(ContainsReading(readings, new GridPosition(2, 2)), Is.False);
         }
 
         [Test]
@@ -213,6 +264,89 @@ namespace Minebot.Tests.EditMode
             Assert.That(registry.Vitals.IsDead, Is.True);
             Assert.That(resolution.RobotsDestroyed, Is.EqualTo(1));
             Assert.That(registry.Waves.BestSurvivedWave, Is.EqualTo(0));
+        }
+
+        private static LogicalGridState CreateOpenGrid(Vector2Int size, GridPosition spawn)
+        {
+            var cells = new List<GridCellState>(size.x * size.y);
+            for (int y = 0; y < size.y; y++)
+            {
+                for (int x = 0; x < size.x; x++)
+                {
+                    bool border = x == 0 || y == 0 || x == size.x - 1 || y == size.y - 1;
+                    cells.Add(new GridCellState(
+                        border ? TerrainKind.Indestructible : TerrainKind.Empty,
+                        HardnessTier.Soil,
+                        CellStaticFlags.None,
+                        ResourceAmount.Zero));
+                }
+            }
+
+            return new LogicalGridState(size, spawn, cells);
+        }
+
+        private static void SetMineableWall(LogicalGridState grid, GridPosition position, bool hasBomb)
+        {
+            ref GridCellState cell = ref grid.GetCellRef(position);
+            cell.TerrainKind = TerrainKind.MineableWall;
+            cell.HardnessTier = HardnessTier.Soil;
+            cell.IsRevealed = false;
+            cell.IsMarked = false;
+            cell.IsOccupiedByBuilding = false;
+            cell.StaticFlags = hasBomb ? CellStaticFlags.Bomb : CellStaticFlags.None;
+        }
+
+        private static ScanReading FindReading(IReadOnlyList<ScanReading> readings, GridPosition position)
+        {
+            for (int i = 0; i < readings.Count; i++)
+            {
+                if (readings[i].WallPosition.Equals(position))
+                {
+                    return readings[i];
+                }
+            }
+
+            Assert.Fail($"Missing scan reading for {position}.");
+            return default;
+        }
+
+        private static bool ContainsReading(IReadOnlyList<ScanReading> readings, GridPosition position)
+        {
+            for (int i = 0; i < readings.Count; i++)
+            {
+                if (readings[i].WallPosition.Equals(position))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static GameSessionService CreateSession(LogicalGridState grid, ResourceAmount startingResources, out PlayerEconomy economy)
+        {
+            var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
+            var mining = new MiningService(grid);
+            var hazards = new HazardService(grid);
+            economy = new PlayerEconomy(startingResources);
+            var experience = new ExperienceService(4);
+            var vitals = new PlayerVitals(3);
+            var robots = new List<RobotState>();
+            var robotAutomation = new RobotAutomationService(grid);
+
+            return new GameSessionService(
+                player,
+                mining,
+                hazards,
+                null,
+                economy,
+                experience,
+                vitals,
+                robotAutomation,
+                robots,
+                ResourceAmount.Zero,
+                true,
+                HardnessTier.Soil);
         }
     }
 }

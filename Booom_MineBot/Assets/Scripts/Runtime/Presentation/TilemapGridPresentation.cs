@@ -10,33 +10,30 @@ namespace Minebot.Presentation
     public sealed class TilemapGridPresentation : MonoBehaviour
     {
         private MinebotPresentationAssets assets;
-        private GridPosition? scanOrigin;
         private BuildingDefinition buildPreviewDefinition;
         private GridPosition? buildPreviewOrigin;
         private bool buildPreviewIsValid;
 
         public Tilemap TerrainTilemap { get; private set; }
         public Tilemap FacilityTilemap { get; private set; }
-        public Tilemap OverlayTilemap { get; private set; }
-        public Tilemap HintTilemap { get; private set; }
+        public Tilemap MarkerTilemap { get; private set; }
+        public Tilemap DangerTilemap { get; private set; }
+        public Tilemap BuildPreviewTilemap { get; private set; }
 
         internal void Configure(
             Tilemap terrainTilemap,
             Tilemap facilityTilemap,
-            Tilemap overlayTilemap,
-            Tilemap hintTilemap,
+            Tilemap markerTilemap,
+            Tilemap dangerTilemap,
+            Tilemap buildPreviewTilemap,
             MinebotPresentationAssets presentationAssets)
         {
             TerrainTilemap = terrainTilemap;
             FacilityTilemap = facilityTilemap;
-            OverlayTilemap = overlayTilemap;
-            HintTilemap = hintTilemap;
+            MarkerTilemap = markerTilemap;
+            DangerTilemap = dangerTilemap;
+            BuildPreviewTilemap = buildPreviewTilemap;
             assets = presentationAssets;
-        }
-
-        public void ShowScanAt(GridPosition origin)
-        {
-            scanOrigin = origin;
         }
 
         public void ShowBuildPreview(BuildingDefinition definition, GridPosition? origin, bool isValid)
@@ -55,10 +52,12 @@ namespace Minebot.Presentation
 
             TerrainTilemap.ClearAllTiles();
             FacilityTilemap.ClearAllTiles();
-            OverlayTilemap.ClearAllTiles();
-            HintTilemap.ClearAllTiles();
+            MarkerTilemap.ClearAllTiles();
+            DangerTilemap.ClearAllTiles();
+            BuildPreviewTilemap.ClearAllTiles();
 
             LogicalGridState grid = services.Grid;
+            Tile dangerOutline = assets.DangerOutlineTileForWave(services.Waves != null ? services.Waves.CurrentWave : 0);
             foreach (GridPosition position in grid.Positions())
             {
                 GridCellState cell = grid.GetCell(position);
@@ -77,35 +76,31 @@ namespace Minebot.Presentation
 
                 if (cell.IsMarked)
                 {
-                    OverlayTilemap.SetTile(tilePosition, assets.MarkerTile);
+                    MarkerTilemap.SetTile(tilePosition, assets.MarkerTile);
                 }
-                else if (cell.IsDangerZone)
+                if (cell.IsDangerZone && cell.TerrainKind == TerrainKind.Empty)
                 {
-                    OverlayTilemap.SetTile(tilePosition, assets.DangerTile);
-                }
-
-                if (scanOrigin.HasValue && scanOrigin.Value.Equals(position))
-                {
-                    HintTilemap.SetTile(tilePosition, assets.ScanHintTile);
+                    DangerTilemap.SetTile(tilePosition, dangerOutline);
                 }
             }
 
             if (buildPreviewDefinition != null && buildPreviewOrigin.HasValue)
             {
-                TileBase previewTile = buildPreviewIsValid ? assets.ScanHintTile : assets.DangerTile;
+                TileBase previewTile = buildPreviewIsValid ? assets.BuildPreviewValidTile : assets.BuildPreviewInvalidTile;
                 foreach (GridPosition previewPosition in FootprintCells(buildPreviewDefinition, buildPreviewOrigin.Value))
                 {
                     if (grid.IsInside(previewPosition))
                     {
-                        HintTilemap.SetTile(ToTilePosition(previewPosition), previewTile);
+                        BuildPreviewTilemap.SetTile(ToTilePosition(previewPosition), previewTile);
                     }
                 }
             }
 
             TerrainTilemap.CompressBounds();
             FacilityTilemap.CompressBounds();
-            OverlayTilemap.CompressBounds();
-            HintTilemap.CompressBounds();
+            MarkerTilemap.CompressBounds();
+            DangerTilemap.CompressBounds();
+            BuildPreviewTilemap.CompressBounds();
         }
 
         public static Vector3Int ToTilePosition(GridPosition position)

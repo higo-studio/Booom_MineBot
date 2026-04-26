@@ -9,6 +9,7 @@ namespace Minebot.HazardInference
         public const float DefaultBombSpawnChance = 0.09f;
         public const int DefaultBombSafeRadius = 2;
         public const int DefaultScanEnergyCost = 1;
+        public const int DefaultScanFrontierRange = 1;
         public const int DefaultDirectBombDamage = 1;
         public const int DefaultExplosionRadius = 1;
 
@@ -26,6 +27,9 @@ namespace Minebot.HazardInference
         private int scanEnergyCost = DefaultScanEnergyCost;
 
         [SerializeField]
+        private int scanFrontierRange = DefaultScanFrontierRange;
+
+        [SerializeField]
         private int directBombDamage = DefaultDirectBombDamage;
 
         [SerializeField]
@@ -38,6 +42,7 @@ namespace Minebot.HazardInference
         public int BombSeed => bombSeed;
         public int BombSafeRadius => Mathf.Max(0, bombSafeRadius);
         public int ScanEnergyCost => Mathf.Max(0, scanEnergyCost);
+        public int ScanFrontierRange => Mathf.Max(0, scanFrontierRange);
         public int DirectBombDamage => Mathf.Max(0, directBombDamage);
         public int ExplosionRadius => Mathf.Max(0, explosionRadius);
         public bool ScanUsesEightWayNeighbors => scanUsesEightWayNeighbors;
