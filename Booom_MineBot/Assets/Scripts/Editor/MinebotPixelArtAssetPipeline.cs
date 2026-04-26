@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Minebot.Presentation;
 using UnityEditor;
 using UnityEditor.Callbacks;
@@ -15,6 +16,8 @@ namespace Minebot.Editor
         private const int ActorPixelsPerUnit = 32;
         private const string ArtSetPath = "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset";
         private const string PalettePrefabPath = "Assets/Art/Minebot/Palettes/MinebotTilePalette.prefab";
+        private const string DualGridSpriteDirectory = "Assets/Art/Minebot/Sprites/Tiles/DualGridTerrain";
+        private const string DualGridTileDirectory = "Assets/Art/Minebot/Tiles/DualGridTerrain";
         private const string FloorTilePath = "Assets/Art/Minebot/Tiles/Tile_FloorCave.asset";
         private const string SoilWallTilePath = "Assets/Art/Minebot/Tiles/Tile_WallSoil.asset";
         private const string StoneWallTilePath = "Assets/Art/Minebot/Tiles/Tile_WallStone.asset";
@@ -34,20 +37,15 @@ namespace Minebot.Editor
         private const string UltraHardDetailTilePath = "Assets/Art/Minebot/Tiles/Tile_DetailUltraHard.asset";
 
         private static readonly AssetEntry[] TileEntries = CreateTileEntries();
-        private static readonly string[] PaletteTilePaths =
+        private static readonly string[] PaletteTilePaths = CreatePaletteTilePaths();
+        private static readonly TerrainRenderLayerId[] DualGridFamilies =
         {
-            FloorTilePath,
-            SoilWallTilePath,
-            StoneWallTilePath,
-            HardRockWallTilePath,
-            UltraHardWallTilePath,
-            BoundaryTilePath,
-            DangerTilePath,
-            MarkerTilePath,
-            BuildPreviewValidTilePath,
-            BuildPreviewInvalidTilePath,
-            RepairStationTilePath,
-            RobotFactoryTilePath
+            TerrainRenderLayerId.Floor,
+            TerrainRenderLayerId.Soil,
+            TerrainRenderLayerId.Stone,
+            TerrainRenderLayerId.HardRock,
+            TerrainRenderLayerId.UltraHard,
+            TerrainRenderLayerId.Boundary
         };
 
         private static readonly TextureEntry[] ActorEntries =
@@ -75,6 +73,7 @@ namespace Minebot.Editor
                 return;
             }
 
+            EnsureDualGridTerrainSprites();
             EnsureTextureImporters();
             EnsureTileAssets();
             EnsureArtSet();
@@ -96,6 +95,14 @@ namespace Minebot.Editor
                 ValidateTexture(entry.SpritePath, entry.PixelsPerUnit, errors);
             }
 
+            foreach (TerrainRenderLayerId layerId in DualGridFamilies)
+            {
+                for (int i = 0; i < DualGridTerrain.TileCount; i++)
+                {
+                    ValidateTexture(GetDualGridSpritePath(layerId, i), TilePixelsPerUnit, errors);
+                }
+            }
+
             if (errors.Count == 0)
             {
                 Debug.Log("Minebot pixel art import settings are valid.");
@@ -115,6 +122,14 @@ namespace Minebot.Editor
             foreach (TextureEntry entry in ActorEntries)
             {
                 ConfigureTextureImporter(entry.SpritePath, entry.PixelsPerUnit);
+            }
+
+            foreach (TerrainRenderLayerId layerId in DualGridFamilies)
+            {
+                for (int i = 0; i < DualGridTerrain.TileCount; i++)
+                {
+                    ConfigureTextureImporter(GetDualGridSpritePath(layerId, i), TilePixelsPerUnit);
+                }
             }
         }
 
@@ -191,6 +206,8 @@ namespace Minebot.Editor
                 tile.colliderType = Tile.ColliderType.None;
                 EditorUtility.SetDirty(tile);
             }
+
+            EnsureDualGridTerrainTileAssets();
         }
 
         private static void EnsureArtSet()
@@ -225,7 +242,13 @@ namespace Minebot.Editor
                 LoadTile(BuildPreviewValidTilePath),
                 LoadTile(BuildPreviewInvalidTilePath),
                 LoadIndexedTiles("Assets/Art/Minebot/Tiles/Tile_WallContour_{0:00}.asset"),
-                LoadIndexedTiles("Assets/Art/Minebot/Tiles/Tile_DangerContour_{0:00}.asset"));
+                LoadIndexedTiles("Assets/Art/Minebot/Tiles/Tile_DangerContour_{0:00}.asset"),
+                LoadDualGridTiles(TerrainRenderLayerId.Floor),
+                LoadDualGridTiles(TerrainRenderLayerId.Soil),
+                LoadDualGridTiles(TerrainRenderLayerId.Stone),
+                LoadDualGridTiles(TerrainRenderLayerId.HardRock),
+                LoadDualGridTiles(TerrainRenderLayerId.UltraHard),
+                LoadDualGridTiles(TerrainRenderLayerId.Boundary));
             EditorUtility.SetDirty(artSet);
         }
 
@@ -266,6 +289,129 @@ namespace Minebot.Editor
             return tiles;
         }
 
+        private static Tile[] LoadDualGridTiles(TerrainRenderLayerId layerId)
+        {
+            var tiles = new Tile[DualGridTerrain.TileCount];
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                tiles[i] = LoadTile(GetDualGridTilePath(layerId, i));
+            }
+
+            return tiles;
+        }
+
+        private static void EnsureDualGridTerrainSprites()
+        {
+            EnsureAssetDirectory(DualGridSpriteDirectory);
+            foreach (TerrainRenderLayerId layerId in DualGridFamilies)
+            {
+                for (int i = 0; i < DualGridTerrain.TileCount; i++)
+                {
+                    string spriteAssetPath = GetDualGridSpritePath(layerId, i);
+                    string fullPath = AssetPathToFullPath(spriteAssetPath);
+                    using var scope = new GeneratedTextureScope(DualGridTerrainFallbackTiles.CreateTexture(
+                        layerId,
+                        i,
+                        $"{GetDualGridSpriteFileName(layerId, i)}_Texture"));
+                    File.WriteAllBytes(fullPath, scope.Texture.EncodeToPNG());
+                }
+            }
+
+            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+        }
+
+        private static void EnsureDualGridTerrainTileAssets()
+        {
+            EnsureAssetDirectory(DualGridTileDirectory);
+            foreach (TerrainRenderLayerId layerId in DualGridFamilies)
+            {
+                for (int i = 0; i < DualGridTerrain.TileCount; i++)
+                {
+                    Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(GetDualGridSpritePath(layerId, i));
+                    if (sprite == null)
+                    {
+                        continue;
+                    }
+
+                    string tilePath = GetDualGridTilePath(layerId, i);
+                    Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(tilePath);
+                    if (tile == null)
+                    {
+                        tile = ScriptableObject.CreateInstance<Tile>();
+                        AssetDatabase.CreateAsset(tile, tilePath);
+                    }
+
+                    tile.name = GetDualGridTileAssetName(layerId, i);
+                    tile.sprite = sprite;
+                    tile.colliderType = Tile.ColliderType.None;
+                    EditorUtility.SetDirty(tile);
+                }
+            }
+        }
+
+        private static void EnsureAssetDirectory(string assetDirectoryPath)
+        {
+            Directory.CreateDirectory(AssetPathToFullPath(assetDirectoryPath));
+        }
+
+        private static string AssetPathToFullPath(string assetPath)
+        {
+            if (string.Equals(assetPath, "Assets", StringComparison.Ordinal))
+            {
+                return Application.dataPath;
+            }
+
+            return assetPath.StartsWith("Assets/", StringComparison.Ordinal)
+                ? Path.Combine(Application.dataPath, assetPath.Substring("Assets/".Length))
+                : Path.GetFullPath(assetPath);
+        }
+
+        private static string GetDualGridSpritePath(TerrainRenderLayerId layerId, int index)
+        {
+            return $"{DualGridSpriteDirectory}/{GetDualGridSpriteFileName(layerId, index)}.png";
+        }
+
+        private static string GetDualGridTilePath(TerrainRenderLayerId layerId, int index)
+        {
+            return $"{DualGridTileDirectory}/{GetDualGridTileAssetName(layerId, index)}.asset";
+        }
+
+        private static string GetDualGridSpriteFileName(TerrainRenderLayerId layerId, int index)
+        {
+            return $"tile_dg_{GetDualGridFamilyToken(layerId)}_{index:00}";
+        }
+
+        private static string GetDualGridTileAssetName(TerrainRenderLayerId layerId, int index)
+        {
+            return $"Tile_DG_{GetDualGridFamilyAssetToken(layerId)}_{index:00}";
+        }
+
+        private static string GetDualGridFamilyToken(TerrainRenderLayerId layerId)
+        {
+            switch (layerId)
+            {
+                case TerrainRenderLayerId.HardRock:
+                    return "hard_rock";
+                case TerrainRenderLayerId.UltraHard:
+                    return "ultra_hard";
+                default:
+                    return layerId.ToString().ToLowerInvariant();
+            }
+        }
+
+        private static string GetDualGridFamilyAssetToken(TerrainRenderLayerId layerId)
+        {
+            switch (layerId)
+            {
+                case TerrainRenderLayerId.HardRock:
+                    return "HardRock";
+                case TerrainRenderLayerId.UltraHard:
+                    return "UltraHard";
+                default:
+                    return layerId.ToString();
+            }
+        }
+
         private static void ValidateTexture(string assetPath, int pixelsPerUnit, ICollection<string> errors)
         {
             var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
@@ -293,6 +439,24 @@ namespace Minebot.Editor
             if (!Mathf.Approximately(importer.spritePixelsPerUnit, pixelsPerUnit))
             {
                 errors.Add($"{assetPath}: Pixels Per Unit must be {pixelsPerUnit}");
+            }
+        }
+
+        private sealed class GeneratedTextureScope : IDisposable
+        {
+            public GeneratedTextureScope(Texture2D texture)
+            {
+                Texture = texture;
+            }
+
+            public Texture2D Texture { get; }
+
+            public void Dispose()
+            {
+                if (Texture != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(Texture);
+                }
             }
         }
 
@@ -358,6 +522,25 @@ namespace Minebot.Editor
             }
 
             return entries.ToArray();
+        }
+
+        private static string[] CreatePaletteTilePaths()
+        {
+            return new[]
+            {
+                GetDualGridTilePath(TerrainRenderLayerId.Floor, 15),
+                GetDualGridTilePath(TerrainRenderLayerId.Soil, 15),
+                GetDualGridTilePath(TerrainRenderLayerId.Stone, 15),
+                GetDualGridTilePath(TerrainRenderLayerId.HardRock, 15),
+                GetDualGridTilePath(TerrainRenderLayerId.UltraHard, 15),
+                GetDualGridTilePath(TerrainRenderLayerId.Boundary, 15),
+                DangerTilePath,
+                MarkerTilePath,
+                BuildPreviewValidTilePath,
+                BuildPreviewInvalidTilePath,
+                RepairStationTilePath,
+                RobotFactoryTilePath
+            };
         }
     }
 }

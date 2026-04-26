@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Minebot.Automation;
 using Minebot.Bootstrap;
 using Minebot.Common;
@@ -63,32 +64,33 @@ namespace Minebot.Tests.PlayMode
             Assert.That(hudText.font.HasCharacter('机'), Is.True);
             Assert.That(hud.GetComponentsInChildren<Text>().Length, Is.EqualTo(0));
 
-            Tilemap terrain = GameObject.Find(MinebotGameplayPresentation.TerrainTilemapName).GetComponent<Tilemap>();
-            Assert.That(terrain, Is.Not.Null);
-            Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(services.Grid.PlayerSpawn)).name, Does.Contain("FloorCave"));
+            IReadOnlyList<Tilemap> terrainFamilies = GetTerrainFamilyTilemaps();
+            Assert.That(terrainFamilies.Count, Is.EqualTo(DualGridTerrain.RenderLayerCount));
+            for (int i = 0; i < terrainFamilies.Count; i++)
+            {
+                Assert.That(terrainFamilies[i], Is.Not.Null);
+                Assert.That(terrainFamilies[i].name, Is.EqualTo(DualGridTerrain.GetTilemapName((TerrainRenderLayerId)i)));
+                Assert.That(terrainFamilies[i].transform.localPosition, Is.EqualTo(DualGridTerrain.DisplayOffset));
+                Assert.That(terrainFamilies[i].GetComponent<TilemapRenderer>().sortingOrder, Is.EqualTo(DualGridTerrain.GetSortingOrder((TerrainRenderLayerId)i)));
+            }
+
+            Assert.That(HasAnyDisplayTileAroundCell(terrainFamilies[(int)TerrainRenderLayerId.Floor], services.Grid.PlayerSpawn), Is.True);
             GridPosition hardRockPosition = new GridPosition(services.Grid.PlayerSpawn.X, services.Grid.PlayerSpawn.Y + 2);
             SetMineableHardness(services, hardRockPosition, HardnessTier.HardRock);
             SetEmpty(services, new GridPosition(1, 1));
             presentation.RefreshAll();
-            Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(hardRockPosition)).name, Does.Contain("DetailHardRock"));
+            Assert.That(HasAnyDisplayTileAroundCell(terrainFamilies[(int)TerrainRenderLayerId.HardRock], hardRockPosition), Is.True);
 
-            Tilemap wallContour = GameObject.Find(MinebotGameplayPresentation.WallContourTilemapName).GetComponent<Tilemap>();
             Tilemap marker = GameObject.Find(MinebotGameplayPresentation.MarkerTilemapName).GetComponent<Tilemap>();
             Tilemap danger = GameObject.Find(MinebotGameplayPresentation.DangerTilemapName).GetComponent<Tilemap>();
-            Tilemap dangerContour = GameObject.Find(MinebotGameplayPresentation.DangerContourTilemapName).GetComponent<Tilemap>();
             Tilemap buildPreview = GameObject.Find(MinebotGameplayPresentation.BuildPreviewTilemapName).GetComponent<Tilemap>();
-            Assert.That(wallContour, Is.Not.Null);
             Assert.That(marker, Is.Not.Null);
             Assert.That(danger, Is.Not.Null);
-            Assert.That(dangerContour, Is.Not.Null);
             Assert.That(buildPreview, Is.Not.Null);
             Assert.That(GameObject.Find(MinebotGameplayPresentation.ScanIndicatorRootName), Is.Not.Null);
-            Assert.That(wallContour.transform.localPosition, Is.EqualTo(new Vector3(-0.5f, -0.5f, 0f)));
+
             Assert.That(danger.transform.localPosition, Is.EqualTo(Vector3.zero));
-            Assert.That(dangerContour.transform.localPosition, Is.EqualTo(new Vector3(-0.5f, -0.5f, 0f)));
-            Assert.That(HasAnyContourAroundWall(wallContour, hardRockPosition), Is.True);
             Assert.That(HasAnyTile(danger), Is.True);
-            Assert.That(HasAnyTile(dangerContour), Is.False);
             CircleCollider2D playerCollider = GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<CircleCollider2D>();
             FreeformActorController freeform = GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<FreeformActorController>();
             Assert.That(playerCollider.radius, Is.EqualTo(freeform.CollisionRadius).Within(0.001f));
@@ -126,12 +128,9 @@ namespace Minebot.Tests.PlayMode
             presentation.RefreshAll();
             yield return null;
 
-            Tilemap terrain = presentation.GridPresentation.TerrainTilemap;
-            Tilemap wallContour = presentation.GridPresentation.WallContourTilemap;
-            TileBase beforeTile = terrain.GetTile(TilemapGridPresentation.ToTilePosition(minedPosition));
-            string beforeContourSignature = GetContourSignature(wallContour, minedPosition);
-            Assert.That(beforeTile, Is.Not.Null);
-            Assert.That(HasAnyContourAroundWall(wallContour, minedPosition), Is.True);
+            IReadOnlyList<Tilemap> terrainFamilies = presentation.GridPresentation.TerrainTilemaps;
+            string beforeTerrainSignature = GetTerrainSignature(terrainFamilies, minedPosition);
+            Assert.That(HasAnyDisplayTileAroundCell(terrainFamilies[(int)TerrainRenderLayerId.Soil], minedPosition), Is.True);
 
             Assert.That(input.ScanCurrentCell(), Is.True);
             yield return null;
@@ -147,7 +146,7 @@ namespace Minebot.Tests.PlayMode
             Assert.That(presentation.WarningSummary, Does.Contain("你位于危险区"));
             Assert.That(presentation.GridPresentation.MarkerTilemap.GetTile(TilemapGridPresentation.ToTilePosition(minedPosition)), Is.Not.Null);
             Assert.That(presentation.GridPresentation.DangerTilemap.GetTile(TilemapGridPresentation.ToTilePosition(movedPosition)), Is.Not.Null);
-            Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(minedPosition)), Is.EqualTo(beforeTile));
+            Assert.That(GetTerrainSignature(terrainFamilies, minedPosition), Is.EqualTo(beforeTerrainSignature));
             Assert.That(input.ToggleMarkerMode(), Is.True);
             Assert.That(presentation.InteractionMode, Is.EqualTo(GameplayInteractionMode.Normal));
 
@@ -159,13 +158,12 @@ namespace Minebot.Tests.PlayMode
 
             Assert.That(services.Grid.GetCell(minedPosition).TerrainKind, Is.EqualTo(TerrainKind.Empty));
             Assert.That(services.Grid.GetCell(minedPosition).IsMarked, Is.False);
-            Assert.That(terrain.GetTile(TilemapGridPresentation.ToTilePosition(minedPosition)), Is.Not.EqualTo(beforeTile));
-            Assert.That(GetContourSignature(wallContour, minedPosition), Is.Not.EqualTo(beforeContourSignature));
+            Assert.That(GetTerrainSignature(terrainFamilies, minedPosition), Is.Not.EqualTo(beforeTerrainSignature));
             Assert.That(presentation.HudSummary, Does.Contain("经验"));
         }
 
         [UnityTest]
-        public IEnumerator MineableWallsUseContinuousDetailTilesAndReserveVisibleEdgesForContours()
+        public IEnumerator DualGridTerrainDrawsFilledInteriorForContinuousHardRockBlock()
         {
             yield return LoadBootstrapAndWaitForGameplay();
             yield return null;
@@ -201,19 +199,56 @@ namespace Minebot.Tests.PlayMode
             presentation.RefreshAll();
             yield return null;
 
-            Tilemap terrain = presentation.GridPresentation.TerrainTilemap;
-            Tilemap wallContour = presentation.GridPresentation.WallContourTilemap;
-            for (int i = 0; i < blockCells.Length; i++)
-            {
-                TileBase wallBase = terrain.GetTile(TilemapGridPresentation.ToTilePosition(blockCells[i]));
-                Assert.That(wallBase, Is.Not.Null);
-                Assert.That(wallBase.name, Does.Contain("DetailHardRock"));
-            }
-
+            Tilemap hardRockLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.HardRock);
+            Tilemap floorLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Floor);
             Vector3Int innerContourPosition = new Vector3Int(blockOrigin.X + 1, blockOrigin.Y + 1, 0);
             Vector3Int outerContourPosition = new Vector3Int(blockOrigin.X, blockOrigin.Y + 1, 0);
-            Assert.That(ContourTileNameAt(wallContour, innerContourPosition), Does.Contain("WallContour_15"));
-            Assert.That(ContourTileNameAt(wallContour, outerContourPosition), Does.Not.Contain("WallContour_15"));
+            Assert.That(hardRockLayer.GetTile(innerContourPosition).name, Does.Contain("Tile_DG_HardRock_15"));
+            Assert.That(hardRockLayer.GetTile(outerContourPosition).name, Does.Not.Contain("Tile_DG_HardRock_15"));
+            Assert.That(floorLayer.GetTile(innerContourPosition), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator DifferentHardnessWallsDrawDualGridLayersAtSharedBoundary()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            RuntimeServiceRegistry services = MinebotServices.Current;
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            GridPosition origin = services.Grid.PlayerSpawn + GridPosition.Up + GridPosition.Right;
+            GridPosition[] blockCells =
+            {
+                origin,
+                origin + GridPosition.Right,
+                origin + GridPosition.Up,
+                origin + GridPosition.Up + GridPosition.Right
+            };
+
+            for (int y = origin.Y - 1; y <= origin.Y + 2; y++)
+            {
+                for (int x = origin.X - 1; x <= origin.X + 2; x++)
+                {
+                    GridPosition position = new GridPosition(x, y);
+                    if (services.Grid.IsInside(position))
+                    {
+                        SetEmpty(services, position);
+                    }
+                }
+            }
+
+            SetMineableHardness(services, origin, HardnessTier.Soil);
+            SetMineableHardness(services, origin + GridPosition.Up, HardnessTier.Soil);
+            SetMineableHardness(services, origin + GridPosition.Right, HardnessTier.Stone);
+            SetMineableHardness(services, origin + GridPosition.Up + GridPosition.Right, HardnessTier.Stone);
+            presentation.RefreshAll();
+            yield return null;
+
+            Tilemap soilLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Soil);
+            Tilemap stoneLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Stone);
+            Vector3Int sharedBoundary = new Vector3Int(origin.X + 1, origin.Y + 1, 0);
+            Assert.That(soilLayer.GetTile(sharedBoundary), Is.Not.Null);
+            Assert.That(stoneLayer.GetTile(sharedBoundary), Is.Not.Null);
         }
 
         [UnityTest]
@@ -343,16 +378,16 @@ namespace Minebot.Tests.PlayMode
                 "测试钻机",
                 new ResourceAmount(2, 0, 0),
                 new Vector2Int(2, 1));
-            GridPosition origin = services.Grid.PlayerSpawn + GridPosition.Down;
-            SetEmpty(services, origin);
-            SetEmpty(services, origin + GridPosition.Right);
+            GridPosition origin = services.Grid.PlayerSpawn + GridPosition.Up + GridPosition.Up + GridPosition.Left;
+            PrepareBuildableChamber(services, origin, drill.FootprintSize, 2);
             presentation.RefreshAll();
+            Assert.That(presentation.CanPlaceBuildingAt(drill, origin), Is.True);
 
             Assert.That(input.ToggleBuildMode(), Is.True);
             presentation.SetSelectedBuilding(drill);
             presentation.SetBuildPreview(origin);
             Assert.That(presentation.GridPresentation.BuildPreviewTilemap.GetTile(TilemapGridPresentation.ToTilePosition(origin)), Is.Not.Null);
-            Assert.That(input.ClickGridCell(origin), Is.True);
+            Assert.That(presentation.TryPlaceBuildingAt(drill, origin), Is.True);
             yield return null;
 
             Assert.That(services.Buildings.Buildings.Count, Is.GreaterThanOrEqualTo(3));
@@ -514,7 +549,6 @@ namespace Minebot.Tests.PlayMode
             Assert.That(presentation.GridPresentation.BuildPreviewTilemap.GetTile(TilemapGridPresentation.ToTilePosition(previewOrigin)), Is.Not.Null);
             Assert.That(presentation.GridPresentation.MarkerTilemap.GetTile(TilemapGridPresentation.ToTilePosition(scanWall)), Is.Not.Null);
             Assert.That(HasAnyTile(presentation.GridPresentation.DangerTilemap), Is.True);
-            Assert.That(HasAnyTile(presentation.GridPresentation.DangerContourTilemap), Is.False);
             Assert.That(ActiveScanLabelCount(), Is.GreaterThan(0));
         }
 
@@ -604,12 +638,25 @@ namespace Minebot.Tests.PlayMode
             return count;
         }
 
-        private static bool HasAnyContourAroundWall(Tilemap contourTilemap, GridPosition wallPosition)
+        private static IReadOnlyList<Tilemap> GetTerrainFamilyTilemaps()
         {
-            Vector3Int[] positions = DualGridContour.GetAffectedContourCells(wallPosition);
+            return new[]
+            {
+                GameObject.Find(MinebotGameplayPresentation.DgFloorTilemapName).GetComponent<Tilemap>(),
+                GameObject.Find(MinebotGameplayPresentation.DgSoilTilemapName).GetComponent<Tilemap>(),
+                GameObject.Find(MinebotGameplayPresentation.DgStoneTilemapName).GetComponent<Tilemap>(),
+                GameObject.Find(MinebotGameplayPresentation.DgHardRockTilemapName).GetComponent<Tilemap>(),
+                GameObject.Find(MinebotGameplayPresentation.DgUltraHardTilemapName).GetComponent<Tilemap>(),
+                GameObject.Find(MinebotGameplayPresentation.DgBoundaryTilemapName).GetComponent<Tilemap>()
+            };
+        }
+
+        private static bool HasAnyDisplayTileAroundCell(Tilemap tilemap, GridPosition worldCell)
+        {
+            Vector3Int[] positions = DualGridTerrain.GetAffectedDisplayCells(worldCell);
             for (int i = 0; i < positions.Length; i++)
             {
-                if (contourTilemap.GetTile(positions[i]) != null)
+                if (tilemap.GetTile(positions[i]) != null)
                 {
                     return true;
                 }
@@ -618,24 +665,21 @@ namespace Minebot.Tests.PlayMode
             return false;
         }
 
-        private static string GetContourSignature(Tilemap contourTilemap, GridPosition wallPosition)
+        private static string GetTerrainSignature(IReadOnlyList<Tilemap> terrainTilemaps, GridPosition worldCell)
         {
-            Vector3Int[] positions = DualGridContour.GetAffectedContourCells(wallPosition);
-            var names = new string[positions.Length];
-            for (int i = 0; i < positions.Length; i++)
+            Vector3Int[] positions = DualGridTerrain.GetAffectedDisplayCells(worldCell);
+            var names = new List<string>(positions.Length * terrainTilemaps.Count);
+            for (int tilemapIndex = 0; tilemapIndex < terrainTilemaps.Count; tilemapIndex++)
             {
-                TileBase tile = contourTilemap.GetTile(positions[i]);
-                names[i] = tile != null ? tile.name : "<null>";
+                Tilemap terrainTilemap = terrainTilemaps[tilemapIndex];
+                for (int i = 0; i < positions.Length; i++)
+                {
+                    TileBase tile = terrainTilemap != null ? terrainTilemap.GetTile(positions[i]) : null;
+                    names.Add(tile != null ? tile.name : "<null>");
+                }
             }
 
             return string.Join("|", names);
-        }
-
-        private static string ContourTileNameAt(Tilemap contourTilemap, Vector3Int position)
-        {
-            TileBase tile = contourTilemap.GetTile(position);
-            Assert.That(tile, Is.Not.Null, $"Expected contour tile at {position}.");
-            return tile.name;
         }
 
         private static bool HasScanLabelAboveWall(MinebotGameplayPresentation presentation, GridPosition wallPosition)
@@ -664,6 +708,27 @@ namespace Minebot.Tests.PlayMode
             }
 
             return false;
+        }
+
+        private static void PrepareBuildableChamber(RuntimeServiceRegistry services, GridPosition origin, Vector2Int footprint, int padding)
+        {
+            int minX = origin.X - padding;
+            int maxX = origin.X + footprint.x - 1 + padding;
+            int minY = origin.Y - padding;
+            int maxY = origin.Y + footprint.y - 1 + padding;
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    GridPosition position = new GridPosition(x, y);
+                    if (!services.Grid.IsInside(position))
+                    {
+                        continue;
+                    }
+
+                    SetEmpty(services, position);
+                }
+            }
         }
     }
 }

@@ -6,9 +6,11 @@
 - `Assets/Art/Minebot/Generated/SourceSheets/`：image2 原始输出，不直接被运行时引用。
 - `Assets/Art/Minebot/Generated/Selected/`：从源图中筛选出的候选资源或整合预览。
 - `Assets/Art/Minebot/Sprites/Tiles/`：最终消费的地形、覆盖层和设施 PNG。
+- `Assets/Art/Minebot/Sprites/Tiles/DualGridTerrain/`：dual-grid terrain family 的 16-state PNG。
 - `Assets/Art/Minebot/Sprites/Actors/`：最终消费的主机器人和从属机器人 PNG。
 - `Assets/Art/Minebot/Sprites/UI/`：后续 HUD 或图标资源。
 - `Assets/Art/Minebot/Tiles/`：Unity Tile 资产。
+- `Assets/Art/Minebot/Tiles/DualGridTerrain/`：dual-grid terrain family 的 Unity Tile 资产。
 - `Assets/Art/Minebot/Palettes/`：Tile Palette 或调色板说明。
 - `Assets/Art/Minebot/Presets/`：导入设置或资源配置辅助资产。
 - `Assets/Art/Minebot/Docs/`：本文件和资源管理说明。
@@ -16,32 +18,35 @@
 ## 命名规则
 
 - Tile PNG：`tile_<semantic>.png`，例如 `tile_wall_soil.png`。
+- dual-grid Tile PNG：`tile_dg_<family>_<index>.png`，例如 `tile_dg_floor_15.png`、`tile_dg_hard_rock_08.png`。
 - Actor PNG：`actor_<semantic>.png`，例如 `actor_player_minebot.png`。
 - Unity Tile：`Tile_<Semantic>.asset`，例如 `Tile_WallSoil.asset`。
+- dual-grid Unity Tile：`Tile_DG_<Family>_<Index>.asset`，例如 `Tile_DG_Floor_15.asset`、`Tile_DG_Boundary_03.asset`。
 - 美术配置：`MinebotPresentationArtSet_Default.asset`。
 - 源图：`minebot_pixel_sheet_<batch>.png`。
 - 角色优化源图：`minebot_actor_optimized_sheet_<batch>.png`。
 
 ## 当前运行时资源清单
 
-说明：下面这批资源仍然保留在项目里，供当前可运行版本消费；其中单格墙 tile 和单格 danger overlay 已降级为过渡资产，后续会逐步被 contour family 替代。
+说明：当前运行时已经切到 `dual-grid primary terrain rendering`。默认 `MinebotPresentationArtSet_Default.asset` 会优先绑定 `6 x 16` dual-grid terrain family；若缺失则退回程序生成的同名 fallback PNG/Tile。旧的单格 wall/detail/contour 资源继续保留，作为迁移期兼容和历史批次归档。
 
 | 语义 | 最终 PNG | Unity Tile / Sprite 用途 |
 | --- | --- | --- |
-| 空地 | `tile_floor_cave.png` | `TerrainKind.Empty` |
-| 土层墙 | `tile_wall_soil.png` | `MineableWall + Soil` |
-| 石层墙 | `tile_wall_stone.png` | `MineableWall + Stone` |
-| 硬岩墙 | `tile_wall_hard_rock.png` | `MineableWall + HardRock` |
-| 极硬岩墙 | `tile_wall_ultra_hard.png` | `MineableWall + UltraHard` |
-| 不可破坏边界 | `tile_boundary.png` | `TerrainKind.Indestructible` |
+| DG Floor atlas | `Sprites/Tiles/DualGridTerrain/tile_dg_floor_00.png` - `tile_dg_floor_15.png` | `DG Floor Tilemap` |
+| DG Soil atlas | `Sprites/Tiles/DualGridTerrain/tile_dg_soil_00.png` - `tile_dg_soil_15.png` | `DG Soil Tilemap` |
+| DG Stone atlas | `Sprites/Tiles/DualGridTerrain/tile_dg_stone_00.png` - `tile_dg_stone_15.png` | `DG Stone Tilemap` |
+| DG HardRock atlas | `Sprites/Tiles/DualGridTerrain/tile_dg_hard_rock_00.png` - `tile_dg_hard_rock_15.png` | `DG HardRock Tilemap` |
+| DG UltraHard atlas | `Sprites/Tiles/DualGridTerrain/tile_dg_ultra_hard_00.png` - `tile_dg_ultra_hard_15.png` | `DG UltraHard Tilemap` |
+| DG Boundary atlas | `Sprites/Tiles/DualGridTerrain/tile_dg_boundary_00.png` - `tile_dg_boundary_15.png` | `DG Boundary Tilemap` |
 | 危险覆盖 | `tile_overlay_danger.png` | 地震危险区 |
 | 标记 | `tile_overlay_marker.png` | 玩家疑似炸药标记 |
 | 探测提示 | `tile_hint_scan.png` | 探测中心提示 |
 | 合法建造预览 | `tile_build_preview_valid.png` | `BuildPreview` valid |
 | 非法建造预览 | `tile_build_preview_invalid.png` | `BuildPreview` invalid |
-| wall contour family | `tile_wall_contour_00.png` - `tile_wall_contour_15.png` | `Wall Contour Tilemap` |
-| danger contour family | `tile_danger_contour_00.png` - `tile_danger_contour_15.png` | `Danger Contour Tilemap` |
-| hardness detail family | `tile_detail_soil.png` / `tile_detail_stone.png` / `tile_detail_hard_rock.png` / `tile_detail_ultra_hard.png` | world-grid detail / 资源台账 |
+| 旧单格地形 | `tile_floor_cave.png` / `tile_wall_soil.png` / `tile_wall_stone.png` / `tile_wall_hard_rock.png` / `tile_wall_ultra_hard.png` / `tile_boundary.png` | 迁移期兼容 / 旧批次归档 |
+| 旧 contour family | `tile_wall_contour_00.png` - `tile_wall_contour_15.png` | 过渡 change 归档 |
+| 旧 danger contour family | `tile_danger_contour_00.png` - `tile_danger_contour_15.png` | 过渡 change 归档 |
+| hardness detail family | `tile_detail_soil.png` / `tile_detail_stone.png` / `tile_detail_hard_rock.png` / `tile_detail_ultra_hard.png` | 资源台账 / 旧 world-grid detail |
 | 维修站 | `tile_facility_repair_station.png` | 维修站 |
 | 机器人工厂 | `tile_facility_robot_factory.png` | 机器人工厂 |
 | 主机器人 | `actor_player_minebot.png` | 玩家 Sprite |
@@ -50,20 +55,32 @@
 当前风格来源说明：
 
 - floor / wall base / boundary / danger base / marker / scan / facilities / actors / detail / build preview 已在 Batch 005 刷新到 `minebot_pixel_sheet_001_b` 风格族。
-- `wall contour` / `danger contour` 的最终运行时切片仍继续使用 Batch 004，以保持 dual-grid 拓扑索引稳定。
+- `tile_dg_*` 当前由 Editor pipeline 基于共享 shape mask + family tint 程序生成，保证默认 art set 在缺少最终 image2 atlas 时也能稳定落盘。
+- `wall contour` / `danger contour` 的最终运行时切片已不再承担 terrain 主渲染，只作为过渡 change 的归档资产保留。
 
-## contour family 目标结构
+## dual-grid terrain family 目标结构
 
-当前 change 的正式目标不再是“每种硬度一张完整墙 tile”，而是以下组合：
+当前 change 的正式目标是“world grid 不再直接绘制 terrain，offset dual-grid family 成为唯一 terrain 主显示”。
 
 | 资源族 | 目标 | 备注 |
 | --- | --- | --- |
-| wall contour atlas | 15/16 形态 dual-grid 轮廓 | half-cell offset，服务 `Wall Contour Tilemap` |
-| danger contour overlay | 15/16 形态危险边界轮廓 | 与 wall contour 共享 2x2 拓扑，但保持独立视觉语义 |
-| hardness detail | `Soil` / `Stone` / `HardRock` / `UltraHard` world-grid detail | 继续服务运行时硬度可读性，不重复绘制四套 contour |
-| terrain base | floor / boundary | world-grid 对齐 |
+| floor dual-grid atlas | `Floor` family 的 16-state atlas | half-cell offset，服务 `DG Floor Tilemap` |
+| hardness dual-grid atlas | `Soil` / `Stone` / `HardRock` / `UltraHard` 各自 16-state atlas | 混合硬度通过多层 family 叠加表达 |
+| boundary dual-grid atlas | `Boundary` family 的 16-state atlas | 覆盖不可破坏边界和外框语义 |
 | overlays | marker / build preview valid / build preview invalid / scan hint | 与 danger contour 语义分离 |
 | facilities / actors | repair station / robot factory / player / helper robot | 保持既有风格统一 |
+
+默认命名与目录约定：
+
+- PNG：`Assets/Art/Minebot/Sprites/Tiles/DualGridTerrain/tile_dg_<family>_<index>.png`
+- Tile：`Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_<Family>_<Index>.asset`
+- art set 字段：
+  - `floorDualGridTiles`
+  - `soilDualGridTiles`
+  - `stoneDualGridTiles`
+  - `hardRockDualGridTiles`
+  - `ultraHardDualGridTiles`
+  - `boundaryDualGridTiles`
 
 ## contour family Prompt 模板
 

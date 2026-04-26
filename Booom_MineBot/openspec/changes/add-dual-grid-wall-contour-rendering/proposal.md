@@ -18,7 +18,7 @@
 - 将已归档 `layered-grid-feedback-overlays` 中危险区的主显示，从“空地逐格内描边”收口为仅保留 world-aligned 的 `Danger Base` warning tile；同时继续保留标记、危险区、建造预览和扫描数字各自独立的渲染所有权。
 - 保留 world-aligned 的基础地形层表达空地、不可破坏边界和硬度细节；`Wall Contour` 只承载岩体轮廓，`Danger Base` 单独消费 `IsDangerZone`，不再为危险区额外绘制 contour。
 - 将当前“每个岩体方格的 base 自带完整边缘”的旧资源语义迁移为 dual-grid 方案：岩体 `base/detail` 只负责连续纹理与硬度信息，所有显著边缘统一收口到 `Wall Contour`，避免内部再次出现按格切开的描边。
-- 明确同类型岩体在成片相邻时必须优先读成连续岩面，而不是每格各自一块独立砖。只有暴露在空地一侧的外缘、转角和破口才应出现明显边界；岩体内部连接处不得再画出强轮廓缝。
+- 明确同类型岩体在成片相邻时必须优先读成连续岩面，而不是每格各自一块独立砖。同硬度岩体内部连接处不得再画出强轮廓缝；但不同 `HardnessTier` 岩体的交界允许直接出现 contour，帮助玩家快速读出材质分区。
 - `Wall Contour` 的刷新策略采用“一个 world cell 变化只重算周围 4 个 contour cells”的局部更新；`Danger Base` 继续随地图初始化、波次厚度变化和重大地形变化整图重算即可。
 - 改造 `MinebotPresentationArtSet` / Tile 资源组织方式，从“每种语义一个单格 tile”扩展为“基础地形/detail + danger base + wall contour”的组合式配置；`BuildPreviewInvalid` 必须继续与危险区资源语义分离。
 - 重新规划并生成一批适配新渲染结构的像素风源图。运行时主消费目标不再包含 danger contour，重点收口到 wall contour atlas 与 hardness detail。

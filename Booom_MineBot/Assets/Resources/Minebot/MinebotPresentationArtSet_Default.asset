@@ -18,6 +18,108 @@ MonoBehaviour:
   hardRockWallTile: {fileID: 11400000, guid: 8ef61307a32b14fd4ae047b89b16c836, type: 2}
   ultraHardWallTile: {fileID: 11400000, guid: af9a0264dab8b43039ac05c89e70c9d6, type: 2}
   boundaryTile: {fileID: 11400000, guid: 1a266e63bcdf14e66b0dbea5dfa060fe, type: 2}
+  floorDualGridTiles:
+  - {fileID: 11400000, guid: 963616e63e03d4c07907602a874fd19b, type: 2}
+  - {fileID: 11400000, guid: f10fc6b52c35b41a2b1fb8175d4725e9, type: 2}
+  - {fileID: 11400000, guid: 28253f5a4a77d47e1961672f2e0e66d0, type: 2}
+  - {fileID: 11400000, guid: ffaaaefdf982544f288feb16b99532f8, type: 2}
+  - {fileID: 11400000, guid: e8ab55c364afa4866a8c0f0f7f4b44d8, type: 2}
+  - {fileID: 11400000, guid: 18696442ca4464f4bb11cd036bb58983, type: 2}
+  - {fileID: 11400000, guid: cb02dc02d92294480808e0c2c2c13398, type: 2}
+  - {fileID: 11400000, guid: 7512b3650fe9c4f019e0f63fb26265cd, type: 2}
+  - {fileID: 11400000, guid: aa8ea4d2d77b54b249fa3e296d99d981, type: 2}
+  - {fileID: 11400000, guid: 1ac273ee41dbe4d0f94a064493585d75, type: 2}
+  - {fileID: 11400000, guid: cbc311c5e1d674703896ececbe9e3067, type: 2}
+  - {fileID: 11400000, guid: 7a3b93b06c1584ab99c06859c95932a6, type: 2}
+  - {fileID: 11400000, guid: 070f607da6a5d4a36af867dc1e6e8ef8, type: 2}
+  - {fileID: 11400000, guid: c109424d791814dcda51c2144e78f8da, type: 2}
+  - {fileID: 11400000, guid: af78a62bf1daf456e95a8e364ab230df, type: 2}
+  - {fileID: 11400000, guid: 99080024e77e54cffb3c282bd8bc1337, type: 2}
+  soilDualGridTiles:
+  - {fileID: 11400000, guid: 04681efc09b1e4bd58b607ebbbd74bdd, type: 2}
+  - {fileID: 11400000, guid: 897b3c3959b8f4fe4a26ac5bbd461e56, type: 2}
+  - {fileID: 11400000, guid: 3756ddb1082474f039a5d79c719c2771, type: 2}
+  - {fileID: 11400000, guid: ebd853a674a67486eb1d4e5ad25d8f78, type: 2}
+  - {fileID: 11400000, guid: 9e74e16eb6e10446bbf8eb6633d989a0, type: 2}
+  - {fileID: 11400000, guid: 740fa09ea597348d1a8e98c39ee74c31, type: 2}
+  - {fileID: 11400000, guid: e762b59451ab64d62961a80318f4d3fe, type: 2}
+  - {fileID: 11400000, guid: ab1b2f150f96a46f0b034a941a1eaac7, type: 2}
+  - {fileID: 11400000, guid: d8df872ffaef14370971d14c0e3639c9, type: 2}
+  - {fileID: 11400000, guid: 416d183be92a744d6b4e89ca7e6be645, type: 2}
+  - {fileID: 11400000, guid: abe25c270e21042a4b63791476bb5560, type: 2}
+  - {fileID: 11400000, guid: 758947f25c99b46b4a8f55f4e82d7d05, type: 2}
+  - {fileID: 11400000, guid: 8bc50a6c40b2645fcb71c6f528c714f8, type: 2}
+  - {fileID: 11400000, guid: 3664ea8e848334cfea1325d035b25b1d, type: 2}
+  - {fileID: 11400000, guid: bbec8fb631449481490efa29ae62b55c, type: 2}
+  - {fileID: 11400000, guid: 638fbe175651a40958387338a357c545, type: 2}
+  stoneDualGridTiles:
+  - {fileID: 11400000, guid: 9ead5f0ea850742c280396f041120f05, type: 2}
+  - {fileID: 11400000, guid: a42817c38a4ca45e68e29693e0ea2a88, type: 2}
+  - {fileID: 11400000, guid: d9aa555f5e3df42a5883323ab5f866c8, type: 2}
+  - {fileID: 11400000, guid: b37ae5e4b1b01467cbe9a5bf9032bbc6, type: 2}
+  - {fileID: 11400000, guid: e38f7234f64b841eca5d59e8f2f7c437, type: 2}
+  - {fileID: 11400000, guid: 21ff9d788d7474b8a9e1fdd0f98972d0, type: 2}
+  - {fileID: 11400000, guid: ba4fb42d5ddca4597af618777074b997, type: 2}
+  - {fileID: 11400000, guid: 9a9792612ef0041c1910eed333bc6234, type: 2}
+  - {fileID: 11400000, guid: 67eef0543963f4c2cb4d0d5cb30c606c, type: 2}
+  - {fileID: 11400000, guid: 7b3d9af0a3cc342dbb28baad1aacf808, type: 2}
+  - {fileID: 11400000, guid: d255ecc892052494e9b9205c8103a6d0, type: 2}
+  - {fileID: 11400000, guid: 7d60f9bb3ddb14f4ca2b99e7c7be415d, type: 2}
+  - {fileID: 11400000, guid: 8826d065ef9854bdcad085065183ede6, type: 2}
+  - {fileID: 11400000, guid: aea06350f4e4a4330a4b6ecc41f97951, type: 2}
+  - {fileID: 11400000, guid: 3b034e5d1f7474911ae9842fb3260e29, type: 2}
+  - {fileID: 11400000, guid: 1f9abe025f6dc4f28bd16a5b4f16547c, type: 2}
+  hardRockDualGridTiles:
+  - {fileID: 11400000, guid: eae73021b1b11443ba05c42d0f3f4f0b, type: 2}
+  - {fileID: 11400000, guid: 0fb849e4c9b8b40ffba27999881b209b, type: 2}
+  - {fileID: 11400000, guid: e9f2a09610f9448b6a1d077af114bb68, type: 2}
+  - {fileID: 11400000, guid: 5ea9fd8c10af74506b7ddbfbad00ea46, type: 2}
+  - {fileID: 11400000, guid: e91d55397b95845629a54dea26603991, type: 2}
+  - {fileID: 11400000, guid: ab90a5e90a79749cda38dbb5ab63b69f, type: 2}
+  - {fileID: 11400000, guid: f2fda3bb3b5574440ab60bbfababab2d, type: 2}
+  - {fileID: 11400000, guid: 4ea8fbd620c67424ba9205ad7da73bc1, type: 2}
+  - {fileID: 11400000, guid: e0e3a2ff76cd245eba10a10b4e8dcc01, type: 2}
+  - {fileID: 11400000, guid: 99a633f92205449dc8d033143f472df9, type: 2}
+  - {fileID: 11400000, guid: da7e774c853d84029b0d8e441607391a, type: 2}
+  - {fileID: 11400000, guid: 23f3722cb6bf14a0e847b6bd8a71a930, type: 2}
+  - {fileID: 11400000, guid: 843a817282e4d4ea4bfd21dc41d90826, type: 2}
+  - {fileID: 11400000, guid: 58bb79feca3894b90a714bdb38511571, type: 2}
+  - {fileID: 11400000, guid: 65dee7570d8f845e08160cf962245991, type: 2}
+  - {fileID: 11400000, guid: d1582724a1cb744038e6697d8e6ac2c6, type: 2}
+  ultraHardDualGridTiles:
+  - {fileID: 11400000, guid: 2e2b451135077421d94536cf9d3ccd44, type: 2}
+  - {fileID: 11400000, guid: 58a2b8d64811a4847a22761ec046900f, type: 2}
+  - {fileID: 11400000, guid: bb65c622e7ce4468e989a8316fdc3a74, type: 2}
+  - {fileID: 11400000, guid: 89ab5ddb9c2f74e139e33429d849ec8e, type: 2}
+  - {fileID: 11400000, guid: 3ae2d34554084448690cad1783e5b257, type: 2}
+  - {fileID: 11400000, guid: 5f5380579e1f44c99be9547408415957, type: 2}
+  - {fileID: 11400000, guid: 5c3aaa09eb93c4a83add7ccabe8d447e, type: 2}
+  - {fileID: 11400000, guid: f539bb969aefa4ac3b7a88bf5dc5fd63, type: 2}
+  - {fileID: 11400000, guid: 865ea5f814dd44a07a4ae752f36e7ace, type: 2}
+  - {fileID: 11400000, guid: 079b90e82c44c43c2b3686aaa829c750, type: 2}
+  - {fileID: 11400000, guid: 452d06d7d2d6c4d3d862701a2df890d8, type: 2}
+  - {fileID: 11400000, guid: dc2125ab2f0a04820ba588e3c3f3fc2b, type: 2}
+  - {fileID: 11400000, guid: da7a595cee7db4216bea94fb28031962, type: 2}
+  - {fileID: 11400000, guid: 196419c1e9833424d8892440ffbca09b, type: 2}
+  - {fileID: 11400000, guid: a762733aeca794a42a9d0d57a4fa59fd, type: 2}
+  - {fileID: 11400000, guid: 06b3fdbbef4fd4afbb9c73b5574aee0d, type: 2}
+  boundaryDualGridTiles:
+  - {fileID: 11400000, guid: 7b82c375771694eea855a431bd63442d, type: 2}
+  - {fileID: 11400000, guid: 3e51d0f50a04746f096f21ef87bb29f5, type: 2}
+  - {fileID: 11400000, guid: 93b0f1af7652e4784ba21708d7411419, type: 2}
+  - {fileID: 11400000, guid: 83c6389c4639545648ce38521a850143, type: 2}
+  - {fileID: 11400000, guid: c2b79bdf8cc474fc495bf79046d6ab48, type: 2}
+  - {fileID: 11400000, guid: a85138b6becf548458d7caea55b771bd, type: 2}
+  - {fileID: 11400000, guid: f47f67fbc4cdb4c8f84b82d5b8ef4ac9, type: 2}
+  - {fileID: 11400000, guid: dccfd76285df14b52b91a4a717a1802f, type: 2}
+  - {fileID: 11400000, guid: 5b60d564447264d14b9ceb78d2d4cd93, type: 2}
+  - {fileID: 11400000, guid: 45c162db2a82640ceb8bb9b20703c1dd, type: 2}
+  - {fileID: 11400000, guid: c2ffd22c5f43b4646b1765884dd6da0e, type: 2}
+  - {fileID: 11400000, guid: 7f81d31c2fe674011b4dd9fee40421c6, type: 2}
+  - {fileID: 11400000, guid: abcf9de42d15d40d88e040b0d338fd7a, type: 2}
+  - {fileID: 11400000, guid: ac6cfab9224134c80a562d611f33adc4, type: 2}
+  - {fileID: 11400000, guid: e6ec9deb6d1604d249b0fd6f0976359d, type: 2}
+  - {fileID: 11400000, guid: 8603e3989add146c480e45c4b3177b79, type: 2}
   dangerTile: {fileID: 11400000, guid: 6fd9007294ae34be3a75c6efdcb738f0, type: 2}
   markerTile: {fileID: 11400000, guid: 72aa5024b3fc24142b00e607645a9793, type: 2}
   scanHintTile: {fileID: 11400000, guid: 749469656695a49dfbbcd0a1c1c1c093, type: 2}
