@@ -117,6 +117,20 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void DangerZoneDoesNotCreateCollisionForEmptyCells()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(6, 6), new GridPosition(2, 2));
+            grid.GetCellRef(new GridPosition(3, 2)).IsDangerZone = true;
+
+            CharacterMoveResult2D result = MoveWithMotor(grid, Vector2.right * 0.6f);
+
+            Assert.That(result.HasMoved, Is.True);
+            Assert.That(result.WasBlocked, Is.False);
+            Assert.That(result.HasStableContact, Is.False);
+            Assert.That(ActorContactProbe.WorldToGrid(result.FinalPosition), Is.EqualTo(new GridPosition(3, 2)));
+        }
+
+        [Test]
         public void MotorRecoversFromInitialOverlapBeforeResolvingMovement()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(6, 6), new GridPosition(2, 2));
@@ -217,11 +231,15 @@ namespace Minebot.Tests.EditMode
                 Vector2Int.one);
             ref GridCellState wall = ref grid.GetCellRef(new GridPosition(2, 2));
             wall.TerrainKind = TerrainKind.MineableWall;
+            grid.GetCellRef(new GridPosition(3, 2)).IsDangerZone = true;
 
             Assert.That(buildings.TryPlace(expensive, new GridPosition(1, 1), out _, out BuildingPlacementFailure expensiveFailure), Is.False);
             Assert.That(expensiveFailure, Is.EqualTo(BuildingPlacementFailure.InsufficientResources));
             Assert.That(buildings.TryPlace(free, new GridPosition(2, 2), out _, out BuildingPlacementFailure wallFailure), Is.False);
             Assert.That(wallFailure, Is.EqualTo(BuildingPlacementFailure.TerrainBlocked));
+            Assert.That(grid.GetCell(new GridPosition(3, 2)).IsPassable, Is.True);
+            Assert.That(buildings.TryPlace(free, new GridPosition(3, 2), out _, out BuildingPlacementFailure dangerFailure), Is.False);
+            Assert.That(dangerFailure, Is.EqualTo(BuildingPlacementFailure.TerrainBlocked));
             Assert.That(buildings.TryPlace(free, new GridPosition(1, 1), out _, out _), Is.True);
             Assert.That(buildings.TryPlace(free, new GridPosition(1, 1), out _, out BuildingPlacementFailure occupiedFailure), Is.False);
             Assert.That(occupiedFailure, Is.EqualTo(BuildingPlacementFailure.Occupied));

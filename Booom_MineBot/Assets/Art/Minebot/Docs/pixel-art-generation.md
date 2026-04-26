@@ -22,7 +22,9 @@
 - 源图：`minebot_pixel_sheet_<batch>.png`。
 - 角色优化源图：`minebot_actor_optimized_sheet_<batch>.png`。
 
-## 第一批资源清单
+## 当前运行时资源清单
+
+说明：下面这批资源仍然保留在项目里，供当前可运行版本消费；其中单格墙 tile 和单格 danger overlay 已降级为过渡资产，后续会逐步被 contour family 替代。
 
 | 语义 | 最终 PNG | Unity Tile / Sprite 用途 |
 | --- | --- | --- |
@@ -35,12 +37,79 @@
 | 危险覆盖 | `tile_overlay_danger.png` | 地震危险区 |
 | 标记 | `tile_overlay_marker.png` | 玩家疑似炸药标记 |
 | 探测提示 | `tile_hint_scan.png` | 探测中心提示 |
+| 合法建造预览 | `tile_build_preview_valid.png` | `BuildPreview` valid |
+| 非法建造预览 | `tile_build_preview_invalid.png` | `BuildPreview` invalid |
+| wall contour family | `tile_wall_contour_00.png` - `tile_wall_contour_15.png` | `Wall Contour Tilemap` |
+| danger contour family | `tile_danger_contour_00.png` - `tile_danger_contour_15.png` | `Danger Contour Tilemap` |
+| hardness detail family | `tile_detail_soil.png` / `tile_detail_stone.png` / `tile_detail_hard_rock.png` / `tile_detail_ultra_hard.png` | world-grid detail / 资源台账 |
 | 维修站 | `tile_facility_repair_station.png` | 维修站 |
 | 机器人工厂 | `tile_facility_robot_factory.png` | 机器人工厂 |
 | 主机器人 | `actor_player_minebot.png` | 玩家 Sprite |
 | 从属机器人 | `actor_helper_robot.png` | 从属机器人 Sprite |
 
-## image2 Prompt 模板
+## contour family 目标结构
+
+当前 change 的正式目标不再是“每种硬度一张完整墙 tile”，而是以下组合：
+
+| 资源族 | 目标 | 备注 |
+| --- | --- | --- |
+| wall contour atlas | 15/16 形态 dual-grid 轮廓 | half-cell offset，服务 `Wall Contour Tilemap` |
+| danger contour overlay | 15/16 形态危险边界轮廓 | 与 wall contour 共享 2x2 拓扑，但保持独立视觉语义 |
+| hardness detail | `Soil` / `Stone` / `HardRock` / `UltraHard` world-grid detail | 继续服务运行时硬度可读性，不重复绘制四套 contour |
+| terrain base | floor / boundary | world-grid 对齐 |
+| overlays | marker / build preview valid / build preview invalid / scan hint | 与 danger contour 语义分离 |
+| facilities / actors | repair station / robot factory / player / helper robot | 保持既有风格统一 |
+
+## contour family Prompt 模板
+
+### A. wall contour atlas
+
+```text
+Use case: stylized-concept
+Asset type: pixel art contour atlas for a Unity top-down dual-grid tilemap
+Primary request: Create a 4x4 contour atlas for BOOOM Minebot mine walls. The atlas must support 15/16 marching-squares style states for half-cell offset rendering over a square world grid.
+Subject: rounded mine wall contour pieces only, not full standalone terrain tiles.
+Required states: empty, full solid, four outer corners, four edges, four inner corners, two diagonal split states.
+Style: crisp pixel art, underground mining robot game, earthy palette, readable at 1x, no anti-aliased blur, no text, no watermark.
+Layout: evenly spaced atlas on a flat neutral background, each tile centered with padding.
+Hard constraints: contour line must pass through the exact center line of each tile; openings must stay visually narrow enough to match square-grid collision.
+```
+
+### B. danger contour overlay
+
+```text
+Use case: stylized-concept
+Asset type: pixel art contour atlas for a Unity danger overlay
+Primary request: Create a 4x4 danger contour atlas for BOOOM Minebot that matches the wall contour topology but reads as a hazardous earthquake boundary, not as rock.
+Subject: glowing or high-contrast danger edge pieces for 15/16 marching-squares states.
+Required states: empty, full solid placeholder, four outer corners, four edges, four inner corners, two diagonal split states.
+Style: crisp pixel art, limited warm warning palette, readable over dark cave floor, no text, no watermark.
+Layout: evenly spaced atlas on a flat dark background, each tile separated with padding.
+Hard constraints: keep the topology identical to wall contour usage; do not draw full-cell red fills as the main signal; danger contour must remain visually distinct from invalid build preview.
+```
+
+### C. hardness detail overlays
+
+```text
+Use case: stylized-concept
+Asset type: pixel art terrain detail set for a Unity top-down tilemap
+Primary request: Create four world-grid wall detail tiles for BOOOM Minebot: Soil, Stone, HardRock, UltraHard.
+Subject: material texture detail only, meant to sit under a separate contour overlay.
+Style: crisp pixel art, underground palette, readable hardness progression, no text, no watermark.
+Layout: compact sheet or separated tiles with padding.
+Hard constraints: do not redraw rounded outer silhouette; focus on cracks, grain, strata, and density differences.
+```
+
+## 筛选标准（contour family）
+
+- 先验收拓扑完整性：15/16 状态是否成套，两个对角分离形态是否可辨。
+- 轮廓中线必须与 tile 中线对齐，适合 `(-0.5, -0.5)` 偏移后的 dual-grid 显示。
+- wall contour 与 danger contour 必须共享拓扑语言，但颜色、材质、线宽或发光感上能立即区分。
+- danger contour 不能退回“逐格空心框”或整格红块。
+- hardness detail 只能表达材料差异，不能与 contour 争夺轮廓职责。
+- 非法建造预览必须保留独立视觉语言，不与 danger contour 复用同一语义。
+
+## 旧版 Prompt 模板（归档）
 
 ```text
 Use case: stylized-concept
@@ -53,12 +122,23 @@ Style: crisp pixel art, limited earthy palette, strong silhouettes, high contras
 Layout: organized asset sheet on a flat dark neutral background, each sprite separated with padding, no shadows crossing between sprites.
 ```
 
-## 本批次筛选标准
+## 旧版筛选标准（归档）
 
 - 俯视角轮廓清晰，单格语义能在 1x 缩放下辨认。
 - 色彩服务玩法信息：岩壁硬度逐步变冷/变亮，设施使用蓝色/橙色区分，危险与标记使用红色体系。
 - 资源可以被裁切成独立 PNG；源图可以不完美，但最终消费 PNG 必须清晰。
 - 不接受带文字、水印、复杂背景、明显透视错误或强烈写实光影的输出。
+
+## contour family 当前状态
+
+- `Wall Contour` / `Danger Contour` 的运行时与 fallback 资源结构已经在代码中接入。
+- contour family Batch 004 已生成 3 组候选源图：
+  - `Assets/Art/Minebot/Generated/SourceSheets/minebot_contour_family_sheet_004_a.png`
+  - `Assets/Art/Minebot/Generated/SourceSheets/minebot_contour_family_sheet_004_b.png`
+  - `Assets/Art/Minebot/Generated/SourceSheets/minebot_contour_family_sheet_004_c.png`
+- 已选中 `Assets/Art/Minebot/Generated/Selected/minebot_contour_family_sheet_004_selected.png` 作为当前默认消费源图。
+- 最终切片、语义和层级职责记录在 `Assets/Art/Minebot/Generated/Selected/minebot-contour-family-asset-manifest.md`。
+- 运行时默认 `MinebotPresentationArtSet_Default.asset` 已绑定 wall contour / danger contour / hardness detail / build preview 资源；代码生成 fallback 仅作为缺资源兜底，不再是主路径。
 
 ## 已知限制
 
@@ -103,6 +183,23 @@ Layout: organized asset sheet on a flat dark neutral background, each sprite sep
 
 处理方式：保留 Batch 001 的运行时路径和 ArtSet 引用，只替换同名 Actor PNG；源图使用 #00ff00 色键生成，本地切片后移除色键并输出带 alpha 的 PNG。
 
+## Batch 004 contour family 结果
+
+- Prompt / 批次记录：`Assets/Art/Minebot/Generated/Prompts/minebot-pixel-art-contour-family-batch-004.md`
+- 候选源图：
+  - `Assets/Art/Minebot/Generated/SourceSheets/minebot_contour_family_sheet_004_a.png`
+  - `Assets/Art/Minebot/Generated/SourceSheets/minebot_contour_family_sheet_004_b.png`
+  - `Assets/Art/Minebot/Generated/SourceSheets/minebot_contour_family_sheet_004_c.png`
+- 已选源图：`Assets/Art/Minebot/Generated/Selected/minebot_contour_family_sheet_004_selected.png`
+- 资源台账：`Assets/Art/Minebot/Generated/Selected/minebot-contour-family-asset-manifest.md`
+
+| 资源族 | 最终路径 |
+| --- | --- |
+| wall contour atlas | `Assets/Art/Minebot/Sprites/Tiles/tile_wall_contour_00.png` - `Assets/Art/Minebot/Sprites/Tiles/tile_wall_contour_15.png` |
+| danger contour atlas | `Assets/Art/Minebot/Sprites/Tiles/tile_danger_contour_00.png` - `Assets/Art/Minebot/Sprites/Tiles/tile_danger_contour_15.png` |
+| hardness detail | `Assets/Art/Minebot/Sprites/Tiles/tile_detail_soil.png` / `tile_detail_stone.png` / `tile_detail_hard_rock.png` / `tile_detail_ultra_hard.png` |
+| build preview | `Assets/Art/Minebot/Sprites/Tiles/tile_build_preview_valid.png` / `tile_build_preview_invalid.png` |
+
 ## Unity 资产化结果
 
 - 默认表现配置：`Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset`
@@ -119,6 +216,10 @@ Layout: organized asset sheet on a flat dark neutral background, each sprite sep
 | 危险覆盖 | `Assets/Art/Minebot/Tiles/Tile_OverlayDanger.asset` |
 | 标记 | `Assets/Art/Minebot/Tiles/Tile_OverlayMarker.asset` |
 | 探测提示 | `Assets/Art/Minebot/Tiles/Tile_HintScan.asset` |
+| wall contour atlas | `Assets/Art/Minebot/Tiles/Tile_WallContour_00.asset` - `Tile_WallContour_15.asset` |
+| danger contour atlas | `Assets/Art/Minebot/Tiles/Tile_DangerContour_00.asset` - `Tile_DangerContour_15.asset` |
+| build preview | `Assets/Art/Minebot/Tiles/Tile_BuildPreviewValid.asset` / `Tile_BuildPreviewInvalid.asset` |
+| hardness detail | `Assets/Art/Minebot/Tiles/Tile_DetailSoil.asset` / `Tile_DetailStone.asset` / `Tile_DetailHardRock.asset` / `Tile_DetailUltraHard.asset` |
 | 维修站 | `Assets/Art/Minebot/Tiles/Tile_FacilityRepairStation.asset` |
 | 机器人工厂 | `Assets/Art/Minebot/Tiles/Tile_FacilityRobotFactory.asset` |
 

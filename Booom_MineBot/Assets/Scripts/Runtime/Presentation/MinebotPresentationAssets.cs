@@ -18,6 +18,8 @@ namespace Minebot.Presentation
         public Tile ScanHintTile { get; private set; }
         public Tile BuildPreviewValidTile { get; private set; }
         public Tile BuildPreviewInvalidTile { get; private set; }
+        public Tile[] WallContourTiles { get; private set; }
+        public Tile[] DangerContourTiles { get; private set; }
         public Tile[] DangerOutlineTiles { get; private set; }
         public Sprite PlayerSprite { get; private set; }
         public Sprite RobotSprite { get; private set; }
@@ -48,8 +50,10 @@ namespace Minebot.Presentation
                 RepairStationTile = artSet.RepairStationTile != null ? artSet.RepairStationTile : fallback.RepairStationTile,
                 RobotFactoryTile = artSet.RobotFactoryTile != null ? artSet.RobotFactoryTile : fallback.RobotFactoryTile,
                 ScanHintTile = artSet.ScanHintTile != null ? artSet.ScanHintTile : fallback.ScanHintTile,
-                BuildPreviewValidTile = artSet.ScanHintTile != null ? artSet.ScanHintTile : fallback.BuildPreviewValidTile,
-                BuildPreviewInvalidTile = artSet.DangerTile != null ? artSet.DangerTile : fallback.BuildPreviewInvalidTile,
+                BuildPreviewValidTile = artSet.BuildPreviewValidTile != null ? artSet.BuildPreviewValidTile : fallback.BuildPreviewValidTile,
+                BuildPreviewInvalidTile = artSet.BuildPreviewInvalidTile != null ? artSet.BuildPreviewInvalidTile : fallback.BuildPreviewInvalidTile,
+                WallContourTiles = NormalizeContourTiles(artSet.WallContourTiles, fallback.WallContourTiles),
+                DangerContourTiles = NormalizeContourTiles(artSet.DangerContourTiles, fallback.DangerContourTiles),
                 DangerOutlineTiles = NormalizeDangerOutlineTiles(artSet.DangerOutlineTiles, fallback.DangerOutlineTiles),
                 PlayerSprite = artSet.PlayerSprite != null ? artSet.PlayerSprite : fallback.PlayerSprite,
                 RobotSprite = artSet.RobotSprite != null ? artSet.RobotSprite : fallback.RobotSprite,
@@ -70,6 +74,16 @@ namespace Minebot.Presentation
 
             int index = Mathf.Clamp(Mathf.Max(0, currentWave), 0, DangerOutlineTiles.Length - 1);
             return DangerOutlineTiles[index] != null ? DangerOutlineTiles[index] : DangerTile;
+        }
+
+        public Tile WallContourTileForIndex(int index)
+        {
+            return TileForContourIndex(WallContourTiles, index);
+        }
+
+        public Tile DangerContourTileForIndex(int index)
+        {
+            return TileForContourIndex(DangerContourTiles, index);
         }
 
         public Tile WallTileForHardness(Minebot.GridMining.HardnessTier hardness)
@@ -104,6 +118,8 @@ namespace Minebot.Presentation
                 ScanHintTile = CreateTile("Scan Hint Tile", new Color(0.2f, 0.75f, 1f, 0.74f), new Color(0.9f, 1f, 1f, 0.9f)),
                 BuildPreviewValidTile = CreateTile("Build Preview Valid Tile", new Color(0.18f, 0.72f, 1f, 0.42f), new Color(0.82f, 0.96f, 1f, 0.92f)),
                 BuildPreviewInvalidTile = CreateTile("Build Preview Invalid Tile", new Color(0.86f, 0.12f, 0.1f, 0.36f), new Color(1f, 0.44f, 0.28f, 0.9f)),
+                WallContourTiles = CreateContourTileSet("Wall Contour", new Color(0.92f, 0.9f, 0.82f, 0.95f), 2),
+                DangerContourTiles = CreateContourTileSet("Danger Contour", new Color(1f, 0.43f, 0.26f, 0.95f), 2),
                 DangerOutlineTiles = new[]
                 {
                     CreateOutlineTile("Danger Outline Thin Tile", new Color(1f, 0.38f, 0.22f, 0.95f), 1),
@@ -117,6 +133,19 @@ namespace Minebot.Presentation
                 ScanLabelFontSize = 4f,
                 PlayerColliderRadius = 0.42f
             };
+        }
+
+        private static Tile[] NormalizeContourTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
+        {
+            var normalized = new Tile[DualGridContour.TileCount];
+            for (int i = 0; i < normalized.Length; i++)
+            {
+                Tile configured = configuredTiles != null && i < configuredTiles.Length ? configuredTiles[i] : null;
+                Tile fallback = fallbackTiles != null && i < fallbackTiles.Length ? fallbackTiles[i] : null;
+                normalized[i] = configured != null ? configured : fallback;
+            }
+
+            return normalized;
         }
 
         private static Tile[] NormalizeDangerOutlineTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
@@ -136,11 +165,104 @@ namespace Minebot.Presentation
             return normalized;
         }
 
+        private static Tile TileForContourIndex(Tile[] contourTiles, int index)
+        {
+            if (contourTiles == null || contourTiles.Length == 0)
+            {
+                return null;
+            }
+
+            int safeIndex = Mathf.Clamp(index, 0, contourTiles.Length - 1);
+            return contourTiles[safeIndex];
+        }
+
         private static Tile CreateTile(string name, Color fill, Color border)
         {
             var tile = ScriptableObject.CreateInstance<Tile>();
             tile.name = name;
             tile.sprite = CreateSprite(name + " Sprite", fill, border);
+            tile.colliderType = Tile.ColliderType.None;
+            return tile;
+        }
+
+        private static Tile[] CreateContourTileSet(string namePrefix, Color outlineColor, int thickness)
+        {
+            var tiles = new Tile[DualGridContour.TileCount];
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                tiles[i] = CreateContourTile($"{namePrefix} {i:X1}", i, outlineColor, thickness);
+            }
+
+            return tiles;
+        }
+
+        private static Tile CreateContourTile(string name, int contourIndex, Color outlineColor, int thickness)
+        {
+            const int size = 16;
+            const int halfSize = size / 2;
+            int safeThickness = Mathf.Clamp(thickness, 1, halfSize);
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = name + " Texture",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp
+            };
+
+            bool topLeft = (contourIndex & (1 << 3)) != 0;
+            bool topRight = (contourIndex & (1 << 2)) != 0;
+            bool bottomLeft = (contourIndex & (1 << 1)) != 0;
+            bool bottomRight = (contourIndex & 1) != 0;
+            Color clear = new Color(0f, 0f, 0f, 0f);
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    bool isTop = y >= halfSize;
+                    bool isLeft = x < halfSize;
+                    int xWithin = isLeft ? x : x - halfSize;
+                    int yWithin = isTop ? y - halfSize : y;
+
+                    bool isFilled = isTop
+                        ? (isLeft ? topLeft : topRight)
+                        : (isLeft ? bottomLeft : bottomRight);
+
+                    if (!isFilled)
+                    {
+                        texture.SetPixel(x, y, clear);
+                        continue;
+                    }
+
+                    bool draw = false;
+                    if (isTop && isLeft)
+                    {
+                        draw = (topLeft != topRight && xWithin >= halfSize - safeThickness)
+                            || (topLeft != bottomLeft && yWithin < safeThickness);
+                    }
+                    else if (isTop)
+                    {
+                        draw = (topRight != topLeft && xWithin < safeThickness)
+                            || (topRight != bottomRight && yWithin < safeThickness);
+                    }
+                    else if (isLeft)
+                    {
+                        draw = (bottomLeft != bottomRight && xWithin >= halfSize - safeThickness)
+                            || (bottomLeft != topLeft && yWithin >= halfSize - safeThickness);
+                    }
+                    else
+                    {
+                        draw = (bottomRight != bottomLeft && xWithin < safeThickness)
+                            || (bottomRight != topRight && yWithin >= halfSize - safeThickness);
+                    }
+
+                    texture.SetPixel(x, y, draw ? outlineColor : clear);
+                }
+            }
+
+            texture.Apply(false, true);
+            var tile = ScriptableObject.CreateInstance<Tile>();
+            tile.name = name;
+            tile.sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
             tile.colliderType = Tile.ColliderType.None;
             return tile;
         }

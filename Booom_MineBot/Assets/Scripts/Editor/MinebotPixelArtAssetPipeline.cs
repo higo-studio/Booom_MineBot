@@ -15,20 +15,39 @@ namespace Minebot.Editor
         private const int ActorPixelsPerUnit = 32;
         private const string ArtSetPath = "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset";
         private const string PalettePrefabPath = "Assets/Art/Minebot/Palettes/MinebotTilePalette.prefab";
+        private const string FloorTilePath = "Assets/Art/Minebot/Tiles/Tile_FloorCave.asset";
+        private const string SoilWallTilePath = "Assets/Art/Minebot/Tiles/Tile_WallSoil.asset";
+        private const string StoneWallTilePath = "Assets/Art/Minebot/Tiles/Tile_WallStone.asset";
+        private const string HardRockWallTilePath = "Assets/Art/Minebot/Tiles/Tile_WallHardRock.asset";
+        private const string UltraHardWallTilePath = "Assets/Art/Minebot/Tiles/Tile_WallUltraHard.asset";
+        private const string BoundaryTilePath = "Assets/Art/Minebot/Tiles/Tile_Boundary.asset";
+        private const string DangerTilePath = "Assets/Art/Minebot/Tiles/Tile_OverlayDanger.asset";
+        private const string MarkerTilePath = "Assets/Art/Minebot/Tiles/Tile_OverlayMarker.asset";
+        private const string ScanHintTilePath = "Assets/Art/Minebot/Tiles/Tile_HintScan.asset";
+        private const string RepairStationTilePath = "Assets/Art/Minebot/Tiles/Tile_FacilityRepairStation.asset";
+        private const string RobotFactoryTilePath = "Assets/Art/Minebot/Tiles/Tile_FacilityRobotFactory.asset";
+        private const string BuildPreviewValidTilePath = "Assets/Art/Minebot/Tiles/Tile_BuildPreviewValid.asset";
+        private const string BuildPreviewInvalidTilePath = "Assets/Art/Minebot/Tiles/Tile_BuildPreviewInvalid.asset";
+        private const string SoilDetailTilePath = "Assets/Art/Minebot/Tiles/Tile_DetailSoil.asset";
+        private const string StoneDetailTilePath = "Assets/Art/Minebot/Tiles/Tile_DetailStone.asset";
+        private const string HardRockDetailTilePath = "Assets/Art/Minebot/Tiles/Tile_DetailHardRock.asset";
+        private const string UltraHardDetailTilePath = "Assets/Art/Minebot/Tiles/Tile_DetailUltraHard.asset";
 
-        private static readonly AssetEntry[] TileEntries =
+        private static readonly AssetEntry[] TileEntries = CreateTileEntries();
+        private static readonly string[] PaletteTilePaths =
         {
-            new("Tile_FloorCave", "Assets/Art/Minebot/Sprites/Tiles/tile_floor_cave.png", "Assets/Art/Minebot/Tiles/Tile_FloorCave.asset"),
-            new("Tile_WallSoil", "Assets/Art/Minebot/Sprites/Tiles/tile_wall_soil.png", "Assets/Art/Minebot/Tiles/Tile_WallSoil.asset"),
-            new("Tile_WallStone", "Assets/Art/Minebot/Sprites/Tiles/tile_wall_stone.png", "Assets/Art/Minebot/Tiles/Tile_WallStone.asset"),
-            new("Tile_WallHardRock", "Assets/Art/Minebot/Sprites/Tiles/tile_wall_hard_rock.png", "Assets/Art/Minebot/Tiles/Tile_WallHardRock.asset"),
-            new("Tile_WallUltraHard", "Assets/Art/Minebot/Sprites/Tiles/tile_wall_ultra_hard.png", "Assets/Art/Minebot/Tiles/Tile_WallUltraHard.asset"),
-            new("Tile_Boundary", "Assets/Art/Minebot/Sprites/Tiles/tile_boundary.png", "Assets/Art/Minebot/Tiles/Tile_Boundary.asset"),
-            new("Tile_OverlayDanger", "Assets/Art/Minebot/Sprites/Tiles/tile_overlay_danger.png", "Assets/Art/Minebot/Tiles/Tile_OverlayDanger.asset"),
-            new("Tile_OverlayMarker", "Assets/Art/Minebot/Sprites/Tiles/tile_overlay_marker.png", "Assets/Art/Minebot/Tiles/Tile_OverlayMarker.asset"),
-            new("Tile_HintScan", "Assets/Art/Minebot/Sprites/Tiles/tile_hint_scan.png", "Assets/Art/Minebot/Tiles/Tile_HintScan.asset"),
-            new("Tile_FacilityRepairStation", "Assets/Art/Minebot/Sprites/Tiles/tile_facility_repair_station.png", "Assets/Art/Minebot/Tiles/Tile_FacilityRepairStation.asset"),
-            new("Tile_FacilityRobotFactory", "Assets/Art/Minebot/Sprites/Tiles/tile_facility_robot_factory.png", "Assets/Art/Minebot/Tiles/Tile_FacilityRobotFactory.asset")
+            FloorTilePath,
+            SoilWallTilePath,
+            StoneWallTilePath,
+            HardRockWallTilePath,
+            UltraHardWallTilePath,
+            BoundaryTilePath,
+            DangerTilePath,
+            MarkerTilePath,
+            BuildPreviewValidTilePath,
+            BuildPreviewInvalidTilePath,
+            RepairStationTilePath,
+            RobotFactoryTilePath
         };
 
         private static readonly TextureEntry[] ActorEntries =
@@ -57,9 +76,9 @@ namespace Minebot.Editor
             }
 
             EnsureTextureImporters();
-            Tile[] tiles = EnsureTileAssets();
-            EnsureArtSet(tiles);
-            EnsurePalettePrefab(tiles);
+            EnsureTileAssets();
+            EnsureArtSet();
+            EnsurePalettePrefab();
             AssetDatabase.SaveAssets();
         }
 
@@ -150,12 +169,10 @@ namespace Minebot.Editor
             }
         }
 
-        private static Tile[] EnsureTileAssets()
+        private static void EnsureTileAssets()
         {
-            var tiles = new Tile[TileEntries.Length];
-            for (int i = 0; i < TileEntries.Length; i++)
+            foreach (AssetEntry entry in TileEntries)
             {
-                AssetEntry entry = TileEntries[i];
                 Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(entry.SpritePath);
                 if (sprite == null)
                 {
@@ -173,13 +190,10 @@ namespace Minebot.Editor
                 tile.sprite = sprite;
                 tile.colliderType = Tile.ColliderType.None;
                 EditorUtility.SetDirty(tile);
-                tiles[i] = tile;
             }
-
-            return tiles;
         }
 
-        private static void EnsureArtSet(Tile[] tiles)
+        private static void EnsureArtSet()
         {
             MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(ArtSetPath);
             if (artSet == null)
@@ -191,23 +205,31 @@ namespace Minebot.Editor
             Sprite player = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/Actors/actor_player_minebot.png");
             Sprite robot = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/Actors/actor_helper_robot.png");
             artSet.Configure(
-                tiles[0],
-                tiles[1],
-                tiles[2],
-                tiles[3],
-                tiles[4],
-                tiles[5],
-                tiles[6],
-                tiles[7],
-                tiles[8],
-                tiles[9],
-                tiles[10],
+                LoadTile(FloorTilePath),
+                LoadTile(SoilWallTilePath),
+                LoadTile(StoneWallTilePath),
+                LoadTile(HardRockWallTilePath),
+                LoadTile(UltraHardWallTilePath),
+                LoadTile(BoundaryTilePath),
+                LoadTile(DangerTilePath),
+                LoadTile(MarkerTilePath),
+                LoadTile(ScanHintTilePath),
+                LoadTile(RepairStationTilePath),
+                LoadTile(RobotFactoryTilePath),
                 player,
-                robot);
+                robot,
+                LoadTile(SoilDetailTilePath),
+                LoadTile(StoneDetailTilePath),
+                LoadTile(HardRockDetailTilePath),
+                LoadTile(UltraHardDetailTilePath),
+                LoadTile(BuildPreviewValidTilePath),
+                LoadTile(BuildPreviewInvalidTilePath),
+                LoadIndexedTiles("Assets/Art/Minebot/Tiles/Tile_WallContour_{0:00}.asset"),
+                LoadIndexedTiles("Assets/Art/Minebot/Tiles/Tile_DangerContour_{0:00}.asset"));
             EditorUtility.SetDirty(artSet);
         }
 
-        private static void EnsurePalettePrefab(Tile[] tiles)
+        private static void EnsurePalettePrefab()
         {
             var root = new GameObject("Minebot Tile Palette");
             root.AddComponent<Grid>();
@@ -215,16 +237,33 @@ namespace Minebot.Editor
             tilemapObject.transform.SetParent(root.transform, false);
             var tilemap = tilemapObject.GetComponent<Tilemap>();
 
-            for (int i = 0; i < tiles.Length; i++)
+            for (int i = 0; i < PaletteTilePaths.Length; i++)
             {
-                if (tiles[i] != null)
+                Tile tile = LoadTile(PaletteTilePaths[i]);
+                if (tile != null)
                 {
-                    tilemap.SetTile(new Vector3Int(i, 0, 0), tiles[i]);
+                    tilemap.SetTile(new Vector3Int(i, 0, 0), tile);
                 }
             }
 
             PrefabUtility.SaveAsPrefabAsset(root, PalettePrefabPath);
             UnityEngine.Object.DestroyImmediate(root);
+        }
+
+        private static Tile LoadTile(string path)
+        {
+            return AssetDatabase.LoadAssetAtPath<Tile>(path);
+        }
+
+        private static Tile[] LoadIndexedTiles(string tilePathFormat)
+        {
+            var tiles = new Tile[DualGridContour.TileCount];
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                tiles[i] = LoadTile(string.Format(tilePathFormat, i));
+            }
+
+            return tiles;
         }
 
         private static void ValidateTexture(string assetPath, int pixelsPerUnit, ICollection<string> errors)
@@ -281,6 +320,44 @@ namespace Minebot.Editor
 
             public string SpritePath { get; }
             public int PixelsPerUnit { get; }
+        }
+
+        private static AssetEntry[] CreateTileEntries()
+        {
+            var entries = new List<AssetEntry>
+            {
+                new("Tile_FloorCave", "Assets/Art/Minebot/Sprites/Tiles/tile_floor_cave.png", FloorTilePath),
+                new("Tile_WallSoil", "Assets/Art/Minebot/Sprites/Tiles/tile_wall_soil.png", SoilWallTilePath),
+                new("Tile_WallStone", "Assets/Art/Minebot/Sprites/Tiles/tile_wall_stone.png", StoneWallTilePath),
+                new("Tile_WallHardRock", "Assets/Art/Minebot/Sprites/Tiles/tile_wall_hard_rock.png", HardRockWallTilePath),
+                new("Tile_WallUltraHard", "Assets/Art/Minebot/Sprites/Tiles/tile_wall_ultra_hard.png", UltraHardWallTilePath),
+                new("Tile_Boundary", "Assets/Art/Minebot/Sprites/Tiles/tile_boundary.png", BoundaryTilePath),
+                new("Tile_OverlayDanger", "Assets/Art/Minebot/Sprites/Tiles/tile_overlay_danger.png", DangerTilePath),
+                new("Tile_OverlayMarker", "Assets/Art/Minebot/Sprites/Tiles/tile_overlay_marker.png", MarkerTilePath),
+                new("Tile_HintScan", "Assets/Art/Minebot/Sprites/Tiles/tile_hint_scan.png", ScanHintTilePath),
+                new("Tile_FacilityRepairStation", "Assets/Art/Minebot/Sprites/Tiles/tile_facility_repair_station.png", RepairStationTilePath),
+                new("Tile_FacilityRobotFactory", "Assets/Art/Minebot/Sprites/Tiles/tile_facility_robot_factory.png", RobotFactoryTilePath),
+                new("Tile_BuildPreviewValid", "Assets/Art/Minebot/Sprites/Tiles/tile_build_preview_valid.png", BuildPreviewValidTilePath),
+                new("Tile_BuildPreviewInvalid", "Assets/Art/Minebot/Sprites/Tiles/tile_build_preview_invalid.png", BuildPreviewInvalidTilePath),
+                new("Tile_DetailSoil", "Assets/Art/Minebot/Sprites/Tiles/tile_detail_soil.png", SoilDetailTilePath),
+                new("Tile_DetailStone", "Assets/Art/Minebot/Sprites/Tiles/tile_detail_stone.png", StoneDetailTilePath),
+                new("Tile_DetailHardRock", "Assets/Art/Minebot/Sprites/Tiles/tile_detail_hard_rock.png", HardRockDetailTilePath),
+                new("Tile_DetailUltraHard", "Assets/Art/Minebot/Sprites/Tiles/tile_detail_ultra_hard.png", UltraHardDetailTilePath)
+            };
+
+            for (int i = 0; i < DualGridContour.TileCount; i++)
+            {
+                entries.Add(new(
+                    $"Tile_WallContour_{i:00}",
+                    $"Assets/Art/Minebot/Sprites/Tiles/tile_wall_contour_{i:00}.png",
+                    $"Assets/Art/Minebot/Tiles/Tile_WallContour_{i:00}.asset"));
+                entries.Add(new(
+                    $"Tile_DangerContour_{i:00}",
+                    $"Assets/Art/Minebot/Sprites/Tiles/tile_danger_contour_{i:00}.png",
+                    $"Assets/Art/Minebot/Tiles/Tile_DangerContour_{i:00}.asset"));
+            }
+
+            return entries.ToArray();
         }
     }
 }

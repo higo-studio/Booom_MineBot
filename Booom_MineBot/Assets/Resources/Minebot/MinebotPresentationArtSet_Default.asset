@@ -22,6 +22,46 @@ MonoBehaviour:
   markerTile: {fileID: 11400000, guid: 72aa5024b3fc24142b00e607645a9793, type: 2}
   scanHintTile: {fileID: 11400000, guid: 749469656695a49dfbbcd0a1c1c1c093, type: 2}
   dangerOutlineTiles: []
+  wallContourTiles:
+  - {fileID: 11400000, guid: 42c53e3fc13c14dee8bb144a696ff1d4, type: 2}
+  - {fileID: 11400000, guid: e32b419b94f014ffd883b07c9f2451af, type: 2}
+  - {fileID: 11400000, guid: f06a958764c5c42b1919afb3bb96d162, type: 2}
+  - {fileID: 11400000, guid: e8d9e9a7bea9845fc86571d796f983f5, type: 2}
+  - {fileID: 11400000, guid: dee2a78bcf25e40b7a99f757cd117ba0, type: 2}
+  - {fileID: 11400000, guid: 2957220ebc15746ab994b5dd164be206, type: 2}
+  - {fileID: 11400000, guid: c7fe22e22c9b041fb9deb5906aa7e984, type: 2}
+  - {fileID: 11400000, guid: b688c4412655f4d628e810c81ef547c7, type: 2}
+  - {fileID: 11400000, guid: 84462fdd40bce4cca98b1451949ae444, type: 2}
+  - {fileID: 11400000, guid: c5fd8e9c6ae954073953d38f845c6f8f, type: 2}
+  - {fileID: 11400000, guid: 909db7e62f19b445b9132a10e86e9e04, type: 2}
+  - {fileID: 11400000, guid: a62758a099a454d9c8476e2b910aef8a, type: 2}
+  - {fileID: 11400000, guid: 6b71d26905a4e4d0cb561777d9ffc820, type: 2}
+  - {fileID: 11400000, guid: 06655ee64488e43ed8035282bf2f9fd3, type: 2}
+  - {fileID: 11400000, guid: 222c82899706a40b49358050639d37cf, type: 2}
+  - {fileID: 11400000, guid: 6b62e05d20da746b0bf89be742c5e1b1, type: 2}
+  dangerContourTiles:
+  - {fileID: 11400000, guid: 1dd428f5c9b484ae387c45c57ae22211, type: 2}
+  - {fileID: 11400000, guid: f21d42dabf6e34aaaac8f7c72e7e089d, type: 2}
+  - {fileID: 11400000, guid: 34a6fb84c69b44b73adbd16f82e3939f, type: 2}
+  - {fileID: 11400000, guid: 3301afafdcf164dc9b275b7b33cc1b08, type: 2}
+  - {fileID: 11400000, guid: 0e4827c088d8b44a596201639e9e01f3, type: 2}
+  - {fileID: 11400000, guid: 9c9d9fb0f39b84953bdec0b8acfcef30, type: 2}
+  - {fileID: 11400000, guid: b2bbab72b67864b86a6811c9f8e0e2b0, type: 2}
+  - {fileID: 11400000, guid: 70e25cec12bdc4b6fb3ff30b0c9bc550, type: 2}
+  - {fileID: 11400000, guid: 8523bcda5d09e4a84b5028da50a699b1, type: 2}
+  - {fileID: 11400000, guid: fea488488d34946baab783d3d6aa6637, type: 2}
+  - {fileID: 11400000, guid: 99e899be71f0b4e4888b6affa6d949db, type: 2}
+  - {fileID: 11400000, guid: 2d99a960f0148497aabca5b65bb19646, type: 2}
+  - {fileID: 11400000, guid: 69212273dd6ec43adb8e2c128b1c0ac6, type: 2}
+  - {fileID: 11400000, guid: 125e5419fe82646b1aaf07028a62fc4e, type: 2}
+  - {fileID: 11400000, guid: 78765392326644810b18189f05f66656, type: 2}
+  - {fileID: 11400000, guid: df20f4bedd7db48869b27b3fc6d90cc7, type: 2}
+  soilDetailTile: {fileID: 11400000, guid: eadbe0efc521d486996b18eb611d8414, type: 2}
+  stoneDetailTile: {fileID: 11400000, guid: d313efc3aa1a64739b604ec2f0b9da70, type: 2}
+  hardRockDetailTile: {fileID: 11400000, guid: 7f793e29c030844338a42b91dc92eadc, type: 2}
+  ultraHardDetailTile: {fileID: 11400000, guid: 73b31cb43794e42169ec45249b381054, type: 2}
+  buildPreviewValidTile: {fileID: 11400000, guid: 16c0cbb2b106a492cb6f0f52bd5ada45, type: 2}
+  buildPreviewInvalidTile: {fileID: 11400000, guid: f468a47b07aeb4281bffb70d8d30dfe9, type: 2}
   scanLabelOffset: {x: 0, y: 0.62}
   scanLabelColor: {r: 1, g: 0.95, b: 0.58, a: 1}
   scanLabelFontSize: 4

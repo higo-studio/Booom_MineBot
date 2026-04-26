@@ -25,18 +25,33 @@ LogicalGridState
 
 另一方面，现有危险区逻辑仍是占位方案：`WaveSurvivalService.EvaluateDangerZones(...)` 把危险区算成若干 origin 的曼哈顿半径整片区域，而 `BuildDangerOrigins()` 甚至仍返回固定角点。这个方案足以先打通波次失败、机器人避险和 HUD 倒计时闭环，但与本轮确认的“危险区出现在平地与岩石边沿”不一致。
 
-因此本设计采用混合方案：terrain / 碰撞仍为 world grid；`MineableWall` 的轮廓由 dual-grid 负责显示；`DangerZone` 的玩法真相则保留在 world-grid 上，但从“半径块”改为“空地-岩壁边沿带”，并由 `Danger Contour` 直接可视化。
+因此本设计采用混合方案：terrain / 碰撞仍为 world grid；`MineableWall` 的轮廓由 dual-grid 负责显示；`DangerZone` 的玩法真相则保留在 world-grid 上，但从“半径块”改为“空地-岩壁边沿带”，并由低透明 `Danger Base` warning tile 与 `Danger Contour` 共同可视化。
+
+这次额外拉取并审查了参考仓库 `jess-hammer/dual-grid-tilemap-system-unity`（当前 HEAD `c9f948d`）。它给出的有效经验很具体：
+
+- 同一 `Grid` 下同时存在 `placeholderTilemap` 与 `displayTilemap`
+- `displayTilemap` 的 Transform 位于 `(-0.5, -0.5, 0)`，以 half-cell offset 承接 dual-grid 结果
+- 用项目自管的 16 项 2x2 邻域 lookup table 映射 tile，而不是依赖 `RuleTile`
+- 一个 placeholder cell 变化时，只重算周围 4 个 display cells
+
+它也暴露了几个不适合 Minebot 直接照搬的点：
+
+- 把隐藏 tilemap 当真相层会与 `MapDefinition -> LogicalGridState` 形成第二份权威数据
+- 初始化通过固定 `-50..50` 全图 brute force 刷新，缺少 bounds 感知
+- 示例只覆盖二值地形切换，不包含多层 overlay、危险区真相、建筑预览或测试基线
+
+因此 Minebot 应该借它的“offset 约定 + lookup 拓扑 + 局部刷新思路”，但明确拒绝“placeholder tilemap 重新成为真相层”。
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - 为 `MineableWall` 增加更自然的 dual-grid 轮廓显示，同时保留现有逻辑格真相、Bake 管线和碰撞模型。
-- 让 `DangerZone` 的玩法真相与视觉反馈都围绕“空地与可挖岩壁的边沿带”建立，而不是继续沿用 origin + 半径整片覆盖或逐格框线。
+- 让 `DangerZone` 的玩法真相与视觉反馈都围绕“空地与可挖岩壁的边沿带”建立，并以 `Danger Base` + `Danger Contour` 组合显示，而不是继续沿用 origin + 半径整片覆盖或逐格框线。
 - 明确运行时图层职责：什么信息属于 world-aligned base/detail，什么信息属于 half-cell contour。
 - 把 Image2 资产生成目标从“单格墙 tile”改成“wall contour atlas + danger contour overlay + hardness detail overlays”，并把这批素材重生本身纳入本 change 的正式交付范围。
 - 让 `Gameplay` / `DebugSandbox` 的视觉升级不会破坏标记、危险区、建造预览、探测数字和角色碰撞可读性。
-- 让玩家失败、机器人避险和建造阻挡直接对齐玩家可见的危险边界。
+- 让玩家失败、机器人避险和建造阻挡直接对齐玩家可见的危险边界，同时保持危险空地仍可通行。
 - 保持现有测试可迁移，而不是推翻整个表现层验收基线。
 
 **Non-Goals:**
@@ -56,6 +71,7 @@ LogicalGridState
 
 ```text
 Terrain Base Tilemap      world-aligned
+Danger Base Tilemap       world-aligned overlay
 Wall Contour Tilemap      half-cell offset dual-grid
 Danger Contour Tilemap    half-cell offset overlay contour
 ```
@@ -66,6 +82,11 @@ Danger Contour Tilemap    half-cell offset overlay contour
   - 空地底图
   - 不可破坏边界
   - MineableWall 的硬度 detail 表达
+  - 同类型岩体内部的连续材质铺陈
+- `Danger Base Tilemap` 继续按 world cell 刷新，负责：
+  - 为每个 `IsDangerZone` 空地格铺设 warning base tile
+  - 让危险带厚度超过 1 格时，内部危险格也保持可读
+  - 保持低透明度，不压过地形、设施和角色
 - `Wall Contour Tilemap` 只负责：
   - 基于 `MineableWall` / `not MineableWall` 的轮廓形状
   - 半格偏移显示
@@ -75,7 +96,13 @@ Danger Contour Tilemap    half-cell offset overlay contour
   - 半格偏移显示
   - 表达连续的波次危险区域轮廓，而不是每格一个框
 
-第一版危险区不再保留“逐格框线”作为主显示，也不要求额外的内部 fill。玩家要读的是危险边界，而不是危险格的调试栅格。
+图层装配约定参考上述仓库，但绑定到 Minebot 现有 `Grid Root`：
+
+- `Terrain Base`、`Danger Base`、`Facility`、`Marker`、`BuildPreview` 仍保持 `localPosition = (0, 0, 0)`
+- `Wall Contour` 与 `Danger Contour` 作为同一 `Grid Root` 下的子 Tilemap，`localPosition = (-0.5, -0.5, 0)`
+- 不新增隐藏 placeholder Tilemap；wall / danger 的 mask 由 `LogicalGridState` 或其临时派生缓存直接生成
+
+第一版危险区采用“warning base tile + contour 边界”组合显示。玩家既要能一眼读出危险格覆盖范围，也要能从连续轮廓读出危险带边界；但 base tile 必须维持低透明度，不能把地图语义压成整片纯红面。
 
 这意味着 MineableWall 的最终视觉来自两层叠加：
 
@@ -85,10 +112,18 @@ base/detail (对齐 world grid)
 contour silhouette (对齐 dual grid)
 ```
 
+并且这两层必须遵守一个额外约束：
+
+- 相邻的同类型 `MineableWall` 在 base/detail 层里应优先读成同一整块连续岩面
+- 明显边界只出现在与空地接壤的外缘、转角、洞口和新挖开的破口
+- 同类型岩体的内部连接缝不得重复描边，否则会重新退回“每格一块砖”的读感
+
 危险区的最终视觉则来自：
 
 ```text
 danger truth mask (IsDangerZone)
+        +
+danger base tile (对齐 world grid)
         +
 danger contour overlay (对齐 dual grid)
 ```
@@ -97,7 +132,8 @@ danger contour overlay (对齐 dual grid)
 
 - dual-grid 最擅长表达“空/实”边界，而不是每格玩法语义。
 - `HardnessTier` 是玩家决策信息，必须保留 world-grid 可读性。
-- 危险区玩家真正需要读的是“危险边界”，而不是“危险格子清单”。
+- 用户当前要求的是“同类岩体之间自然连成整片，只有外缘出边界”，这更适合由 world-grid detail + contour 外缘分工来完成，而不是给每个墙格都画完整框线。
+- 危险区玩家既需要读到“危险边界”，也需要快速读到危险格范围；base tile 负责后者，contour 负责前者。
 - 可以在不改碰撞模型的前提下提升墙体轮廓观感。
 
 放弃方案：直接让 `Terrain Tilemap` 本身改为 dual-grid 主层。
@@ -114,27 +150,29 @@ danger contour overlay (对齐 dual grid)
 第一版 world-solid contour 解析只把 `TerrainKind.MineableWall` 当作 solid mask；`Empty` 与 `Indestructible` 都不进入可挖轮廓集合。与此同时，`DangerZone` 不再由若干 origin 的曼哈顿半径整片生成，而是按空地一侧的岩壁边沿带生成：
 
 - 危险前沿：当前为 `TerrainKind.Empty`，且至少与一个 4 邻接 `MineableWall` 接壤的格子
-- 危险带：从危险前沿出发，仅穿过 `TerrainKind.Empty` 向内扩张 `bandThickness` 格得到的区域
+- 危险带：从危险前沿出发，仅穿过 `TerrainKind.Empty` 向内扩张 `bandThickness` 格得到的区域；对角仅接触的空地不进入危险带，避免把角点上方或侧方额外膨胀成多余危险块
+- 空岛收口：当重算结束后，只保留与出生点所在主空地腔体连通的安全 pocket；其它不属于这块主空地腔体的安全 pocket 会并回危险区，以避免视觉上出现无意义的小安全孔洞，同时避免把同一洞穴里仅仅被危险带切开的安全 pocket 误判成空岛
 - `bandThickness` 随波次增长；现有 `DangerRadius` 配置在实现期迁移为“危险带厚度”语义即可
 - `TerrainKind.Indestructible` 不参与危险前沿，避免地图外框被误读为可塌方岩层
 - 玩家失败、机器人损毁、机器人避险、建造限制继续统一读取 `LogicalGridState.IsDangerZone`
+- 玩家移动与角色碰撞不读取 `IsDangerZone`；空地是否可通行仍只由地形和建筑占用决定
 
 表现规则：
 
 - `MineableWall`：base/detail + contour
-- `Empty` 且位于危险带中：floor + danger contour
+- `Empty` 且位于危险带中：floor + danger base + danger contour
 - `Empty` 且不在危险带中：floor only
 - `Indestructible`：boundary only
 
 选择理由：
 
 - 直接匹配“危险区出现在平地与岩石边沿”的确认图像。
-- 让玩家可见的红色边沿与致死/阻挡真相保持同形，避免“看起来安全但结算致死”的错位。
+- 让玩家可见的红色边沿与致死/避险/建造限制真相保持同形，避免“看起来安全但结算致死”的错位。
 - 波次压力会自然转化为“维护通道宽度”，比记忆若干半径块更符合矿洞塌方语义。
 - 保持 world-grid 数据模型与 `IsDangerZone` 下游查询接口不变。
 - 如果后续要做局部震源、保留通道豁免或特殊地层，只需要在“哪些 `MineableWall` 算不稳定”之前增加筛选步骤；边沿带生成规则本身不必推翻。
 
-### 3. Wall 与 Danger 共用 2x2 mask -> contour index 的解析框架，但使用独立 tilemap 与独立资源族
+### 3. Wall 与 Danger 共用 2x2 mask -> contour index 的显式 lookup 解析框架，但使用独立 tilemap 与独立资源族
 
 设墙体 mask 为 `W(x,y)`，其中 `MineableWall = 1`，其它为 `0`。  
 设危险区 mask 为 `D(x,y)`，其中 `IsDangerZone = 1`，其它为 `0`。  
@@ -147,11 +185,26 @@ M(i-1, j)    M(i, j)
 
 其中 `M` 可以是 `W` 或 `D`。从这个 2x2 mask 推导 contour atlas index。
 
+实现上采用项目自管的固定 lookup，而不是引入 `RuleTile`：
+
+```text
+bit 3 = topLeft
+bit 2 = topRight
+bit 1 = bottomLeft
+bit 0 = bottomRight
+
+index = (tl << 3) | (tr << 2) | (bl << 1) | br
+```
+
+`index` 映射到 wall contour 或 danger contour 各自的 tile 数组。  
+这样做与参考仓库的 16 项显式字典本质一致，但更适合 Minebot 后续把 lookup 与资源配置分离。
+
 结果：
 
 - 总形态数为 15/16（含 empty）
 - 一个 world cell 改变时，墙体 contour 只需重算其周围 4 个 contour cell
-- 一次危险带厚度变化，或挖掘 / 爆炸导致局部岩壁边界变化时，可以先全量重算 danger truth + danger contour；后续如有需要，再升级为受影响空地区域的脏刷新
+- `Wall Contour` 必须提供局部失效入口，避免像参考仓库那样在 Minebot 内退回固定区域全量刷新
+- 一次危险带厚度变化，或挖掘 / 爆炸导致局部岩壁边界变化时，第一版可以先全量重算 danger truth + danger contour；后续如有需要，再升级为受影响空地区域的脏刷新
 
 选择理由：
 
@@ -182,10 +235,11 @@ Image2 的目标资产拆为三组：
 - 统一明暗和外轮廓语言
 - 不按 `HardnessTier` 分四套重复 contour atlas
 
-#### B. danger contour overlay
+#### B. danger warning base + contour overlay
 
-这是独立 overlay 资产。目标是与 wall contour 共享拓扑语言、但明显区分语义的 danger 边界资源。要求：
+这是独立 overlay 资产组合。目标是以一个 world-grid warning base tile 搭配与 wall contour 共享拓扑语言、但明显区分语义的 danger 边界资源。要求：
 
+- danger base tile 需要能单格平铺，透明度足够低，不盖掉地形与设施辨识
 - 仍然支持 15/16 形态或与之等价的 half-cell contour 组合
 - 不直接复用 wall contour atlas 的材质与颜色
 - 颜色、线宽、发光感应明确表达“危险边界”，而不是“岩壁”
@@ -204,9 +258,10 @@ Image2 的目标资产拆为三组：
 
 - detail 应叠加在 world-grid 基础格上
 - 重点表达材料差异、裂纹、颗粒、色带，而不是重新画轮廓
+- 相邻同类型岩体拼接后必须优先读成连续纹理面，不能在每个格子的四边重复画一圈深色描边
 - 必须与 contour family 风格统一
 
-这意味着后续 prompt、筛选和切片都必须优先满足 wall / danger contour 的成套完整性与语义分离，而不是先追求每张单格 tile 自洽。
+这意味着后续 prompt、筛选和切片都必须优先满足 wall contour、danger base 与 danger contour 的成套完整性与语义分离，而不是先追求每张单格 tile 自洽。
 
 ### 5. `MinebotPresentationArtSet` 需要从单字段升级到 contour family / detail 组合配置
 
@@ -248,11 +303,11 @@ MinebotPresentationArtSet
 
 - `Terrain Base Tilemap` 存在
 - `Wall Contour Tilemap` 存在
-- `Danger Contour Tilemap` 存在
+- `Danger Base Tilemap` 与 `Danger Contour Tilemap` 都存在
 - 出生点仍然显示 floor
 - 某个 `MineableWall` 格存在对应 hardess detail
 - 同一处墙体周围存在 contour tiles
-- 连续危险区会显示为连续 contour 边界，而不是每个格子一个框
+- 连续危险区会显示为 warning base tile + 连续 contour 边界，而不是每个格子一个框
 - 墙被挖开后：
   - `Terrain Base` 该格切到 floor
   - 周边 wall contour 变化
@@ -269,6 +324,9 @@ MinebotPresentationArtSet
 - [Risk] 如果仍按每种硬度各做一整套 contour atlas，资源量会暴涨。  
   Mitigation：共享一套 contour atlas，硬度只做 detail 层。
 
+- [Risk] 如果 detail 资源本身在每格四周都带完整描边，即使有 contour 也会把整片岩体重新切成棋盘格。  
+  Mitigation：把“内部连接缝弱化、只在暴露外缘保留明显边界”写入 prompt、筛选标准和验收用例。
+
 - [Risk] `Indestructible` 不进入 contour 后，边界和矿壁的视觉风格差异可能偏大。  
   Mitigation：允许 boundary 在明暗和材质上接近，但轮廓表达仍保持硬边。
 
@@ -281,6 +339,9 @@ MinebotPresentationArtSet
 - [Risk] 挖开单格岩壁会立刻改变周围危险带，若刷新节奏不清晰，玩家可能觉得规则在“跳”。  
   Mitigation：`IsDangerZone` 与 danger contour 同帧刷新，并在 HUD/提示语里明确危险带代表当前塌方边界，而不是静态标记。
 
+- [Risk] 如果为了“贴近参考仓库”而重新引入隐藏 placeholder Tilemap，Minebot 会出现双份地形真相并增加漂移风险。  
+  Mitigation：明确只复用其 offset / lookup / 局部刷新思路，mask 始终直接来自 `LogicalGridState`。
+
 - [Risk] 现有测试过度绑定 tile 名称，会让迁移变得脆弱。  
   Mitigation：把断言改成图层职责与关键位置表现，而不是只断单个 terrain tile 名。
 
@@ -291,19 +352,19 @@ MinebotPresentationArtSet
 
 1. 先在 OpenSpec 中固定“wall contour + danger edge-band truth + hardness detail”的方向。
 2. 调整 `WaveSurvivalService` 与危险区入口语义，把 `IsDangerZone` 改为由空地-岩壁边沿带推导，同时保持下游系统继续读取同一字段。
-3. 重写 Image2 prompt 与筛选标准，使输出以 contour family 为核心。
-4. 生成并筛选 wall contour / danger contour / detail 资源，整理到 `Sprites/Tiles`。
-5. 扩展 `MinebotPresentationArtSet` 配置职责。
-6. 改造 `TilemapGridPresentation`，增加 wall contour 与 danger contour layer 刷新，并让表现严格跟随新的 danger truth。
-7. 更新 `Gameplay` / `DebugSandbox` 装配与 EditMode / PlayMode 验收。
+3. 明确 contour tilemap 的 shared Grid 布局、`(-0.5, -0.5)` 偏移和 4-bit lookup 约定，不引入 placeholder truth tilemap。
+4. 重写 Image2 prompt 与筛选标准，使输出以 contour family 为核心。
+5. 生成并筛选 wall contour / danger contour / detail 资源，整理到 `Sprites/Tiles`。
+6. 扩展 `MinebotPresentationArtSet` 配置职责。
+7. 改造 `TilemapGridPresentation`，增加 wall contour 与 danger contour layer 刷新，并让表现严格跟随新的 danger truth。
+8. 更新 `Gameplay` / `DebugSandbox` 装配与 EditMode / PlayMode 验收。
 
 ## Open Questions
 
-- 第一版 contour atlas 是否直接要求完整 16 形态，还是允许先以 6 个对称基础形态生成后再人工扩展。
-  当前倾向：先直接收完整 15/16 形态，避免实现期再做额外拼装规则。
+- 第一版资源是否必须落成 15/16 张独立 tile，还是允许像参考仓库 README 提到的那样由更少的对称母片派生出 16 个逻辑索引。
+  当前倾向：运行时始终按 16 个逻辑索引消费；美术资产是否复用对称母片，等首批 Image2 候选出来后再定，不把这个决定写死进实现。
 
 - hardness detail 是画在同一 `Terrain Base Tilemap` 上，还是拆成独立 `Wall Detail Tilemap`。
   当前倾向：优先复用 `Terrain Base Tilemap`；如果 sorting 或资源叠加受限，再拆独立 detail layer。
 
-- danger contour 第一版是否需要额外的低透明度内部 fill。
-  当前倾向：不需要；第一版只保留连续边界，把危险区主信号集中在 contour 上。
+- danger base 已经确定纳入第一版显示；后续只需要再决定是否要做更强的动画或 shader，而不是再回到 contour-only。
