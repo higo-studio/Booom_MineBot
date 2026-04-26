@@ -122,13 +122,13 @@ namespace Minebot.Presentation
             switch (hardness)
             {
                 case HardnessTier.Stone:
-                    return stoneWallTile != null ? stoneWallTile : soilWallTile;
+                    return stoneDetailTile != null ? stoneDetailTile : stoneWallTile != null ? stoneWallTile : soilWallTile;
                 case HardnessTier.HardRock:
-                    return hardRockWallTile != null ? hardRockWallTile : soilWallTile;
+                    return hardRockDetailTile != null ? hardRockDetailTile : hardRockWallTile != null ? hardRockWallTile : soilWallTile;
                 case HardnessTier.UltraHard:
-                    return ultraHardWallTile != null ? ultraHardWallTile : hardRockWallTile != null ? hardRockWallTile : soilWallTile;
+                    return ultraHardDetailTile != null ? ultraHardDetailTile : ultraHardWallTile != null ? ultraHardWallTile : hardRockWallTile != null ? hardRockWallTile : soilWallTile;
                 default:
-                    return soilWallTile;
+                    return soilDetailTile != null ? soilDetailTile : soilWallTile;
             }
         }
 

@@ -26,12 +26,12 @@ Soil、Stone、HardRock 和 UltraHard 的美术差异 SHALL 主要由 world-grid
 - **WHEN** 开发者审查进入项目的最终墙体资源
 - **THEN** 能看到 dual-grid contour 资源与 hardness detail 资源分别归档，并且两者职责清晰可辨
 
-### Requirement: 危险区资源必须成套包含 warning base tile 与 contour overlay
-项目在生产危险区相关像素风资源时 SHALL 同时提供可按格子平铺的 warning base tile 与 half-cell danger contour overlay。warning base tile MUST 保持低透明度与危险语义，不能替代 contour；contour 也 MUST 继续承担危险边界可读性。
+### Requirement: 危险区资源当前必须至少包含 warning base tile
+项目在生产危险区相关像素风资源时 SHALL 至少提供可按格子平铺的 warning base tile。当前运行时不再要求消费 half-cell danger contour overlay；如继续保留既有 danger contour 素材，也只作为存档或后续探索候选。
 
 #### Scenario: 生成危险区相关资源
 - **WHEN** 团队为危险区重生像素风资源
-- **THEN** 输出会同时覆盖可平铺的 danger base tile 与连续的 danger contour，而不是只交付其中一类
+- **THEN** 输出至少会覆盖可平铺的 danger base tile，而不会把 danger contour 作为当前运行时必需交付
 
 #### Scenario: 筛选 danger base tile
 - **WHEN** 团队从多组 Image2 输出中挑选 danger base tile

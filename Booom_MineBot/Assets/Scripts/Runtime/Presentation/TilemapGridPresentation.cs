@@ -15,7 +15,6 @@ namespace Minebot.Presentation
         private bool buildPreviewIsValid;
         private Vector2Int cachedGridSize;
         private bool[] wallMaskCache;
-        private bool[] dangerMaskCache;
 
         public Tilemap TerrainTilemap { get; private set; }
         public Tilemap FacilityTilemap { get; private set; }
@@ -63,11 +62,15 @@ namespace Minebot.Presentation
             FacilityTilemap.ClearAllTiles();
             MarkerTilemap.ClearAllTiles();
             DangerTilemap.ClearAllTiles();
+            if (DangerContourTilemap != null)
+            {
+                DangerContourTilemap.ClearAllTiles();
+            }
+
             BuildPreviewTilemap.ClearAllTiles();
 
             LogicalGridState grid = services.Grid;
             bool fullRebuild = EnsureMaskCaches(grid.Size);
-            bool dangerChanged = fullRebuild;
             var changedWallCells = new System.Collections.Generic.HashSet<GridPosition>();
             foreach (GridPosition position in grid.Positions())
             {
@@ -103,12 +106,6 @@ namespace Minebot.Presentation
                     wallMaskCache[cellIndex] = wallMask;
                     changedWallCells.Add(position);
                 }
-
-                if (fullRebuild || dangerMaskCache[cellIndex] != dangerMask)
-                {
-                    dangerMaskCache[cellIndex] = dangerMask;
-                    dangerChanged = true;
-                }
             }
 
             if (buildPreviewDefinition != null && buildPreviewOrigin.HasValue)
@@ -124,17 +121,17 @@ namespace Minebot.Presentation
             }
 
             RefreshWallContours(grid, fullRebuild, changedWallCells);
-            if (dangerChanged)
-            {
-                RefreshDangerContours(grid);
-            }
 
             TerrainTilemap.CompressBounds();
             FacilityTilemap.CompressBounds();
             MarkerTilemap.CompressBounds();
             WallContourTilemap.CompressBounds();
             DangerTilemap.CompressBounds();
-            DangerContourTilemap.CompressBounds();
+            if (DangerContourTilemap != null)
+            {
+                DangerContourTilemap.CompressBounds();
+            }
+
             BuildPreviewTilemap.CompressBounds();
         }
 
@@ -150,7 +147,7 @@ namespace Minebot.Presentation
                 case TerrainKind.Empty:
                     return assets.EmptyTile;
                 case TerrainKind.MineableWall:
-                    return assets.WallTileForHardness(cell.HardnessTier);
+                    return assets.WallBaseTileForHardness(cell.HardnessTier);
                 case TerrainKind.Indestructible:
                     return assets.BoundaryTile;
                 default:
@@ -189,25 +186,6 @@ namespace Minebot.Presentation
             }
         }
 
-        private void RefreshDangerContours(LogicalGridState grid)
-        {
-            if (DangerContourTilemap == null)
-            {
-                return;
-            }
-
-            DangerContourTilemap.ClearAllTiles();
-            for (int y = 0; y <= grid.Size.y; y++)
-            {
-                for (int x = 0; x <= grid.Size.x; x++)
-                {
-                    int contourIndex = DualGridContour.ComputeIndex(grid, x, y, IsDangerMask);
-                    Tile tile = assets.DangerContourTileForIndex(contourIndex);
-                    DangerContourTilemap.SetTile(new Vector3Int(x, y, 0), tile);
-                }
-            }
-        }
-
         private void UpdateWallContourAt(LogicalGridState grid, Vector3Int contourPosition)
         {
             int contourIndex = DualGridContour.ComputeIndex(grid, contourPosition.x, contourPosition.y, IsWallMask);
@@ -218,11 +196,6 @@ namespace Minebot.Presentation
         private static bool IsWallMask(GridCellState cell)
         {
             return cell.TerrainKind == TerrainKind.MineableWall;
-        }
-
-        private static bool IsDangerMask(GridCellState cell)
-        {
-            return cell.TerrainKind == TerrainKind.Empty && cell.IsDangerZone;
         }
 
         private static System.Collections.Generic.IEnumerable<GridPosition> FootprintCells(BuildingDefinition definition, GridPosition origin)
@@ -239,7 +212,7 @@ namespace Minebot.Presentation
 
         private bool EnsureMaskCaches(Vector2Int size)
         {
-            if (wallMaskCache != null && dangerMaskCache != null && cachedGridSize == size)
+            if (wallMaskCache != null && cachedGridSize == size)
             {
                 return false;
             }
@@ -247,7 +220,6 @@ namespace Minebot.Presentation
             cachedGridSize = size;
             int cellCount = size.x * size.y;
             wallMaskCache = new bool[cellCount];
-            dangerMaskCache = new bool[cellCount];
             return true;
         }
 
