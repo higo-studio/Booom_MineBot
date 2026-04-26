@@ -5,6 +5,7 @@ using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.HazardInference;
 using Minebot.Progression;
+using UnityEngine;
 
 namespace Minebot.Bootstrap
 {
@@ -28,6 +29,7 @@ namespace Minebot.Bootstrap
         private readonly HazardRules hazardRules;
         private readonly PlayerEconomy economy;
         private readonly ExperienceService experience;
+        private readonly WorldPickupService worldPickups;
         private readonly PlayerVitals vitals;
         private readonly RobotAutomationService robotAutomation;
         private readonly IList<RobotState> robots;
@@ -42,6 +44,7 @@ namespace Minebot.Bootstrap
             HazardRules hazardRules,
             PlayerEconomy economy,
             ExperienceService experience,
+            WorldPickupService worldPickups,
             PlayerVitals vitals,
             RobotAutomationService robotAutomation,
             IList<RobotState> robots,
@@ -55,6 +58,7 @@ namespace Minebot.Bootstrap
             this.hazardRules = hazardRules;
             this.economy = economy;
             this.experience = experience;
+            this.worldPickups = worldPickups;
             this.vitals = vitals;
             this.robotAutomation = robotAutomation;
             this.robots = robots;
@@ -68,6 +72,7 @@ namespace Minebot.Bootstrap
         public event Action<IReadOnlyList<ScanReading>> ScanCompleted;
         public event Action<RobotAutomationResult> RobotAutomationCompleted;
         public RobotAutomationResult LastRobotAutomationResult { get; private set; }
+        public WorldPickupService WorldPickups => worldPickups;
 
         public MineInteractionResult Move(GridPosition direction)
         {
@@ -85,7 +90,7 @@ namespace Minebot.Bootstrap
             MineInteractionResult result = mining.TryMine(player, target, out ResourceAmount reward);
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
             {
-                GrantMiningReward(reward);
+                SpawnWorldPickupReward(target, reward, WorldPickupSource.PlayerMining);
             }
 
             if (result == MineInteractionResult.TriggeredBomb)
@@ -158,7 +163,7 @@ namespace Minebot.Bootstrap
 
                 if (result.Kind == RobotAutomationResultKind.Mined)
                 {
-                    GrantMiningReward(result.Reward);
+                    SpawnWorldPickupReward(result.Target, result.Reward, WorldPickupSource.HelperRobotMining);
                 }
                 else if (result.Kind == RobotAutomationResultKind.TriggeredBomb)
                 {
@@ -167,7 +172,7 @@ namespace Minebot.Bootstrap
                     robot.Destroy("误挖炸药损毁");
                     if (robotRecycleDrop.Metal > 0 || robotRecycleDrop.Energy > 0 || robotRecycleDrop.Experience > 0)
                     {
-                        economy.Add(robotRecycleDrop);
+                        SpawnWorldPickupReward(robot.Position, robotRecycleDrop, WorldPickupSource.RobotRecycle);
                     }
 
                     result = new RobotAutomationResult(
@@ -196,8 +201,42 @@ namespace Minebot.Bootstrap
             return changed;
         }
 
-        private void GrantMiningReward(ResourceAmount reward)
+        public bool TickWorldPickups(float deltaTime, Vector2 playerWorldPosition)
         {
+            if (worldPickups == null)
+            {
+                return false;
+            }
+
+            ResourceAmount reward = worldPickups.TickAndCollect(deltaTime, playerWorldPosition);
+            if (reward.Metal <= 0 && reward.Energy <= 0 && reward.Experience <= 0)
+            {
+                return false;
+            }
+
+            GrantCollectedReward(reward);
+            StateChanged?.Invoke();
+            return true;
+        }
+
+        public void SpawnWorldPickupReward(GridPosition origin, ResourceAmount reward, WorldPickupSource source)
+        {
+            if (worldPickups == null)
+            {
+                GrantCollectedReward(reward);
+                return;
+            }
+
+            worldPickups.SpawnReward(origin, reward, source);
+        }
+
+        private void GrantCollectedReward(ResourceAmount reward)
+        {
+            if (reward.Metal <= 0 && reward.Energy <= 0 && reward.Experience <= 0)
+            {
+                return;
+            }
+
             economy.Add(new ResourceAmount(reward.Metal, reward.Energy, 0));
             experience.AddExperience(reward.Experience);
             RewardGranted?.Invoke(reward);

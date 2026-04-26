@@ -4,6 +4,7 @@ using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.HazardInference;
+using Minebot.Progression;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -198,13 +199,22 @@ namespace Minebot.Tests.EditMode
             registry.Economy.Add(new ResourceAmount(5, 0, 0));
             Assert.That(registry.RobotFactory.TryProduce(registry.Grid.PlayerSpawn, out RobotState robot), Is.True);
             int metalBefore = registry.Economy.Resources.Metal;
+            int experienceBefore = registry.Experience.Experience;
 
             RunRobotTicks(registry, 4);
 
             Assert.That(robot.IsActive, Is.True);
             Assert.That(registry.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            Assert.That(registry.Economy.Resources.Metal, Is.EqualTo(metalBefore));
+            Assert.That(registry.Experience.Experience, Is.EqualTo(experienceBefore));
+            Assert.That(registry.WorldPickups.ActivePickups.Count, Is.GreaterThan(0));
+
+            bool collected = registry.Session.TickWorldPickups(1f, ToWorldCenter(target));
+
+            Assert.That(collected, Is.True);
+            Assert.That(registry.WorldPickups.ActivePickups, Is.Empty);
             Assert.That(registry.Economy.Resources.Metal, Is.GreaterThan(metalBefore));
-            Assert.That(registry.Experience.Experience, Is.GreaterThan(0));
+            Assert.That(registry.Experience.Experience, Is.GreaterThan(experienceBefore));
         }
 
         [Test]
@@ -227,6 +237,52 @@ namespace Minebot.Tests.EditMode
             Assert.That(robot.Activity, Is.EqualTo(RobotActivity.Destroyed));
             Assert.That(registry.Vitals.CurrentHealth, Is.EqualTo(healthBefore));
             Assert.That(registry.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+        }
+
+        [Test]
+        public void RobotBombDestructionCanDropConfiguredRecyclePickupBeforeCollection()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = grid.PlayerSpawn + GridPosition.Up;
+            SetWall(grid, target, CellStaticFlags.Bomb);
+            var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
+            var mining = new MiningService(grid);
+            var hazards = new HazardService(grid);
+            var economy = new PlayerEconomy(new ResourceAmount(0, 0, 0));
+            var experience = new ExperienceService(4);
+            var worldPickups = new WorldPickupService();
+            var vitals = new PlayerVitals(3);
+            var robot = new RobotState(grid.PlayerSpawn);
+            robot.SetTarget(target);
+            var robots = new List<RobotState> { robot };
+            var automation = new RobotAutomationService(grid, 7, 0f);
+            var session = new GameSessionService(
+                player,
+                mining,
+                hazards,
+                null,
+                economy,
+                experience,
+                worldPickups,
+                vitals,
+                automation,
+                robots,
+                new ResourceAmount(2, 0, 0),
+                true,
+                HardnessTier.Soil);
+
+            bool changed = session.TickRobots(1f);
+
+            Assert.That(changed, Is.True);
+            Assert.That(robot.IsActive, Is.False);
+            Assert.That(worldPickups.ActivePickups.Count, Is.EqualTo(1));
+            Assert.That(economy.Resources.Metal, Is.EqualTo(0));
+
+            bool collected = session.TickWorldPickups(1f, ToWorldCenter(grid.PlayerSpawn));
+
+            Assert.That(collected, Is.True);
+            Assert.That(worldPickups.ActivePickups, Is.Empty);
+            Assert.That(economy.Resources.Metal, Is.EqualTo(2));
         }
 
         [Test]
@@ -303,6 +359,11 @@ namespace Minebot.Tests.EditMode
             cell.StaticFlags = CellStaticFlags.None;
             cell.IsDangerZone = false;
             cell.IsMarked = false;
+        }
+
+        private static Vector2 ToWorldCenter(GridPosition position)
+        {
+            return new Vector2(position.X + 0.5f, position.Y + 0.5f);
         }
     }
 }

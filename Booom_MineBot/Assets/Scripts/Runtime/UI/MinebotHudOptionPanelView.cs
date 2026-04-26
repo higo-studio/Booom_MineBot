@@ -11,10 +11,16 @@ namespace Minebot.UI
         private Image backgroundImage;
 
         [SerializeField]
+        private Image titleIcon;
+
+        [SerializeField]
         private TMP_Text titleText;
 
         [SerializeField]
         private Button[] optionButtons = Array.Empty<Button>();
+
+        private Color buttonColor = new Color(0.18f, 0.22f, 0.2f, 0.96f);
+        private Color selectedButtonColor = new Color(0.28f, 0.44f, 0.4f, 1f);
 
         public TMP_Text TitleText => titleText;
         public Button[] OptionButtons => optionButtons;
@@ -25,12 +31,16 @@ namespace Minebot.UI
 
             backgroundImage = MinebotHudUiFactory.GetOrAdd<Image>(gameObject);
             backgroundImage.color = layout.BackgroundColor;
+            buttonColor = layout.ButtonColor;
+            selectedButtonColor = layout.SelectedButtonColor;
+
+            titleIcon = MinebotHudUiFactory.EnsureTopLeftImage(titleIcon, transform, "Title Icon", layout.SidePadding, layout.TitleTop + 2f, 24f);
 
             titleText = MinebotHudUiFactory.EnsureTopStretchText(
                 titleText,
                 transform,
                 "Title",
-                layout.SidePadding,
+                layout.SidePadding + 32f,
                 layout.TitleTop,
                 layout.SidePadding,
                 layout.TitleHeight,
@@ -79,6 +89,11 @@ namespace Minebot.UI
 
         public void SetButton(int index, bool visible, string label)
         {
+            SetButton(index, visible, label, false);
+        }
+
+        public void SetButton(int index, bool visible, string label, bool selected)
+        {
             Button button = GetButton(index);
             if (button == null)
             {
@@ -91,6 +106,12 @@ namespace Minebot.UI
             if (labelText != null)
             {
                 labelText.text = label ?? string.Empty;
+            }
+
+            Image image = button.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = selected ? selectedButtonColor : buttonColor;
             }
         }
 
@@ -110,6 +131,22 @@ namespace Minebot.UI
             gameObject.SetActive(visible);
         }
 
+        public void ApplyGraphics(Sprite background, Sprite icon)
+        {
+            if (backgroundImage != null)
+            {
+                backgroundImage.sprite = background;
+                backgroundImage.type = background != null ? Image.Type.Sliced : Image.Type.Simple;
+                backgroundImage.color = background != null ? Color.white : backgroundImage.color;
+            }
+
+            if (titleIcon != null)
+            {
+                titleIcon.sprite = icon;
+                titleIcon.enabled = icon != null;
+            }
+        }
+
         private void EnsureButtonArray(int buttonCount, TMP_FontAsset runtimeFontAsset, MinebotHudDefaults.OptionPanelLayout layout)
         {
             int safeCount = Mathf.Max(0, buttonCount);
@@ -120,17 +157,35 @@ namespace Minebot.UI
 
             for (int i = 0; i < safeCount; i++)
             {
-                optionButtons[i] = MinebotHudUiFactory.EnsureTopStretchButton(
-                    optionButtons[i],
-                    transform,
-                    $"Option Button {i + 1}",
-                    layout.SidePadding,
-                    layout.ButtonTop + i * layout.ButtonSpacing,
-                    layout.SidePadding,
-                    layout.ButtonHeight,
-                    layout.ButtonFontSize,
-                    layout.ButtonColor,
-                    runtimeFontAsset);
+                if (layout.ButtonFlow == MinebotHudDefaults.OptionPanelFlow.Horizontal)
+                {
+                    optionButtons[i] = MinebotHudUiFactory.EnsureTopLeftButton(
+                        optionButtons[i],
+                        transform,
+                        $"Option Button {i + 1}",
+                        layout.SidePadding + i * layout.ButtonSpacing,
+                        layout.ButtonTop,
+                        layout.ButtonWidth,
+                        layout.ButtonHeight,
+                        layout.ButtonFontSize,
+                        layout.ButtonColor,
+                        layout.ButtonTextAlignment,
+                        runtimeFontAsset);
+                }
+                else
+                {
+                    optionButtons[i] = MinebotHudUiFactory.EnsureTopStretchButton(
+                        optionButtons[i],
+                        transform,
+                        $"Option Button {i + 1}",
+                        layout.SidePadding,
+                        layout.ButtonTop + i * layout.ButtonSpacing,
+                        layout.SidePadding,
+                        layout.ButtonHeight,
+                        layout.ButtonFontSize,
+                        layout.ButtonColor,
+                        runtimeFontAsset);
+                }
             }
 
             Button[] existingButtons = GetComponentsInChildren<Button>(true);

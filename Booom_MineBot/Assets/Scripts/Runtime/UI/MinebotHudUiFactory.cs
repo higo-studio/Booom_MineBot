@@ -98,6 +98,70 @@ namespace Minebot.UI
             return text;
         }
 
+        public static Image EnsureStretchImage(Image current, Transform parent, string objectName, Color color)
+        {
+            Transform child = current != null ? current.transform : parent.Find(objectName);
+            if (child == null)
+            {
+                child = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)).transform;
+                child.SetParent(parent, false);
+                child.SetAsFirstSibling();
+            }
+
+            Image image = GetOrAdd<Image>(child.gameObject);
+            RectTransform rect = (RectTransform)child;
+            StretchToParent(rect);
+            image.color = color;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        public static Image EnsureTopLeftImage(Image current, Transform parent, string objectName, float left, float top, float size)
+        {
+            Transform child = current != null ? current.transform : parent.Find(objectName);
+            if (child == null)
+            {
+                child = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)).transform;
+                child.SetParent(parent, false);
+            }
+
+            Image image = GetOrAdd<Image>(child.gameObject);
+            RectTransform rect = (RectTransform)child;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(left, -top);
+            rect.sizeDelta = new Vector2(size, size);
+            rect.localScale = Vector3.one;
+            image.color = Color.white;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        public static RawImage EnsureTopLeftRawImage(RawImage current, Transform parent, string objectName, float left, float top, float width, float height)
+        {
+            Transform child = current != null ? current.transform : parent.Find(objectName);
+            if (child == null)
+            {
+                child = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage)).transform;
+                child.SetParent(parent, false);
+            }
+
+            RawImage image = GetOrAdd<RawImage>(child.gameObject);
+            RectTransform rect = (RectTransform)child;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(left, -top);
+            rect.sizeDelta = new Vector2(width, height);
+            rect.localScale = Vector3.one;
+            image.color = Color.white;
+            image.raycastTarget = false;
+            return image;
+        }
+
         public static TMP_Text EnsureTopStretchText(TMP_Text current, Transform parent, string objectName, float left, float top, float right, float height, int fontSize, TextAnchor alignment, TMP_FontAsset runtimeFontAsset)
         {
             Transform child = current != null ? current.transform : parent.Find(objectName);
@@ -132,6 +196,46 @@ namespace Minebot.UI
             return text;
         }
 
+        public static TMP_Text EnsureBottomStretchText(TMP_Text current, Transform parent, string objectName, float left, float bottom, float right, float height, int fontSize, TextAnchor alignment, TMP_FontAsset runtimeFontAsset)
+        {
+            Transform child = current != null ? current.transform : parent.Find(objectName);
+            if (child == null)
+            {
+                child = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI)).transform;
+                child.SetParent(parent, false);
+            }
+
+            RemoveLegacyText(child);
+
+            TMP_Text text = child.GetComponent<TMP_Text>();
+            if (text == null)
+            {
+                text = child.gameObject.AddComponent<TextMeshProUGUI>();
+            }
+
+            RectTransform rect = (RectTransform)child;
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.offsetMin = new Vector2(left, bottom);
+            rect.offsetMax = new Vector2(-right, bottom + height);
+            rect.localScale = Vector3.one;
+
+            text.fontSize = fontSize;
+            text.alignment = ToTmpAlignment(alignment);
+            text.color = Color.white;
+            text.raycastTarget = false;
+            text.enableAutoSizing = false;
+            text.enableWordWrapping = true;
+            text.overflowMode = TextOverflowModes.Overflow;
+            if (runtimeFontAsset != null)
+            {
+                text.font = runtimeFontAsset;
+            }
+
+            return text;
+        }
+
         public static Button EnsureTopStretchButton(Button current, Transform parent, string objectName, float left, float top, float right, float height, int fontSize, Color backgroundColor, TMP_FontAsset runtimeFontAsset)
         {
             Transform child = current != null ? current.transform : parent.Find(objectName);
@@ -149,6 +253,31 @@ namespace Minebot.UI
 
             Button button = GetOrAdd<Button>(child.gameObject);
             EnsureFillText(null, child, "Label", fontSize, TextAnchor.MiddleLeft, new Vector4(10f, 5f, 10f, 5f), runtimeFontAsset);
+            return button;
+        }
+
+        public static Button EnsureTopLeftButton(Button current, Transform parent, string objectName, float left, float top, float width, float height, int fontSize, Color backgroundColor, TextAnchor alignment, TMP_FontAsset runtimeFontAsset)
+        {
+            Transform child = current != null ? current.transform : parent.Find(objectName);
+            if (child == null)
+            {
+                child = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button)).transform;
+                child.SetParent(parent, false);
+            }
+
+            RectTransform rect = (RectTransform)child;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(left, -top);
+            rect.sizeDelta = new Vector2(width, height);
+            rect.localScale = Vector3.one;
+
+            Image image = GetOrAdd<Image>(child.gameObject);
+            image.color = backgroundColor;
+
+            Button button = GetOrAdd<Button>(child.gameObject);
+            EnsureFillText(null, child, "Label", fontSize, alignment, new Vector4(8f, 6f, 8f, 6f), runtimeFontAsset);
             return button;
         }
 

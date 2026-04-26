@@ -40,3 +40,29 @@ TBD - created by archiving change apply-second-round-gameplay-feedback. Update P
 - **WHEN** 地图上已有危险区反馈，随后玩家执行一次成功探测
 - **THEN** 扫描数字只会更新自己的扫描指示器层，危险区层保持原样
 
+### Requirement: 标记、危险区和探测数字必须共享统一的全息风味视觉语言
+标记、危险区和探测数字 SHALL 使用同一套全息风味资源语言呈现，包括统一的发光边缘、半透明叠层、扫描感细节或等价的视觉特征。系统 MUST NOT 在正式全息资源已配置时继续混用默认纯色占位表现与默认世界数字字体。
+
+#### Scenario: 标记格显示为全息标记
+- **WHEN** 玩家对一块岩壁执行标记
+- **THEN** 该格会显示与全息反馈资源一致的标记效果，而不是退回无风格区分的纯色占位块
+
+#### Scenario: 危险区沿当前几何形态显示全息效果
+- **WHEN** 地图上某一区域处于危险区并被表现层渲染
+- **THEN** 无论当前危险区采用逐格描边还是 contour 几何，玩家看到的都是同一套全息风味危险反馈，而不是另一套独立视觉语言
+
+#### Scenario: 探测数字与标记和危险区保持同系风格
+- **WHEN** 一次探测成功并在地图上显示数字结果
+- **THEN** 数字会以与标记和危险区一致的全息风味显示，并保持与目标岩壁的清晰对应关系
+
+### Requirement: 探测数字必须支持 BMFont 驱动的位图字形渲染
+项目在正式全息风格下 SHALL 使用项目内管理的 BMFont 位图字形渲染探测数字，而不是依赖 OS 字体发现或默认 TMP 动态字体来显示地图上的扫描结果。
+
+#### Scenario: Gameplay 中显示 BMFont 扫描数字
+- **WHEN** `Gameplay` 场景加载了带有全息反馈资源的 Presentation Art Set，并产生一次探测结果
+- **THEN** 扫描数字会通过项目内 BMFont 资产显示在目标岩壁上方
+
+#### Scenario: DebugSandbox 复用同一套 BMFont 扫描数字
+- **WHEN** 开发者在 `DebugSandbox` 中验证探测反馈
+- **THEN** 场景会复用与 `Gameplay` 相同的 BMFont 扫描数字资源和样式，而不是切换回另一套默认字体路径
+

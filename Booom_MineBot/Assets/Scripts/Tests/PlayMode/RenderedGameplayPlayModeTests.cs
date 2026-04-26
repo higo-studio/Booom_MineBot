@@ -38,19 +38,29 @@ namespace Minebot.Tests.PlayMode
             Assert.That(presentation.IsUsingConfiguredArtSet, Is.True);
             Assert.That(Camera.main, Is.Not.Null);
             Assert.That(Object.FindAnyObjectByType<GameplayInputController>(), Is.Not.Null);
-            Assert.That(GameObject.Find(MinebotGameplayPresentation.PlayerViewName), Is.Not.Null);
-            Assert.That(GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<FreeformActorController>(), Is.Not.Null);
-            Assert.That(GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<CircleCollider2D>(), Is.Not.Null);
+            GameObject playerViewObject = GameObject.Find(MinebotGameplayPresentation.PlayerViewName);
+            Assert.That(playerViewObject, Is.Not.Null);
+            Assert.That(playerViewObject.GetComponent<MinebotActorView>(), Is.Not.Null);
+            Assert.That(playerViewObject.GetComponent<MinebotSpriteSequencePlayer>(), Is.Not.Null);
+            Assert.That(playerViewObject.GetComponent<FreeformActorController>(), Is.Not.Null);
+            Assert.That(playerViewObject.GetComponent<CircleCollider2D>(), Is.Not.Null);
+            Assert.That(GameObject.Find(MinebotGameplayPresentation.PickupRootName), Is.Not.Null);
+            Assert.That(GameObject.Find(MinebotGameplayPresentation.CellFxRootName), Is.Not.Null);
             GameObject hud = GameObject.Find(MinebotGameplayPresentation.HudRootName);
             Assert.That(hud, Is.Not.Null);
             Assert.That(Resources.Load<MinebotHudView>(MinebotHudView.ResourcePath), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.StatusPanelResourcePath), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.MinimapPanelResourcePath), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.BuildPanelResourcePath), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.BuildingInteractionPanelResourcePath), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Minebot/Presentation/Actors/PlayerActor"), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Minebot/Presentation/Pickups/PickupMetal"), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Minebot/Presentation/CellFx/ExplosionFx"), Is.Not.Null);
             MinebotHudView hudView = hud.GetComponent<MinebotHudView>();
             Assert.That(hudView, Is.Not.Null);
             Assert.That(hudView.StatusPanel, Is.Not.Null);
             Assert.That(hudView.WarningPanel, Is.Not.Null);
+            Assert.That(hudView.MinimapPanel, Is.Not.Null);
             Assert.That(hudView.UpgradePanel, Is.Not.Null);
             Assert.That(hudView.BuildPanel, Is.Not.Null);
             Assert.That(hudView.BuildingInteractionPanel, Is.Not.Null);
@@ -63,6 +73,9 @@ namespace Minebot.Tests.PlayMode
             Assert.That(hudText.font.HasCharacter('震'), Is.True);
             Assert.That(hudText.font.HasCharacter('机'), Is.True);
             Assert.That(hud.GetComponentsInChildren<Text>().Length, Is.EqualTo(0));
+            Image[] hudImages = hud.GetComponentsInChildren<Image>(true);
+            Assert.That(hudImages.Length, Is.GreaterThanOrEqualTo(8));
+            Assert.That(CountImagesWithAssignedSprite(hudImages), Is.GreaterThanOrEqualTo(8));
 
             IReadOnlyList<Tilemap> terrainFamilies = GetTerrainFamilyTilemaps();
             Assert.That(terrainFamilies.Count, Is.EqualTo(DualGridTerrain.RenderLayerCount));
@@ -94,11 +107,38 @@ namespace Minebot.Tests.PlayMode
             CircleCollider2D playerCollider = GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<CircleCollider2D>();
             FreeformActorController freeform = GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<FreeformActorController>();
             Assert.That(playerCollider.radius, Is.EqualTo(freeform.CollisionRadius).Within(0.001f));
-            Assert.That(presentation.HudSummary, Does.Contain("生命"));
+            Assert.That(presentation.HudSummary, Does.Contain("HP"));
             Assert.That(presentation.HudSummary, Does.Contain("波次"));
+            Assert.That(hudView.MinimapPanel.MapTexture, Is.Not.Null);
+            Assert.That(hudView.MinimapPanel.Summary, Does.Contain("已标记"));
             Assert.That(hud.transform.Find(MinebotHudView.BuildSlotName), Is.Not.Null);
+            Assert.That(hud.transform.Find(MinebotHudView.MinimapSlotName), Is.Not.Null);
             Assert.That(hud.transform.Find(MinebotHudView.BuildingInteractionSlotName), Is.Not.Null);
             Assert.That(services.Buildings.Buildings.Count, Is.GreaterThanOrEqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator DebugSandboxUsesConfiguredHudAndPrefabPresentationRoots()
+        {
+            MinebotServices.ResetForTests();
+            yield return SceneManager.LoadSceneAsync("DebugSandbox", LoadSceneMode.Single);
+            yield return WaitUntilSceneIsActive("DebugSandbox");
+            yield return null;
+
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            Assert.That(presentation, Is.Not.Null);
+            Assert.That(presentation.IsUsingConfiguredArtSet, Is.True);
+            Assert.That(GameObject.Find(MinebotGameplayPresentation.HudRootName), Is.Not.Null);
+            Assert.That(GameObject.Find(MinebotGameplayPresentation.PlayerViewName), Is.Not.Null);
+            Assert.That(GameObject.Find(MinebotGameplayPresentation.PickupRootName), Is.Not.Null);
+            Assert.That(GameObject.Find(MinebotGameplayPresentation.CellFxRootName), Is.Not.Null);
+
+            MinebotHudView hudView = Object.FindAnyObjectByType<MinebotHudView>();
+            Assert.That(hudView, Is.Not.Null);
+            Assert.That(hudView.StatusPanel, Is.Not.Null);
+            Assert.That(hudView.MinimapPanel, Is.Not.Null);
+            Assert.That(hudView.BuildPanel, Is.Not.Null);
+            Assert.That(CountImagesWithAssignedSprite(hudView.GetComponentsInChildren<Image>(true)), Is.GreaterThanOrEqualTo(8));
         }
 
         [UnityTest]
@@ -137,6 +177,8 @@ namespace Minebot.Tests.PlayMode
             Assert.That(presentation.FeedbackMessage, Does.Contain("探测完成"));
             Assert.That(presentation.WarningSummary, Does.Contain("最近探测"));
             Assert.That(ActiveScanLabelCount(), Is.GreaterThan(0));
+            Assert.That(GetScanRoot().GetComponentsInChildren<BitmapGlyphLabel>(true).Length, Is.GreaterThan(0));
+            Assert.That(GetScanRoot().GetComponentsInChildren<TMP_Text>(true).Length, Is.EqualTo(0));
             Assert.That(input.ToggleMarkerMode(), Is.True);
             Assert.That(presentation.InteractionMode, Is.EqualTo(GameplayInteractionMode.Marker));
             Assert.That(input.ClickGridCell(minedPosition), Is.True);
@@ -159,6 +201,16 @@ namespace Minebot.Tests.PlayMode
             Assert.That(services.Grid.GetCell(minedPosition).TerrainKind, Is.EqualTo(TerrainKind.Empty));
             Assert.That(services.Grid.GetCell(minedPosition).IsMarked, Is.False);
             Assert.That(GetTerrainSignature(terrainFamilies, minedPosition), Is.Not.EqualTo(beforeTerrainSignature));
+            Assert.That(services.WorldPickups.ActivePickups.Count, Is.GreaterThan(0));
+            Assert.That(GetPickupRoot().GetComponentsInChildren<MinebotPickupView>(true).Length, Is.GreaterThan(0));
+            Assert.That(GetCellFxRoot().GetComponentsInChildren<MinebotCellFxView>(true).Length, Is.GreaterThan(0));
+
+            bool collected = services.Session.TickWorldPickups(1f, ToWorldCenter(minedPosition));
+            presentation.RefreshAll();
+            yield return null;
+
+            Assert.That(collected, Is.True);
+            Assert.That(services.WorldPickups.ActivePickups, Is.Empty);
             Assert.That(presentation.HudSummary, Does.Contain("经验"));
         }
 
@@ -485,19 +537,55 @@ namespace Minebot.Tests.PlayMode
             Assert.That(GameObject.Find("Robot View 1"), Is.Not.Null);
             RobotState robot = services.Robots[0];
             GridPosition robotStart = robot.Position;
+            GridPosition robotStagingCell = robotStart + GridPosition.Left;
+            GridPosition robotTarget = robotStagingCell + GridPosition.Up;
+            SetEmpty(services, robotStagingCell);
+            SetEmpty(services, robotStart + GridPosition.Up);
+            SetMineableHardness(services, robotTarget, HardnessTier.Soil);
+            presentation.RefreshAll();
+            yield return null;
             int metalBeforeAutomation = services.Economy.Resources.Metal;
+            int pickupCountBeforeAutomation = services.WorldPickups.ActivePickups.Count;
+            bool automationFeedbackObserved = false;
             for (int i = 0; i < 5; i++)
             {
-                services.Session.TickRobots(1f);
+                bool changed = services.Session.TickRobots(1f);
                 presentation.RefreshAll();
                 yield return null;
-                if (!robot.IsActive || !robot.Position.Equals(robotStart) || services.Economy.Resources.Metal > metalBeforeAutomation)
+                RobotAutomationResultKind kind = services.Session.LastRobotAutomationResult.Kind;
+                if (changed && kind != RobotAutomationResultKind.None && kind != RobotAutomationResultKind.Waiting)
+                {
+                    automationFeedbackObserved = true;
+                }
+
+                if (automationFeedbackObserved
+                    || !robot.IsActive
+                    || !robot.Position.Equals(robotStart)
+                    || services.Economy.Resources.Metal > metalBeforeAutomation
+                    || services.WorldPickups.ActivePickups.Count > pickupCountBeforeAutomation)
                 {
                     break;
                 }
             }
 
-            Assert.That(!robot.IsActive || !robot.Position.Equals(robotStart) || services.Economy.Resources.Metal > metalBeforeAutomation, Is.True);
+            Assert.That(
+                automationFeedbackObserved
+                || !robot.IsActive
+                || !robot.Position.Equals(robotStart)
+                || services.Economy.Resources.Metal > metalBeforeAutomation
+                || services.WorldPickups.ActivePickups.Count > pickupCountBeforeAutomation,
+                Is.True);
+            if (services.WorldPickups.ActivePickups.Count > 0)
+            {
+                Assert.That(GetPickupRoot().GetComponentsInChildren<MinebotPickupView>(true).Length, Is.GreaterThan(0));
+            }
+
+            if (services.Session.LastRobotAutomationResult.Kind == RobotAutomationResultKind.Mined
+                || services.Session.LastRobotAutomationResult.Kind == RobotAutomationResultKind.Destroyed)
+            {
+                Assert.That(GetCellFxRoot().GetComponentsInChildren<MinebotCellFxView>(true).Length, Is.GreaterThan(0));
+            }
+
             Assert.That(presentation.HudSummary, Does.Contain("从属机器人"));
 
             services.Vitals.Damage(services.Vitals.MaxHealth);
@@ -550,6 +638,27 @@ namespace Minebot.Tests.PlayMode
             Assert.That(presentation.GridPresentation.MarkerTilemap.GetTile(TilemapGridPresentation.ToTilePosition(scanWall)), Is.Not.Null);
             Assert.That(HasAnyTile(presentation.GridPresentation.DangerTilemap), Is.True);
             Assert.That(ActiveScanLabelCount(), Is.GreaterThan(0));
+        }
+
+        [UnityTest]
+        public IEnumerator HologramArtSetSupportsBitmapGlyphsAndDangerGeometryVariants()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            MinebotPresentationArtSet artSet = Resources.Load<MinebotPresentationArtSet>("Minebot/MinebotPresentationArtSet_Default");
+            MinebotPresentationAssets assets = MinebotPresentationAssets.Create(artSet);
+
+            Assert.That(artSet, Is.Not.Null);
+            Assert.That(artSet.HologramOverlayAtlas, Is.Not.Null);
+            Assert.That(artSet.BitmapGlyphAtlas, Is.Not.Null);
+            Assert.That(artSet.BitmapGlyphDescriptor, Is.Not.Null);
+            Assert.That(artSet.BitmapGlyphFont, Is.Not.Null);
+            Assert.That(assets.BitmapGlyphFont, Is.Not.Null);
+            Assert.That(assets.ResolveDangerOverlayTile(DangerOverlayGeometryKind.Base, 0), Is.Not.Null);
+            Assert.That(assets.ResolveDangerOverlayTile(DangerOverlayGeometryKind.Outline, 1), Is.Not.Null);
+            Assert.That(assets.ResolveDangerOverlayTile(DangerOverlayGeometryKind.Contour, 3), Is.Not.Null);
+            Assert.That(artSet.ScanLabelColor.g, Is.GreaterThan(0.9f));
         }
 
         private static IEnumerator LoadBootstrapAndWaitForGameplay()
@@ -626,7 +735,7 @@ namespace Minebot.Tests.PlayMode
         private static int ActiveScanLabelCount()
         {
             int count = 0;
-            Transform scanRoot = GameObject.Find(MinebotGameplayPresentation.ScanIndicatorRootName).transform;
+            Transform scanRoot = GetScanRoot();
             foreach (Transform child in scanRoot)
             {
                 if (child.gameObject.activeSelf)
@@ -636,6 +745,21 @@ namespace Minebot.Tests.PlayMode
             }
 
             return count;
+        }
+
+        private static Transform GetScanRoot()
+        {
+            return GameObject.Find(MinebotGameplayPresentation.ScanIndicatorRootName).transform;
+        }
+
+        private static Transform GetPickupRoot()
+        {
+            return GameObject.Find(MinebotGameplayPresentation.PickupRootName).transform;
+        }
+
+        private static Transform GetCellFxRoot()
+        {
+            return GameObject.Find(MinebotGameplayPresentation.CellFxRootName).transform;
         }
 
         private static IReadOnlyList<Tilemap> GetTerrainFamilyTilemaps()
@@ -684,7 +808,7 @@ namespace Minebot.Tests.PlayMode
 
         private static bool HasScanLabelAboveWall(MinebotGameplayPresentation presentation, GridPosition wallPosition)
         {
-            Transform scanRoot = GameObject.Find(MinebotGameplayPresentation.ScanIndicatorRootName).transform;
+            Transform scanRoot = GetScanRoot();
             Vector3 wallCenter = presentation.GridToWorld(wallPosition);
             foreach (Transform child in scanRoot)
             {
@@ -693,7 +817,7 @@ namespace Minebot.Tests.PlayMode
                     continue;
                 }
 
-                TMP_Text label = child.GetComponent<TMP_Text>();
+                BitmapGlyphLabel label = child.GetComponent<BitmapGlyphLabel>();
                 if (label == null)
                 {
                     continue;
@@ -708,6 +832,25 @@ namespace Minebot.Tests.PlayMode
             }
 
             return false;
+        }
+
+        private static int CountImagesWithAssignedSprite(IReadOnlyList<Image> images)
+        {
+            int count = 0;
+            for (int i = 0; i < images.Count; i++)
+            {
+                if (images[i] != null && images[i].sprite != null)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static Vector2 ToWorldCenter(GridPosition position)
+        {
+            return new Vector2(position.X + 0.5f, position.Y + 0.5f);
         }
 
         private static void PrepareBuildableChamber(RuntimeServiceRegistry services, GridPosition origin, Vector2Int footprint, int padding)

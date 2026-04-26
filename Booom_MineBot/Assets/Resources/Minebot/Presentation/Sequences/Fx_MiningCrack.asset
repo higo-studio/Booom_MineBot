@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4f508aa9da984f0eb6f433eec45f01b, type: 3}
+  m_Name: Fx_MiningCrack
+  m_EditorClassIdentifier: 
+  frames:
+  - {fileID: 21300000, guid: a3afe812c47fb459fa8fdf33c251475d, type: 3}
+  - {fileID: 21300000, guid: 59b79884dc3c549c394eb22380ca8124, type: 3}
+  - {fileID: 21300000, guid: 35081d21ded0c49c7a29f6a6ea1cfa4c, type: 3}
+  - {fileID: 21300000, guid: 9ae22f13b1f324f01ae54e39ed69beaf, type: 3}
+  frameDuration: 0.08
+  loop: 1

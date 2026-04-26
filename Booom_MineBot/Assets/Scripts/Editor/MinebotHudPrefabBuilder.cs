@@ -36,6 +36,7 @@ namespace Minebot.Editor
             CreateTextPanelPrefab(MinebotHudDefaults.FeedbackPanelAssetPath, MinebotHudDefaults.FeedbackPanelObjectName, MinebotHudDefaults.FeedbackText);
             CreateTextPanelPrefab(MinebotHudDefaults.WarningPanelAssetPath, MinebotHudDefaults.WarningPanelObjectName, MinebotHudDefaults.WarningText);
             CreateTextPanelPrefab(MinebotHudDefaults.GameOverPanelAssetPath, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverText);
+            CreateMinimapPanelPrefab(MinebotHudDefaults.MinimapPanelAssetPath, MinebotHudDefaults.MinimapPanelObjectName, MinebotHudDefaults.MinimapPanel);
 
             CreateOptionPanelPrefab(MinebotHudDefaults.UpgradePanelAssetPath, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradeOptions, MinebotHudDefaults.UpgradeButtonCount, MinebotHudDefaults.UpgradeTitle);
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildPanelAssetPath, MinebotHudDefaults.BuildPanelObjectName, MinebotHudDefaults.BuildOptions, MinebotHudDefaults.MinimumBuildButtonCount, MinebotHudDefaults.BuildTitle);
@@ -62,6 +63,7 @@ namespace Minebot.Editor
 
             if (AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudView.PrefabAssetPath) != null
                 && AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.StatusPanelAssetPath) != null
+                && AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.MinimapPanelAssetPath) != null
                 && AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.UpgradePanelAssetPath) != null)
             {
                 return;
@@ -93,6 +95,21 @@ namespace Minebot.Editor
                 MinebotHudOptionPanelView view = root.GetComponent<MinebotHudOptionPanelView>();
                 view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), buttonCount, layout);
                 view.SetTitle(defaultTitle);
+                PrefabUtility.SaveAsPrefabAsset(root, assetPath);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static void CreateMinimapPanelPrefab(string assetPath, string objectName, MinebotHudDefaults.MinimapPanelLayout layout)
+        {
+            GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(MinebotHudMinimapPanelView));
+            try
+            {
+                MinebotHudMinimapPanelView view = root.GetComponent<MinebotHudMinimapPanelView>();
+                view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), layout);
                 PrefabUtility.SaveAsPrefabAsset(root, assetPath);
             }
             finally

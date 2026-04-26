@@ -1,5 +1,6 @@
 using System;
 using Minebot.GridMining;
+using Minebot.UI;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -82,14 +83,30 @@ namespace Minebot.Presentation
         [SerializeField]
         private Tile buildPreviewInvalidTile;
 
+        [Header("Hologram Overlay")]
+        [SerializeField]
+        private Texture2D hologramOverlayAtlas;
+
+        [SerializeField]
+        private Texture2D bitmapGlyphAtlas;
+
+        [SerializeField]
+        private TextAsset bitmapGlyphDescriptor;
+
+        [SerializeField]
+        private BitmapGlyphFontDefinition bitmapGlyphFont;
+
         [SerializeField]
         private Vector2 scanLabelOffset = new Vector2(0f, 0.62f);
 
         [SerializeField]
-        private Color scanLabelColor = new Color(1f, 0.95f, 0.58f, 1f);
+        private Color scanLabelColor = new Color(0.62f, 1f, 0.96f, 1f);
 
         [SerializeField]
         private float scanLabelFontSize = 4f;
+
+        [SerializeField]
+        private int scanLabelSortingOrder = 35;
 
         [Header("Facilities")]
         [SerializeField]
@@ -107,6 +124,19 @@ namespace Minebot.Presentation
 
         [SerializeField]
         private float playerColliderRadius = 0.42f;
+
+        [Header("Prefab Gameplay Art")]
+        [SerializeField]
+        private MinebotPresentationActorResources actorResources = new MinebotPresentationActorResources();
+
+        [SerializeField]
+        private MinebotPresentationPickupResources pickupResources = new MinebotPresentationPickupResources();
+
+        [SerializeField]
+        private MinebotPresentationCellFxResources cellFxResources = new MinebotPresentationCellFxResources();
+
+        [SerializeField]
+        private MinebotPresentationHudResources hudResources = new MinebotPresentationHudResources();
 
         [NonSerialized]
         private Tile[] generatedFloorDualGridTiles;
@@ -150,14 +180,23 @@ namespace Minebot.Presentation
         public Tile UltraHardDetailTile => ultraHardDetailTile;
         public Tile BuildPreviewValidTile => buildPreviewValidTile;
         public Tile BuildPreviewInvalidTile => buildPreviewInvalidTile;
+        public Texture2D HologramOverlayAtlas => hologramOverlayAtlas;
+        public Texture2D BitmapGlyphAtlas => bitmapGlyphAtlas;
+        public TextAsset BitmapGlyphDescriptor => bitmapGlyphDescriptor;
+        public BitmapGlyphFontDefinition BitmapGlyphFont => bitmapGlyphFont;
         public Vector2 ScanLabelOffset => scanLabelOffset;
-        public Color ScanLabelColor => scanLabelColor.a > 0f ? scanLabelColor : new Color(1f, 0.95f, 0.58f, 1f);
+        public Color ScanLabelColor => scanLabelColor.a > 0f ? scanLabelColor : new Color(0.62f, 1f, 0.96f, 1f);
         public float ScanLabelFontSize => Mathf.Max(0.5f, scanLabelFontSize);
+        public int ScanLabelSortingOrder => Mathf.Clamp(scanLabelSortingOrder, 1, 100);
         public Tile RepairStationTile => repairStationTile;
         public Tile RobotFactoryTile => robotFactoryTile;
         public Sprite PlayerSprite => playerSprite;
         public Sprite RobotSprite => robotSprite;
         public float PlayerColliderRadius => Mathf.Clamp(playerColliderRadius, 0.1f, 0.49f);
+        public MinebotPresentationActorResources ActorResources => actorResources ?? new MinebotPresentationActorResources();
+        public MinebotPresentationPickupResources PickupResources => pickupResources ?? new MinebotPresentationPickupResources();
+        public MinebotPresentationCellFxResources CellFxResources => cellFxResources ?? new MinebotPresentationCellFxResources();
+        public MinebotPresentationHudResources HudResources => hudResources ?? new MinebotPresentationHudResources();
 
         private static Tile[] ResolveDualGridTiles(Tile[] configuredTiles, ref Tile[] generatedTiles, TerrainRenderLayerId layerId)
         {
@@ -207,12 +246,21 @@ namespace Minebot.Presentation
             Tile buildPreviewInvalid = null,
             Tile[] wallContour = null,
             Tile[] dangerContour = null,
+            Tile[] dangerOutline = null,
             Tile[] floorDualGrid = null,
             Tile[] soilDualGrid = null,
             Tile[] stoneDualGrid = null,
             Tile[] hardRockDualGrid = null,
             Tile[] ultraHardDualGrid = null,
-            Tile[] boundaryDualGrid = null)
+            Tile[] boundaryDualGrid = null,
+            BitmapGlyphFontDefinition configuredBitmapGlyphFont = null,
+            Texture2D configuredBitmapGlyphAtlas = null,
+            TextAsset configuredBitmapGlyphDescriptor = null,
+            Texture2D configuredHologramOverlayAtlas = null,
+            Vector2? configuredScanLabelOffset = null,
+            Color? configuredScanLabelColor = null,
+            float configuredScanLabelFontSize = 4f,
+            int configuredScanLabelSortingOrder = 35)
         {
             emptyTile = empty;
             soilWallTile = soilWall;
@@ -235,12 +283,85 @@ namespace Minebot.Presentation
             buildPreviewInvalidTile = buildPreviewInvalid;
             wallContourTiles = wallContour ?? Array.Empty<Tile>();
             dangerContourTiles = dangerContour ?? Array.Empty<Tile>();
+            dangerOutlineTiles = dangerOutline ?? Array.Empty<Tile>();
             floorDualGridTiles = floorDualGrid ?? Array.Empty<Tile>();
             soilDualGridTiles = soilDualGrid ?? Array.Empty<Tile>();
             stoneDualGridTiles = stoneDualGrid ?? Array.Empty<Tile>();
             hardRockDualGridTiles = hardRockDualGrid ?? Array.Empty<Tile>();
             ultraHardDualGridTiles = ultraHardDualGrid ?? Array.Empty<Tile>();
             boundaryDualGridTiles = boundaryDualGrid ?? Array.Empty<Tile>();
+            bitmapGlyphFont = configuredBitmapGlyphFont;
+            bitmapGlyphAtlas = configuredBitmapGlyphAtlas;
+            bitmapGlyphDescriptor = configuredBitmapGlyphDescriptor;
+            hologramOverlayAtlas = configuredHologramOverlayAtlas;
+            scanLabelOffset = configuredScanLabelOffset ?? new Vector2(0f, 0.62f);
+            scanLabelColor = configuredScanLabelColor ?? new Color(0.62f, 1f, 0.96f, 1f);
+            scanLabelFontSize = Mathf.Max(0.5f, configuredScanLabelFontSize);
+            scanLabelSortingOrder = Mathf.Clamp(configuredScanLabelSortingOrder, 1, 100);
+        }
+
+        public void ConfigureActorPresentation(
+            GameObject playerPrefab,
+            GameObject helperRobotPrefab,
+            ActorStateSequenceSet playerStates,
+            ActorStateSequenceSet helperRobotStates)
+        {
+            actorResources = actorResources ?? new MinebotPresentationActorResources();
+            actorResources.Configure(playerPrefab, helperRobotPrefab, playerStates, helperRobotStates);
+        }
+
+        public void ConfigurePickupPresentation(
+            GameObject metalPickupPrefab,
+            GameObject energyPickupPrefab,
+            GameObject experiencePickupPrefab,
+            Sprite metalIcon,
+            Sprite energyIcon,
+            Sprite experienceIcon)
+        {
+            pickupResources = pickupResources ?? new MinebotPresentationPickupResources();
+            pickupResources.Configure(metalPickupPrefab, energyPickupPrefab, experiencePickupPrefab, metalIcon, energyIcon, experienceIcon);
+        }
+
+        public void ConfigureCellFxPresentation(
+            GameObject miningCrackPrefab,
+            GameObject wallBreakPrefab,
+            GameObject explosionPrefab,
+            SpriteSequenceAsset miningCrackSequence,
+            SpriteSequenceAsset wallBreakSequence,
+            SpriteSequenceAsset explosionSequence)
+        {
+            cellFxResources = cellFxResources ?? new MinebotPresentationCellFxResources();
+            cellFxResources.Configure(
+                miningCrackPrefab,
+                wallBreakPrefab,
+                explosionPrefab,
+                miningCrackSequence,
+                wallBreakSequence,
+                explosionSequence);
+        }
+
+        public void ConfigureHudPresentation(
+            MinebotHudView configuredHudPrefab,
+            Sprite panelBackground,
+            Sprite statusIcon,
+            Sprite interactionIcon,
+            Sprite feedbackIcon,
+            Sprite warningIcon,
+            Sprite upgradeIcon,
+            Sprite buildIcon,
+            Sprite buildingInteractionIcon)
+        {
+            hudResources = hudResources ?? new MinebotPresentationHudResources();
+            hudResources.Configure(
+                configuredHudPrefab,
+                panelBackground,
+                statusIcon,
+                interactionIcon,
+                feedbackIcon,
+                warningIcon,
+                upgradeIcon,
+                buildIcon,
+                buildingInteractionIcon);
         }
 #endif
     }

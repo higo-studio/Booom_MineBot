@@ -122,14 +122,47 @@ namespace Minebot.Tests.EditMode
         {
             RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
             int metalBefore = registry.Economy.Resources.Metal;
+            int experienceBefore = registry.Experience.Experience;
             GridPosition target = new GridPosition(registry.Grid.PlayerSpawn.X, registry.Grid.PlayerSpawn.Y + 2);
             Assert.That(registry.Session.Move(GridPosition.Up), Is.EqualTo(MineInteractionResult.Moved));
 
             MineInteractionResult result = registry.Session.Mine(target);
 
             Assert.That(result, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(registry.Economy.Resources.Metal, Is.EqualTo(metalBefore));
+            Assert.That(registry.Experience.Experience, Is.EqualTo(experienceBefore));
+            Assert.That(registry.WorldPickups.ActivePickups.Count, Is.EqualTo(2));
+
+            bool collected = registry.Session.TickWorldPickups(1f, ToWorldCenter(target));
+
+            Assert.That(collected, Is.True);
+            Assert.That(registry.WorldPickups.ActivePickups, Is.Empty);
             Assert.That(registry.Economy.Resources.Metal, Is.EqualTo(metalBefore + 1));
-            Assert.That(registry.Experience.Experience, Is.EqualTo(1));
+            Assert.That(registry.Experience.Experience, Is.EqualTo(experienceBefore + 1));
+        }
+
+        [Test]
+        public void ExperiencePickupTriggersPendingUpgradeOnlyAfterAbsorb()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = new GridPosition(3, 5);
+            SetMineableWall(grid, target, false);
+            grid.GetCellRef(target).Reward = new ResourceAmount(0, 0, 4);
+            GameSessionService session = CreateSession(grid, ResourceAmount.Zero, out _, out ExperienceService experience);
+
+            Assert.That(session.Move(GridPosition.Up), Is.EqualTo(MineInteractionResult.Moved));
+            MineInteractionResult result = session.Mine(target);
+
+            Assert.That(result, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(session.WorldPickups.ActivePickups.Count, Is.EqualTo(1));
+            Assert.That(experience.HasPendingUpgrade, Is.False);
+
+            bool collected = session.TickWorldPickups(1f, ToWorldCenter(target));
+
+            Assert.That(collected, Is.True);
+            Assert.That(session.WorldPickups.ActivePickups, Is.Empty);
+            Assert.That(experience.Experience, Is.EqualTo(4));
+            Assert.That(experience.HasPendingUpgrade, Is.True);
         }
 
         [Test]
@@ -557,6 +590,28 @@ namespace Minebot.Tests.EditMode
             Assert.That(artSet.StoneDetailTile, Is.Not.Null);
             Assert.That(artSet.HardRockDetailTile, Is.Not.Null);
             Assert.That(artSet.UltraHardDetailTile, Is.Not.Null);
+            Assert.That(artSet.HologramOverlayAtlas, Is.Not.Null);
+            Assert.That(artSet.BitmapGlyphAtlas, Is.Not.Null);
+            Assert.That(artSet.BitmapGlyphDescriptor, Is.Not.Null);
+            Assert.That(artSet.BitmapGlyphFont, Is.Not.Null);
+            Assert.That(artSet.ActorResources.PlayerPrefab, Is.Not.Null);
+            Assert.That(artSet.ActorResources.HelperRobotPrefab, Is.Not.Null);
+            Assert.That(artSet.ActorResources.PlayerStates.ForState(PresentationActorState.Mining), Is.Not.Null);
+            Assert.That(artSet.ActorResources.HelperRobotStates.ForState(PresentationActorState.Destroyed), Is.Not.Null);
+            Assert.That(artSet.PickupResources.MetalPickupPrefab, Is.Not.Null);
+            Assert.That(artSet.PickupResources.EnergyPickupPrefab, Is.Not.Null);
+            Assert.That(artSet.PickupResources.ExperiencePickupPrefab, Is.Not.Null);
+            Assert.That(artSet.CellFxResources.MiningCrackPrefab, Is.Not.Null);
+            Assert.That(artSet.CellFxResources.WallBreakPrefab, Is.Not.Null);
+            Assert.That(artSet.CellFxResources.ExplosionPrefab, Is.Not.Null);
+            Assert.That(artSet.CellFxResources.MiningCrackSequence, Is.Not.Null);
+            Assert.That(artSet.CellFxResources.WallBreakSequence, Is.Not.Null);
+            Assert.That(artSet.CellFxResources.ExplosionSequence, Is.Not.Null);
+            Assert.That(artSet.HudResources.HudPrefab, Is.Not.Null);
+            Assert.That(artSet.HudResources.PanelBackground, Is.Not.Null);
+            Assert.That(artSet.HudResources.StatusIcon, Is.Not.Null);
+            Assert.That(artSet.HudResources.BuildingInteractionIcon, Is.Not.Null);
+            Assert.That(artSet.DangerOutlineTiles.Length, Is.EqualTo(3));
             Assert.That(artSet.FloorDualGridTiles[5], Is.Not.Null);
             Assert.That(artSet.BoundaryDualGridTiles[15], Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_Floor_15.asset"), Is.Not.Null);
@@ -564,6 +619,71 @@ namespace Minebot.Tests.EditMode
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_Boundary_15.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_BuildPreviewValid.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_DetailUltraHard.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<BitmapGlyphFontDefinition>("Assets/Resources/Minebot/MinebotBitmapGlyphFont_Default.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Sprites/UI/Hologram/hologram_bmfont_digits.fnt"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Minebot/Sprites/UI/Hologram/hologram_overlay_atlas.png"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/Actors/States/player_mining_0.png"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/Pickups/pickup_metal.png"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/Effects/wall_break_2.png"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_warning.png"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Minebot/Presentation/Actors/PlayerActor.prefab"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Minebot/Presentation/Pickups/PickupMetal.prefab"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Minebot/Presentation/CellFx/ExplosionFx.prefab"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>("Assets/Resources/Minebot/Presentation/Sequences/Player_Mining.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>("Assets/Resources/Minebot/Presentation/Sequences/Fx_Explosion.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Docs/prefab-gameplay-art-record-template.md"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Generated/Prompts/minebot-prefab-gameplay-art-batch-001.md"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Generated/Selected/minebot-prefab-gameplay-art-manifest-001.md"), Is.Not.Null);
+        }
+
+        [Test]
+        public void HologramAssetsExposeBitmapGlyphsAndDangerGeometryCompatibility()
+        {
+            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
+            MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(
+                "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset");
+            MinebotPresentationAssets assets = MinebotPresentationAssets.Create(artSet);
+
+            Assert.That(artSet, Is.Not.Null);
+            Assert.That(assets.BitmapGlyphFont, Is.Not.Null);
+            Assert.That(assets.BitmapGlyphFont.TryGetGlyph('3', out BitmapGlyphFontDefinition.GlyphDefinition glyph), Is.True);
+            Assert.That(glyph, Is.Not.Null);
+            Assert.That(glyph.Sprite, Is.Not.Null);
+            Assert.That(glyph.Advance, Is.GreaterThan(0f));
+            Assert.That(assets.ResolveDangerOverlayTile(DangerOverlayGeometryKind.Base, 0), Is.Not.Null);
+            Assert.That(assets.ResolveDangerOverlayTile(DangerOverlayGeometryKind.Outline, 1), Is.Not.Null);
+            Assert.That(assets.ResolveDangerOverlayTile(DangerOverlayGeometryKind.Contour, 7), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Docs/holographic-feedback-record-template.md"), Is.Not.Null);
+        }
+
+        [Test]
+        public void HudMockupSourceSlicesProduceExpectedSpriteSizesAndBorders()
+        {
+            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
+
+            Assert.That(
+                AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Minebot/Generated/Selected/minebot-hud-uiux-mockup-source.png"),
+                Is.Not.Null);
+
+            Sprite panelBackground = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/UI/HUD/hud_panel_background.png");
+            Sprite statusIcon = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_status.png");
+            Sprite interactionIcon = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_interaction.png");
+            Sprite feedbackIcon = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_feedback.png");
+            Sprite buildIcon = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_build.png");
+
+            Assert.That(panelBackground, Is.Not.Null);
+            Assert.That(panelBackground.rect.width, Is.EqualTo(48).Within(0.5f));
+            Assert.That(panelBackground.rect.height, Is.EqualTo(48).Within(0.5f));
+            Assert.That(panelBackground.border.x, Is.EqualTo(12f).Within(0.01f));
+            Assert.That(panelBackground.border.y, Is.EqualTo(12f).Within(0.01f));
+            Assert.That(statusIcon.rect.width, Is.EqualTo(54).Within(0.5f));
+            Assert.That(statusIcon.rect.height, Is.EqualTo(53).Within(0.5f));
+            Assert.That(interactionIcon.rect.width, Is.EqualTo(60).Within(0.5f));
+            Assert.That(interactionIcon.rect.height, Is.EqualTo(55).Within(0.5f));
+            Assert.That(feedbackIcon.rect.width, Is.EqualTo(42).Within(0.5f));
+            Assert.That(feedbackIcon.rect.height, Is.EqualTo(42).Within(0.5f));
+            Assert.That(buildIcon.rect.width, Is.EqualTo(58).Within(0.5f));
+            Assert.That(buildIcon.rect.height, Is.EqualTo(58).Within(0.5f));
         }
 
         [Test]
@@ -679,6 +799,7 @@ namespace Minebot.Tests.EditMode
         {
             return new RuntimeServiceRegistry(
                 grid,
+                null,
                 null,
                 null,
                 null,
@@ -872,11 +993,21 @@ namespace Minebot.Tests.EditMode
 
         private static GameSessionService CreateSession(LogicalGridState grid, ResourceAmount startingResources, out PlayerEconomy economy)
         {
+            return CreateSession(grid, startingResources, out economy, out _);
+        }
+
+        private static GameSessionService CreateSession(
+            LogicalGridState grid,
+            ResourceAmount startingResources,
+            out PlayerEconomy economy,
+            out ExperienceService experience)
+        {
             var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
             var mining = new MiningService(grid);
             var hazards = new HazardService(grid);
             economy = new PlayerEconomy(startingResources);
-            var experience = new ExperienceService(4);
+            experience = new ExperienceService(4);
+            var worldPickups = new WorldPickupService();
             var vitals = new PlayerVitals(3);
             var robots = new List<RobotState>();
             var robotAutomation = new RobotAutomationService(grid);
@@ -888,12 +1019,18 @@ namespace Minebot.Tests.EditMode
                 null,
                 economy,
                 experience,
+                worldPickups,
                 vitals,
                 robotAutomation,
                 robots,
                 ResourceAmount.Zero,
                 true,
                 HardnessTier.Soil);
+        }
+
+        private static Vector2 ToWorldCenter(GridPosition position)
+        {
+            return new Vector2(position.X + 0.5f, position.Y + 0.5f);
         }
     }
 }
