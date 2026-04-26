@@ -2,6 +2,7 @@ using Minebot.GridMining;
 using Minebot.HazardInference;
 using Minebot.Progression;
 using Minebot.WaveSurvival;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -31,6 +32,9 @@ namespace Minebot.Bootstrap
         [SerializeField]
         private WaveConfig waveConfig;
 
+        [SerializeField]
+        private BuildingDefinition[] buildingDefinitions;
+
         public string GameplaySceneName => string.IsNullOrWhiteSpace(gameplaySceneName) ? "Gameplay" : gameplaySceneName;
         public InputActionAsset InputActions => inputActions;
         public MapDefinition DefaultMap => defaultMap;
@@ -38,5 +42,6 @@ namespace Minebot.Bootstrap
         public UpgradePoolConfig UpgradePool => upgradePool;
         public HazardRules HazardRules => hazardRules;
         public WaveConfig WaveConfig => waveConfig;
+        public IReadOnlyList<BuildingDefinition> BuildingDefinitions => buildingDefinitions;
     }
 }

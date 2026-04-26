@@ -94,6 +94,26 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void TargetSelectionTreatsBuildingOccupiedCellsAsBlocked()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition blockedTarget = new GridPosition(3, 5);
+            GridPosition reachableTarget = new GridPosition(5, 3);
+            SetWall(grid, blockedTarget);
+            SetWall(grid, reachableTarget);
+            grid.GetCellRef(new GridPosition(3, 4)).IsOccupiedByBuilding = true;
+            grid.GetCellRef(new GridPosition(2, 5)).IsOccupiedByBuilding = true;
+            grid.GetCellRef(new GridPosition(4, 5)).IsOccupiedByBuilding = true;
+            var robot = new RobotState(grid.PlayerSpawn);
+            var automation = new RobotAutomationService(grid, 7, 0f);
+
+            bool found = automation.TrySelectNearestSafeMineTarget(robot, HardnessTier.Soil, out GridPosition target);
+
+            Assert.That(found, Is.True);
+            Assert.That(target, Is.EqualTo(reachableTarget));
+        }
+
+        [Test]
         public void TargetSelectionUsesDeterministicTieBreak()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
