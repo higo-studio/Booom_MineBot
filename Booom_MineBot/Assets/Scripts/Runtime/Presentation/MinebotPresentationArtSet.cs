@@ -1,3 +1,4 @@
+using System;
 using Minebot.GridMining;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -36,6 +37,18 @@ namespace Minebot.Presentation
         [SerializeField]
         private Tile scanHintTile;
 
+        [SerializeField]
+        private Tile[] dangerOutlineTiles = Array.Empty<Tile>();
+
+        [SerializeField]
+        private Vector2 scanLabelOffset = new Vector2(0f, 0.62f);
+
+        [SerializeField]
+        private Color scanLabelColor = new Color(1f, 0.95f, 0.58f, 1f);
+
+        [SerializeField]
+        private float scanLabelFontSize = 4f;
+
         [Header("Facilities")]
         [SerializeField]
         private Tile repairStationTile;
@@ -50,6 +63,9 @@ namespace Minebot.Presentation
         [SerializeField]
         private Sprite robotSprite;
 
+        [SerializeField]
+        private float playerColliderRadius = 0.42f;
+
         public Tile EmptyTile => emptyTile;
         public Tile SoilWallTile => soilWallTile;
         public Tile StoneWallTile => stoneWallTile;
@@ -59,10 +75,15 @@ namespace Minebot.Presentation
         public Tile DangerTile => dangerTile;
         public Tile MarkerTile => markerTile;
         public Tile ScanHintTile => scanHintTile;
+        public Tile[] DangerOutlineTiles => dangerOutlineTiles ?? Array.Empty<Tile>();
+        public Vector2 ScanLabelOffset => scanLabelOffset;
+        public Color ScanLabelColor => scanLabelColor.a > 0f ? scanLabelColor : new Color(1f, 0.95f, 0.58f, 1f);
+        public float ScanLabelFontSize => Mathf.Max(0.5f, scanLabelFontSize);
         public Tile RepairStationTile => repairStationTile;
         public Tile RobotFactoryTile => robotFactoryTile;
         public Sprite PlayerSprite => playerSprite;
         public Sprite RobotSprite => robotSprite;
+        public float PlayerColliderRadius => Mathf.Clamp(playerColliderRadius, 0.1f, 0.49f);
 
         public Tile TileForHardness(HardnessTier hardness)
         {

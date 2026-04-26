@@ -16,8 +16,15 @@ namespace Minebot.Presentation
         public Tile RepairStationTile { get; private set; }
         public Tile RobotFactoryTile { get; private set; }
         public Tile ScanHintTile { get; private set; }
+        public Tile BuildPreviewValidTile { get; private set; }
+        public Tile BuildPreviewInvalidTile { get; private set; }
+        public Tile[] DangerOutlineTiles { get; private set; }
         public Sprite PlayerSprite { get; private set; }
         public Sprite RobotSprite { get; private set; }
+        public Vector2 ScanLabelOffset { get; private set; }
+        public Color ScanLabelColor { get; private set; }
+        public float ScanLabelFontSize { get; private set; }
+        public float PlayerColliderRadius { get; private set; }
         public bool IsUsingConfiguredArtSet { get; private set; }
 
         public static MinebotPresentationAssets Create(MinebotPresentationArtSet artSet)
@@ -41,10 +48,28 @@ namespace Minebot.Presentation
                 RepairStationTile = artSet.RepairStationTile != null ? artSet.RepairStationTile : fallback.RepairStationTile,
                 RobotFactoryTile = artSet.RobotFactoryTile != null ? artSet.RobotFactoryTile : fallback.RobotFactoryTile,
                 ScanHintTile = artSet.ScanHintTile != null ? artSet.ScanHintTile : fallback.ScanHintTile,
+                BuildPreviewValidTile = artSet.ScanHintTile != null ? artSet.ScanHintTile : fallback.BuildPreviewValidTile,
+                BuildPreviewInvalidTile = artSet.DangerTile != null ? artSet.DangerTile : fallback.BuildPreviewInvalidTile,
+                DangerOutlineTiles = NormalizeDangerOutlineTiles(artSet.DangerOutlineTiles, fallback.DangerOutlineTiles),
                 PlayerSprite = artSet.PlayerSprite != null ? artSet.PlayerSprite : fallback.PlayerSprite,
                 RobotSprite = artSet.RobotSprite != null ? artSet.RobotSprite : fallback.RobotSprite,
+                ScanLabelOffset = artSet.ScanLabelOffset,
+                ScanLabelColor = artSet.ScanLabelColor,
+                ScanLabelFontSize = artSet.ScanLabelFontSize,
+                PlayerColliderRadius = artSet.PlayerColliderRadius,
                 IsUsingConfiguredArtSet = true
             };
+        }
+
+        public Tile DangerOutlineTileForWave(int currentWave)
+        {
+            if (DangerOutlineTiles == null || DangerOutlineTiles.Length == 0)
+            {
+                return DangerTile;
+            }
+
+            int index = Mathf.Clamp(Mathf.Max(0, currentWave), 0, DangerOutlineTiles.Length - 1);
+            return DangerOutlineTiles[index] != null ? DangerOutlineTiles[index] : DangerTile;
         }
 
         public Tile WallTileForHardness(Minebot.GridMining.HardnessTier hardness)
@@ -77,9 +102,38 @@ namespace Minebot.Presentation
                 RepairStationTile = CreateTile("Repair Station Tile", new Color(0.1f, 0.38f, 0.85f, 1f), new Color(0.62f, 0.88f, 1f, 1f)),
                 RobotFactoryTile = CreateTile("Robot Factory Tile", new Color(0.88f, 0.42f, 0.09f, 1f), new Color(1f, 0.78f, 0.2f, 1f)),
                 ScanHintTile = CreateTile("Scan Hint Tile", new Color(0.2f, 0.75f, 1f, 0.74f), new Color(0.9f, 1f, 1f, 0.9f)),
+                BuildPreviewValidTile = CreateTile("Build Preview Valid Tile", new Color(0.18f, 0.72f, 1f, 0.42f), new Color(0.82f, 0.96f, 1f, 0.92f)),
+                BuildPreviewInvalidTile = CreateTile("Build Preview Invalid Tile", new Color(0.86f, 0.12f, 0.1f, 0.36f), new Color(1f, 0.44f, 0.28f, 0.9f)),
+                DangerOutlineTiles = new[]
+                {
+                    CreateOutlineTile("Danger Outline Thin Tile", new Color(1f, 0.38f, 0.22f, 0.95f), 1),
+                    CreateOutlineTile("Danger Outline Medium Tile", new Color(1f, 0.42f, 0.24f, 0.95f), 2),
+                    CreateOutlineTile("Danger Outline Thick Tile", new Color(1f, 0.48f, 0.26f, 0.95f), 3)
+                },
                 PlayerSprite = CreateSprite("Player Sprite", new Color(1f, 0.86f, 0.22f, 1f), new Color(0.1f, 0.75f, 0.95f, 1f)),
-                RobotSprite = CreateSprite("Robot Sprite", new Color(0.34f, 0.94f, 0.38f, 1f), new Color(0.05f, 0.28f, 0.12f, 1f))
+                RobotSprite = CreateSprite("Robot Sprite", new Color(0.34f, 0.94f, 0.38f, 1f), new Color(0.05f, 0.28f, 0.12f, 1f)),
+                ScanLabelOffset = new Vector2(0f, 0.62f),
+                ScanLabelColor = new Color(1f, 0.95f, 0.58f, 1f),
+                ScanLabelFontSize = 4f,
+                PlayerColliderRadius = 0.42f
             };
+        }
+
+        private static Tile[] NormalizeDangerOutlineTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
+        {
+            if (configuredTiles == null || configuredTiles.Length == 0)
+            {
+                return fallbackTiles;
+            }
+
+            var normalized = new Tile[configuredTiles.Length];
+            for (int i = 0; i < configuredTiles.Length; i++)
+            {
+                Tile fallback = fallbackTiles[Mathf.Min(i, fallbackTiles.Length - 1)];
+                normalized[i] = configuredTiles[i] != null ? configuredTiles[i] : fallback;
+            }
+
+            return normalized;
         }
 
         private static Tile CreateTile(string name, Color fill, Color border)
@@ -87,6 +141,38 @@ namespace Minebot.Presentation
             var tile = ScriptableObject.CreateInstance<Tile>();
             tile.name = name;
             tile.sprite = CreateSprite(name + " Sprite", fill, border);
+            tile.colliderType = Tile.ColliderType.None;
+            return tile;
+        }
+
+        private static Tile CreateOutlineTile(string name, Color outlineColor, int thickness)
+        {
+            const int size = 16;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = name + " Texture",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp
+            };
+
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            int safeThickness = Mathf.Clamp(thickness, 1, size / 2);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    bool isOutline = x < safeThickness
+                        || y < safeThickness
+                        || x >= size - safeThickness
+                        || y >= size - safeThickness;
+                    texture.SetPixel(x, y, isOutline ? outlineColor : clear);
+                }
+            }
+
+            texture.Apply(false, true);
+            var tile = ScriptableObject.CreateInstance<Tile>();
+            tile.name = name;
+            tile.sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
             tile.colliderType = Tile.ColliderType.None;
             return tile;
         }

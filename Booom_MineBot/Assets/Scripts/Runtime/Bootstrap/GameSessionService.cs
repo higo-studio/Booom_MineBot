@@ -10,14 +10,14 @@ namespace Minebot.Bootstrap
 {
     public readonly struct ScanResult
     {
-        public ScanResult(bool success, int bombCount)
+        public ScanResult(bool success, IReadOnlyList<ScanReading> readings)
         {
             Success = success;
-            BombCount = bombCount;
+            Readings = readings ?? Array.Empty<ScanReading>();
         }
 
         public bool Success { get; }
-        public int BombCount { get; }
+        public IReadOnlyList<ScanReading> Readings { get; }
     }
 
     public sealed class GameSessionService
@@ -65,7 +65,7 @@ namespace Minebot.Bootstrap
 
         public event Action StateChanged;
         public event Action<ResourceAmount> RewardGranted;
-        public event Action<int> ScanCompleted;
+        public event Action<IReadOnlyList<ScanReading>> ScanCompleted;
         public event Action<RobotAutomationResult> RobotAutomationCompleted;
         public RobotAutomationResult LastRobotAutomationResult { get; private set; }
 
@@ -109,14 +109,14 @@ namespace Minebot.Bootstrap
             int cost = hazardRules != null ? hazardRules.ScanEnergyCost : HazardRules.DefaultScanEnergyCost;
             if (!economy.TrySpend(new ResourceAmount(0, cost, 0)))
             {
-                return new ScanResult(false, 0);
+                return new ScanResult(false, Array.Empty<ScanReading>());
             }
 
-            bool eightWay = hazardRules == null || hazardRules.ScanUsesEightWayNeighbors;
-            int bombCount = hazards.ScanBombCount(origin, eightWay);
-            ScanCompleted?.Invoke(bombCount);
+            int frontierRange = hazardRules != null ? hazardRules.ScanFrontierRange : HazardRules.DefaultScanFrontierRange;
+            IReadOnlyList<ScanReading> readings = hazards.ScanFrontierWalls(origin, frontierRange);
+            ScanCompleted?.Invoke(readings);
             StateChanged?.Invoke();
-            return new ScanResult(true, bombCount);
+            return new ScanResult(true, readings);
         }
 
         public bool ToggleMarker(GridPosition position)

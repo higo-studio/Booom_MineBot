@@ -4,6 +4,18 @@ using Minebot.GridMining;
 
 namespace Minebot.HazardInference
 {
+    public readonly struct ScanReading
+    {
+        public ScanReading(GridPosition wallPosition, int bombCount)
+        {
+            WallPosition = wallPosition;
+            BombCount = bombCount;
+        }
+
+        public GridPosition WallPosition { get; }
+        public int BombCount { get; }
+    }
+
     public readonly struct ExplosionResolution
     {
         public ExplosionResolution(int destroyedCells, int directDamage)
@@ -49,19 +61,21 @@ namespace Minebot.HazardInference
             }
         }
 
-        public int ScanBombCount(GridPosition origin, bool eightWay)
+        public IReadOnlyList<ScanReading> ScanFrontierWalls(GridPosition playerPosition, int frontierRange)
         {
-            GridPosition[] directions = eightWay ? GridDirections.EightWay : GridDirections.Cardinal;
-            int count = 0;
-            foreach (GridPosition position in grid.Neighbors(origin, directions))
+            var results = new List<ScanReading>();
+            int maxFrontierRange = UnityEngine.Mathf.Max(0, frontierRange);
+            foreach (GridPosition position in grid.Positions())
             {
-                if (grid.GetCell(position).HasBomb)
+                if (!IsScannableFrontierWall(position, playerPosition, maxFrontierRange))
                 {
-                    count++;
+                    continue;
                 }
+
+                results.Add(new ScanReading(position, CountBombsInSquare(position, 1)));
             }
 
-            return count;
+            return results;
         }
 
         public bool ToggleMarker(GridPosition position)
@@ -130,6 +144,54 @@ namespace Minebot.HazardInference
             }
 
             return new ExplosionResolution(destroyed, directDamage);
+        }
+
+        private bool IsScannableFrontierWall(GridPosition wallPosition, GridPosition playerPosition, int frontierRange)
+        {
+            if (!grid.IsInside(wallPosition))
+            {
+                return false;
+            }
+
+            GridCellState wallCell = grid.GetCell(wallPosition);
+            if (!wallCell.IsMineable)
+            {
+                return false;
+            }
+
+            int nearestFrontierDistance = int.MaxValue;
+            foreach (GridPosition neighbor in grid.Neighbors(wallPosition, GridDirections.Cardinal))
+            {
+                GridCellState neighborCell = grid.GetCell(neighbor);
+                if (neighborCell.TerrainKind != TerrainKind.Empty || neighborCell.IsOccupiedByBuilding)
+                {
+                    continue;
+                }
+
+                nearestFrontierDistance = UnityEngine.Mathf.Min(
+                    nearestFrontierDistance,
+                    playerPosition.ManhattanDistance(neighbor));
+            }
+
+            return nearestFrontierDistance != int.MaxValue && nearestFrontierDistance <= frontierRange;
+        }
+
+        private int CountBombsInSquare(GridPosition origin, int radius)
+        {
+            int count = 0;
+            for (int y = -radius; y <= radius; y++)
+            {
+                for (int x = -radius; x <= radius; x++)
+                {
+                    GridPosition position = new GridPosition(origin.X + x, origin.Y + y);
+                    if (grid.IsInside(position) && grid.GetCell(position).HasBomb)
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
         }
 
         private static IEnumerable<GridPosition> PositionsInRadius(GridPosition origin, int radius)

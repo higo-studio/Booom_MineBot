@@ -4,6 +4,7 @@ using Minebot.Automation;
 using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
+using Minebot.HazardInference;
 using Minebot.Progression;
 using Minebot.UI;
 using TMPro;
@@ -20,8 +21,12 @@ namespace Minebot.Presentation
         public const string PresentationRootName = "Presentation Root";
         public const string TerrainTilemapName = "Terrain Tilemap";
         public const string FacilityTilemapName = "Facility Tilemap";
-        public const string OverlayTilemapName = "Overlay Tilemap";
-        public const string HintTilemapName = "Hint Tilemap";
+        public const string MarkerTilemapName = "Marker Tilemap";
+        public const string DangerTilemapName = "Danger Tilemap";
+        public const string BuildPreviewTilemapName = "Build Preview Tilemap";
+        public const string ScanIndicatorRootName = "Scan Indicator Root";
+        public const string OverlayTilemapName = MarkerTilemapName;
+        public const string HintTilemapName = BuildPreviewTilemapName;
         public const string PlayerViewName = "Player View";
         public const string HudRootName = MinebotHudView.RootName;
         public const string UpgradePanelName = MinebotHudView.UpgradePanelName;
@@ -48,6 +53,7 @@ namespace Minebot.Presentation
         private RuntimeServiceRegistry services;
         private MinebotPresentationAssets assets;
         private TilemapGridPresentation gridPresentation;
+        private ScanIndicatorPresenter scanIndicatorPresenter;
         private Transform actorRoot;
         private Transform buildingRoot;
         private SpriteRenderer playerView;
@@ -61,9 +67,9 @@ namespace Minebot.Presentation
         private BuildingDefinition selectedBuildingDefinition;
         private GridPosition repairStationPosition;
         private GridPosition robotFactoryPosition;
-        private GridPosition? scanOrigin;
+        private readonly List<ScanReading> lastScanReadings = new List<ScanReading>();
+        private bool hasPerformedScan;
         private GridPosition? buildPreviewOrigin;
-        private int lastScanCount;
         private string feedbackMessage = "WASD 自由移动，贴墙自动挖掘。Q 探测，E 标记，R 建筑。";
         private GameplayInteractionMode interactionMode = GameplayInteractionMode.Normal;
         private bool isSubscribed;
@@ -154,6 +160,7 @@ namespace Minebot.Presentation
 
             EvaluateDangerZones();
             gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
+            scanIndicatorPresenter?.Refresh();
             RefreshActors();
             RefreshBuildings();
             RefreshHud();
@@ -169,12 +176,11 @@ namespace Minebot.Presentation
             RefreshAll();
         }
 
-        public void RecordScan(GridPosition origin, int bombCount)
+        public void RecordScan(IReadOnlyList<ScanReading> readings)
         {
-            scanOrigin = origin;
-            lastScanCount = bombCount;
-            gridPresentation.ShowScanAt(origin);
-            ShowFeedback($"探测 {origin}：周边 8 格炸药 {bombCount} 个，蓝色格为探测中心。");
+            ApplyScanReadings(readings);
+            feedbackMessage = DescribeScanFeedback();
+            RefreshAll();
         }
 
         public bool TryRepairAtStation(int metalCost)
@@ -291,25 +297,38 @@ namespace Minebot.Presentation
             RefreshHud();
         }
 
-        public bool TryMovePlayerFreeform(Vector2 direction, float deltaTime, out GridPosition contactCell)
+        public CharacterMoveResult2D TryMovePlayerFreeform(Vector2 direction, float deltaTime)
         {
-            contactCell = services != null ? services.PlayerMiningState.Position : GridPosition.Zero;
             if (playerFreeform == null || services == null)
             {
-                return false;
+                Vector2 start = playerFreeform != null ? playerFreeform.WorldPosition : Vector2.zero;
+                return new CharacterMoveResult2D(
+                    start,
+                    start,
+                    Vector2.zero,
+                    Vector2.zero,
+                    CharacterCollisionFlags2D.None,
+                    default,
+                    false,
+                    default,
+                    false,
+                    0);
             }
 
-            bool moved = playerFreeform.TryMove(services.Grid, direction, deltaTime, out contactCell);
-            if (moved)
+            var collisionWorld = new GridCharacterCollisionWorld(services.Grid);
+            CharacterMoveResult2D result = playerFreeform.Move(collisionWorld, direction, deltaTime);
+            if (result.HasMoved)
             {
-                GridPosition currentCell = ActorContactProbe.WorldToGrid(playerFreeform.WorldPosition);
+                GridPosition currentCell = collisionWorld.ResolveOccupancyCell(
+                    result.FinalPosition,
+                    services.PlayerMiningState.Position);
                 if (services.Grid.IsInside(currentCell) && services.Grid.GetCell(currentCell).IsPassable)
                 {
                     services.PlayerMiningState.Teleport(currentCell);
                 }
             }
 
-            return moved;
+            return result;
         }
 
         public void SnapPlayerToLogicalPosition()
@@ -415,8 +434,11 @@ namespace Minebot.Presentation
 
             Tilemap terrain = EnsureTilemapLayer(gridRoot, TerrainTilemapName, 0);
             Tilemap facility = EnsureTilemapLayer(gridRoot, FacilityTilemapName, 5);
-            Tilemap overlay = EnsureTilemapLayer(gridRoot, OverlayTilemapName, 10);
-            Tilemap hint = EnsureTilemapLayer(gridRoot, HintTilemapName, 15);
+            Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, 10);
+            Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, 15);
+            Tilemap buildPreview = EnsureTilemapLayer(gridRoot, BuildPreviewTilemapName, 20);
+            scanIndicatorPresenter = EnsureScanIndicatorPresenter(EnsureChild(gridRoot, ScanIndicatorRootName));
+            scanIndicatorPresenter.Configure(assets);
 
             gridPresentation = gridRoot.GetComponent<TilemapGridPresentation>();
             if (gridPresentation == null)
@@ -424,10 +446,10 @@ namespace Minebot.Presentation
                 gridPresentation = gridRoot.gameObject.AddComponent<TilemapGridPresentation>();
             }
 
-            gridPresentation.Configure(terrain, facility, overlay, hint, assets);
+            gridPresentation.Configure(terrain, facility, marker, danger, buildPreview, assets);
             playerView = EnsureSpriteRenderer(actorRoot, PlayerViewName, assets.PlayerSprite, 30);
             playerFreeform = EnsureFreeformActor(playerView, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
-            EnsureCircleCollider(playerView.gameObject, 0.34f);
+            EnsureCircleCollider(playerView.gameObject, assets.PlayerColliderRadius);
             EnsureDefaultFacilityBuildings();
             EnsureHud();
             EnsureEventSystem();
@@ -454,6 +476,11 @@ namespace Minebot.Presentation
             }
 
             collider.radius = radius;
+            FreeformActorController controller = target.GetComponent<FreeformActorController>();
+            if (controller != null)
+            {
+                controller.CollisionRadius = radius;
+            }
         }
 
         private MinebotPresentationArtSet ResolveArtSet()
@@ -533,6 +560,17 @@ namespace Minebot.Presentation
 
             renderer.sortingOrder = sortingOrder;
             return tilemap;
+        }
+
+        private static ScanIndicatorPresenter EnsureScanIndicatorPresenter(Transform root)
+        {
+            ScanIndicatorPresenter presenter = root.GetComponent<ScanIndicatorPresenter>();
+            if (presenter == null)
+            {
+                presenter = root.gameObject.AddComponent<ScanIndicatorPresenter>();
+            }
+
+            return presenter;
         }
 
         private static SpriteRenderer EnsureSpriteRenderer(Transform parent, string objectName, Sprite sprite, int sortingOrder)
@@ -679,12 +717,10 @@ namespace Minebot.Presentation
             }
         }
 
-        private void OnScanCompleted(int bombCount)
+        private void OnScanCompleted(IReadOnlyList<ScanReading> readings)
         {
-            lastScanCount = bombCount;
-            scanOrigin = services.PlayerMiningState.Position;
-            gridPresentation.ShowScanAt(scanOrigin.Value);
-            feedbackMessage = $"探测完成：周边 8 格炸药 {bombCount} 个。";
+            ApplyScanReadings(readings);
+            feedbackMessage = DescribeScanFeedback();
         }
 
         private void OnRobotAutomationCompleted(RobotAutomationResult result)
@@ -892,7 +928,7 @@ namespace Minebot.Presentation
 
         private string BuildInteractionText()
         {
-            string baseHint = "WASD 自由移动 | 贴墙自动挖掘 | Q 探测 | E 标记模式 | R 建筑模式 | 鼠标点击确认 | 1/2/3 选择升级";
+            string baseHint = "WASD 自由移动 | 贴墙自动挖掘 | Q 探测前沿岩壁 | E 标记模式 | R 建筑模式 | 鼠标点击确认 | 1/2/3 选择升级";
             if (services.Experience.HasPendingUpgrade)
             {
                 return "升级待选择：普通操作已暂停。按 1/2/3 或点击升级项继续。\n" + baseHint;
@@ -932,19 +968,75 @@ namespace Minebot.Presentation
 
         private string BuildWarningText()
         {
-            string scanLine = scanOrigin.HasValue
-                ? $"探测结果：{scanOrigin.Value} 周边 8 格炸药 {lastScanCount} 个"
-                : "尚未探测：按 Q 消耗能量显示数字风险";
+            string scanLine = BuildScanSummaryText();
             string countdown = $"地震波倒计时 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s | 下一波半径 {services.Waves.NextDangerRadius}";
             string statusLine = PlayerIsInDangerZone()
-                ? "你位于红色危险区，地震结算会失败！"
-                : $"红色覆盖为危险区 | 已标记 {CountMarkedCells()} 格";
+                ? "你位于危险区，地震结算会失败！"
+                : $"橙红内描边为危险区 | 已标记 {CountMarkedCells()} 格";
             if (services.Waves.TimeUntilNextWave <= 5f)
             {
-                return $"{countdown}\n红色区域危险，立即避开。\n{statusLine}\n{scanLine}";
+                return $"{countdown}\n危险区正在逼近，立即避开。\n{statusLine}\n{scanLine}";
             }
 
             return $"{countdown}\n{statusLine}\n{scanLine}";
+        }
+
+        private void ApplyScanReadings(IReadOnlyList<ScanReading> readings)
+        {
+            hasPerformedScan = true;
+            lastScanReadings.Clear();
+            if (readings != null)
+            {
+                for (int i = 0; i < readings.Count; i++)
+                {
+                    lastScanReadings.Add(readings[i]);
+                }
+            }
+
+            scanIndicatorPresenter?.ShowReadings(lastScanReadings);
+        }
+
+        private string DescribeScanFeedback()
+        {
+            if (lastScanReadings.Count == 0)
+            {
+                return "探测完成：附近没有可读数的前沿岩壁。";
+            }
+
+            if (lastScanReadings.Count == 1)
+            {
+                ScanReading reading = lastScanReadings[0];
+                return $"探测完成：{reading.WallPosition} 上方显示数字 {reading.BombCount}。";
+            }
+
+            return $"探测完成：已在 {lastScanReadings.Count} 块前沿岩壁上显示数字。";
+        }
+
+        private string BuildScanSummaryText()
+        {
+            if (!hasPerformedScan)
+            {
+                return "尚未探测：按 Q 消耗能量显示前沿岩壁数字";
+            }
+
+            if (lastScanReadings.Count == 0)
+            {
+                return "最近探测：附近没有可显示数字的前沿岩壁";
+            }
+
+            if (lastScanReadings.Count == 1)
+            {
+                ScanReading reading = lastScanReadings[0];
+                return $"最近探测：{reading.WallPosition} 显示 {reading.BombCount}";
+            }
+
+            int highestRisk = 0;
+            for (int i = 0; i < lastScanReadings.Count; i++)
+            {
+                highestRisk = Mathf.Max(highestRisk, lastScanReadings[i].BombCount);
+            }
+
+            return $"最近探测：{lastScanReadings.Count} 块前沿岩壁已显示数字，最高风险 {highestRisk}";
         }
 
         private string BuildRobotStatusText()

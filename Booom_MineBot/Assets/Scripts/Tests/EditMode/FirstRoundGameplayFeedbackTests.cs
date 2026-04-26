@@ -30,22 +30,151 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void ContactProbeBlocksMovementIntoOccupiedOrWallCells()
+        public void MotorStopsAtWallBoundaryAndReportsContactCell()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(5, 5), new GridPosition(2, 2));
             GridPosition wall = new GridPosition(3, 2);
             ref GridCellState wallCell = ref grid.GetCellRef(wall);
             wallCell.TerrainKind = TerrainKind.MineableWall;
 
-            bool moved = ActorContactProbe.TryResolveMove(
-                grid,
-                ActorContactProbe.GridToWorldCenter(grid.PlayerSpawn),
-                Vector2.right,
-                out _,
-                out GridPosition contact);
+            CharacterMoveResult2D result = MoveWithMotor(grid, Vector2.right * 0.6f);
 
-            Assert.That(moved, Is.False);
-            Assert.That(contact, Is.EqualTo(wall));
+            Assert.That(result.HasMoved, Is.True);
+            Assert.That(result.HasStableContact, Is.True);
+            Assert.That(result.StableContactCell, Is.EqualTo(wall));
+            Assert.That(result.FinalPosition.x, Is.LessThan(3f - (ActorContactProbe.DefaultCollisionRadius + 0.02f) + 0.01f));
+        }
+
+        [Test]
+        public void MotorSlidesAlongWallWhenDiagonalInputHasFreeTangent()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(6, 6), new GridPosition(2, 2));
+            GridPosition wall = new GridPosition(3, 2);
+            grid.GetCellRef(wall).TerrainKind = TerrainKind.MineableWall;
+
+            Vector2 start = ActorContactProbe.GridToWorldCenter(grid.PlayerSpawn);
+            CharacterMoveResult2D result = MoveWithMotor(grid, new Vector2(0.6f, 0.6f));
+
+            Assert.That(result.HasMoved, Is.True);
+            Assert.That(result.WasSliding, Is.True);
+            Assert.That(result.HasStableContact, Is.True);
+            Assert.That(result.StableContactCell, Is.EqualTo(wall));
+            Assert.That(result.FinalPosition.x, Is.LessThan(3f - (ActorContactProbe.DefaultCollisionRadius + 0.02f) + 0.01f));
+            Assert.That(result.FinalPosition.y, Is.GreaterThan(start.y + 0.2f));
+        }
+
+        [Test]
+        public void MotorSlidesPastConvexCornerInsteadOfSnaggingOnSquareBounds()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(2, 2));
+            GridPosition cornerWall = new GridPosition(3, 3);
+            grid.GetCellRef(cornerWall).TerrainKind = TerrainKind.MineableWall;
+
+            Vector2 start = new Vector2(2.5f, 2.8f);
+            Vector2 desired = Vector2.right * 0.8f;
+            CharacterMoveResult2D result = MoveWithMotor(grid, desired, start);
+
+            Assert.That(result.HasMoved, Is.True);
+            Assert.That(result.WasSliding, Is.True);
+            Assert.That(result.HasStableContact, Is.True);
+            Assert.That(result.StableContactCell, Is.EqualTo(cornerWall));
+            Assert.That(result.FinalPosition.x, Is.GreaterThan(start.x + 0.2f));
+            Assert.That(result.FinalPosition.y, Is.LessThan(start.y - 0.05f));
+        }
+
+        [Test]
+        public void MotorPreventsDiagonalCornerSlip()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(6, 6), new GridPosition(2, 2));
+            grid.GetCellRef(new GridPosition(3, 2)).TerrainKind = TerrainKind.MineableWall;
+            grid.GetCellRef(new GridPosition(2, 3)).TerrainKind = TerrainKind.MineableWall;
+
+            CharacterMoveResult2D result = MoveWithMotor(grid, new Vector2(0.45f, 0.45f));
+
+            Assert.That(ActorContactProbe.WorldToGrid(result.FinalPosition), Is.EqualTo(grid.PlayerSpawn));
+            Assert.That(result.WasBlocked, Is.True);
+            Assert.That(result.HasStableContact, Is.True);
+            Assert.That(
+                result.StableContactCell.Equals(new GridPosition(3, 2))
+                || result.StableContactCell.Equals(new GridPosition(2, 3)),
+                Is.True);
+        }
+
+        [Test]
+        public void MotorReportsSameWallAcrossRepeatedBlockedMoves()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(6, 6), new GridPosition(2, 2));
+            GridPosition wall = new GridPosition(3, 2);
+            grid.GetCellRef(wall).TerrainKind = TerrainKind.MineableWall;
+
+            CharacterMoveResult2D first = MoveWithMotor(grid, Vector2.right * 0.6f);
+            CharacterMoveResult2D second = MoveWithMotor(grid, Vector2.right * 0.25f, first.FinalPosition);
+
+            Assert.That(first.HasStableContact, Is.True);
+            Assert.That(second.HasStableContact, Is.True);
+            Assert.That(first.StableContactCell, Is.EqualTo(wall));
+            Assert.That(second.StableContactCell, Is.EqualTo(wall));
+        }
+
+        [Test]
+        public void MotorRecoversFromInitialOverlapBeforeResolvingMovement()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(6, 6), new GridPosition(2, 2));
+            GridPosition wall = new GridPosition(3, 2);
+            grid.GetCellRef(wall).TerrainKind = TerrainKind.MineableWall;
+            var start = new Vector2(2.7f, 2.5f);
+
+            CharacterMoveResult2D result = MoveWithMotor(grid, Vector2.right * 0.2f, start);
+
+            Assert.That(result.HadInitialOverlap, Is.True);
+            Assert.That(result.WasDepenetrated, Is.True);
+            Assert.That(result.FinalPosition.x, Is.LessThan(start.x));
+            Assert.That(result.HasStableContact, Is.True);
+            Assert.That(result.StableContactCell, Is.EqualTo(wall));
+        }
+
+        [Test]
+        public void AutoMineContactResolverRequiresStableBlockedContactBeforeMining()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(6, 6), new GridPosition(2, 2));
+            GridPosition wall = new GridPosition(3, 2);
+            grid.GetCellRef(wall).TerrainKind = TerrainKind.MineableWall;
+            CharacterMoveResult2D blocked = CreateBlockedMoveResult(wall, CharacterCollisionFlags2D.Hit | CharacterCollisionFlags2D.Blocked);
+            CharacterMoveResult2D sliding = CreateBlockedMoveResult(wall, CharacterCollisionFlags2D.Hit | CharacterCollisionFlags2D.Blocked | CharacterCollisionFlags2D.Sliding);
+
+            AutoMineContactDecision first = AutoMineContactResolver.Advance(
+                AutoMineContactState.None,
+                blocked,
+                grid,
+                grid.PlayerSpawn,
+                GridPosition.Right,
+                0.05f,
+                0.18f);
+            AutoMineContactDecision second = AutoMineContactResolver.Advance(
+                first.NextState,
+                blocked,
+                grid,
+                grid.PlayerSpawn,
+                GridPosition.Right,
+                0.14f,
+                0.18f);
+            AutoMineContactDecision slide = AutoMineContactResolver.Advance(
+                AutoMineContactState.None,
+                sliding,
+                grid,
+                grid.PlayerSpawn,
+                GridPosition.Right,
+                0.25f,
+                0.18f);
+
+            Assert.That(first.ShouldShowFeedback, Is.True);
+            Assert.That(first.ShouldMine, Is.False);
+            Assert.That(first.NextState.HasContact, Is.True);
+            Assert.That(first.TargetCell, Is.EqualTo(wall));
+            Assert.That(second.ShouldMine, Is.True);
+            Assert.That(second.TargetCell, Is.EqualTo(wall));
+            Assert.That(slide.ShouldMine, Is.False);
+            Assert.That(slide.NextState.HasContact, Is.False);
         }
 
         [Test]
@@ -138,6 +267,44 @@ namespace Minebot.Tests.EditMode
             }
 
             return new LogicalGridState(size, spawn, cells);
+        }
+
+        private static CharacterMoveResult2D MoveWithMotor(LogicalGridState grid, Vector2 displacement, Vector2? start = null)
+        {
+            var motor = new KinematicCharacterMotor2D();
+            var collisionWorld = new GridCharacterCollisionWorld(grid);
+            var request = new CharacterMoveRequest2D(
+                start ?? ActorContactProbe.GridToWorldCenter(grid.PlayerSpawn),
+                displacement,
+                new CharacterMotorConfig2D(
+                    ActorContactProbe.DefaultCollisionRadius,
+                    0.02f,
+                    0.0005f,
+                    4,
+                    true));
+            return motor.Move(request, collisionWorld);
+        }
+
+        private static CharacterMoveResult2D CreateBlockedMoveResult(GridPosition contactCell, CharacterCollisionFlags2D flags)
+        {
+            var hit = new CharacterSweepHit2D(
+                Vector2.zero,
+                Vector2.left,
+                0f,
+                0f,
+                contactCell,
+                false);
+            return new CharacterMoveResult2D(
+                ActorContactProbe.GridToWorldCenter(new GridPosition(2, 2)),
+                ActorContactProbe.GridToWorldCenter(new GridPosition(2, 2)),
+                Vector2.right * 0.1f,
+                Vector2.zero,
+                flags,
+                hit,
+                true,
+                contactCell,
+                true,
+                1);
         }
     }
 }
