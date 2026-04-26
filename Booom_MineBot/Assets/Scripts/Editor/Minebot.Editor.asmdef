@@ -4,7 +4,10 @@
   "references": [
     "Minebot.Runtime.Common",
     "Minebot.Runtime.GridMining",
-    "Minebot.Runtime.Presentation"
+    "Minebot.Runtime.Presentation",
+    "Minebot.Runtime.UI",
+    "UnityEngine.UI",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"
