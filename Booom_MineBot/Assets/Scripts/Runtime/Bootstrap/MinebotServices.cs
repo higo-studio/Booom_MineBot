@@ -31,6 +31,7 @@ namespace Minebot.Bootstrap
             var economy = new PlayerEconomy(balance != null ? balance.StartingResources : new Minebot.Common.ResourceAmount(1, 4, 0));
             var vitals = new PlayerVitals(maxHealth);
             var experience = new ExperienceService(firstThreshold);
+            var worldPickups = new WorldPickupService();
             var robots = new List<RobotState>();
             WaveConfig waveConfig = config != null ? config.WaveConfig : null;
 
@@ -58,6 +59,7 @@ namespace Minebot.Bootstrap
                 hazardRules,
                 economy,
                 experience,
+                worldPickups,
                 vitals,
                 robotAutomation,
                 robots,
@@ -88,6 +90,7 @@ namespace Minebot.Bootstrap
                 economy,
                 vitals,
                 experience,
+                worldPickups,
                 new BaseOpsService(economy, vitals),
                 buildings,
                 buildingDefinitions,

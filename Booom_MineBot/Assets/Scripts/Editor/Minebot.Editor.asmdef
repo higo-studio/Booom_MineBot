@@ -4,6 +4,7 @@
   "references": [
     "Minebot.Runtime.Common",
     "Minebot.Runtime.GridMining",
+    "Minebot.Runtime.Automation",
     "Minebot.Runtime.Presentation",
     "Minebot.Runtime.UI",
     "UnityEngine.UI",

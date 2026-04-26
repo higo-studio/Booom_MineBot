@@ -123,7 +123,10 @@ MonoBehaviour:
   dangerTile: {fileID: 11400000, guid: 6fd9007294ae34be3a75c6efdcb738f0, type: 2}
   markerTile: {fileID: 11400000, guid: 72aa5024b3fc24142b00e607645a9793, type: 2}
   scanHintTile: {fileID: 11400000, guid: 749469656695a49dfbbcd0a1c1c1c093, type: 2}
-  dangerOutlineTiles: []
+  dangerOutlineTiles:
+  - {fileID: 11400000, guid: 0a30322d070c8409bb118aee73bdfd43, type: 2}
+  - {fileID: 11400000, guid: 18bd583bb503b4b559722d432aadbe95, type: 2}
+  - {fileID: 11400000, guid: 2d72b1d9a9dea403ea4b71718e3c57f2, type: 2}
   wallContourTiles:
   - {fileID: 11400000, guid: 42c53e3fc13c14dee8bb144a696ff1d4, type: 2}
   - {fileID: 11400000, guid: e32b419b94f014ffd883b07c9f2451af, type: 2}
@@ -164,11 +167,55 @@ MonoBehaviour:
   ultraHardDetailTile: {fileID: 11400000, guid: 73b31cb43794e42169ec45249b381054, type: 2}
   buildPreviewValidTile: {fileID: 11400000, guid: 16c0cbb2b106a492cb6f0f52bd5ada45, type: 2}
   buildPreviewInvalidTile: {fileID: 11400000, guid: f468a47b07aeb4281bffb70d8d30dfe9, type: 2}
-  scanLabelOffset: {x: 0, y: 0.62}
-  scanLabelColor: {r: 1, g: 0.95, b: 0.58, a: 1}
+  hologramOverlayAtlas: {fileID: 2800000, guid: 2e1b5bc1880364d748bc30677f4a4540, type: 3}
+  bitmapGlyphAtlas: {fileID: 2800000, guid: 0756fa162f9f249aab6793f908b5097f, type: 3}
+  bitmapGlyphDescriptor: {fileID: 4900000, guid: 9560ad685c4ff44a5bfa09673f9fa52c, type: 3}
+  bitmapGlyphFont: {fileID: 11400000, guid: 4ab9e547febc54282a5ceaecb887bfe7, type: 2}
+  scanLabelOffset: {x: 0, y: 0.7}
+  scanLabelColor: {r: 0.62, g: 1, b: 0.96, a: 1}
   scanLabelFontSize: 4
+  scanLabelSortingOrder: 35
   repairStationTile: {fileID: 11400000, guid: ca436ca254750406bb49f305c243c706, type: 2}
   robotFactoryTile: {fileID: 11400000, guid: 5aef70b7533ce463e87d2b3b9871f1bb, type: 2}
   playerSprite: {fileID: 21300000, guid: 40c2b58172c7e4280ab3f722a892e2c6, type: 3}
   robotSprite: {fileID: 21300000, guid: a9f588084d839433782eedf80eae4575, type: 3}
   playerColliderRadius: 0.42
+  actorResources:
+    playerPrefab: {fileID: 5253805810420483157, guid: 34755ea4406724b28bb7ab87ef251c76, type: 3}
+    helperRobotPrefab: {fileID: 2014334203746286247, guid: 70d7d087774154c738541b3a5f3e7b65, type: 3}
+    playerStates:
+      idle: {fileID: 11400000, guid: 9366a74295eb44700a3e6bf95b6c2e10, type: 2}
+      moving: {fileID: 11400000, guid: 286159b54ddcf4d65ac1ba6ec12be294, type: 2}
+      mining: {fileID: 11400000, guid: 9cfe5bacd1f044fdbb80c86919a2b78f, type: 2}
+      blocked: {fileID: 11400000, guid: 3c260acb393b740b984838f3891aa289, type: 2}
+      destroyed: {fileID: 11400000, guid: 3fefcb1ccc8c341a49c322354e7b4403, type: 2}
+    helperRobotStates:
+      idle: {fileID: 11400000, guid: 50510ae0506104860812b9f8e814bb7e, type: 2}
+      moving: {fileID: 11400000, guid: 7b3b112f80b5a4f32a7e63f357877a49, type: 2}
+      mining: {fileID: 11400000, guid: 77f91da14ff494051b6df399efd726f7, type: 2}
+      blocked: {fileID: 11400000, guid: cf6cc0b179e5845f6a86f0f0d7b1a099, type: 2}
+      destroyed: {fileID: 11400000, guid: b643443ea3e4948f3a2bca8338158cff, type: 2}
+  pickupResources:
+    metalPickupPrefab: {fileID: 5540578952216291018, guid: 9a3187b99f5ad4936a813c02472d6918, type: 3}
+    energyPickupPrefab: {fileID: 5150366908750135399, guid: fcbb44ffd4a9543ec842d46d8de48e3e, type: 3}
+    experiencePickupPrefab: {fileID: 7284440803755123050, guid: f965dc0a2b47444dab62c7092430eac6, type: 3}
+    metalIcon: {fileID: 21300000, guid: fa0dab51938e84b658468641dae5d260, type: 3}
+    energyIcon: {fileID: 21300000, guid: ec5aa81b13a624bb8876a0a5428d9674, type: 3}
+    experienceIcon: {fileID: 21300000, guid: 528e1aecef24d4a6d94df2ab0587c1e0, type: 3}
+  cellFxResources:
+    miningCrackPrefab: {fileID: 5403244050406053843, guid: e9c39fc35806b40df90813057802b5ce, type: 3}
+    wallBreakPrefab: {fileID: 9056696367042688441, guid: 27f6a45df415f4a74bf7c8fa203c58f3, type: 3}
+    explosionPrefab: {fileID: 5314398066088596527, guid: 6c76c9cb0484445dba62eca033b308f3, type: 3}
+    miningCrackSequence: {fileID: 11400000, guid: 85ccfa1cf504b4304bece48e370f7c95, type: 2}
+    wallBreakSequence: {fileID: 11400000, guid: 1279dc01e9bac4657919c43780f68804, type: 2}
+    explosionSequence: {fileID: 11400000, guid: 8415c791d88674c55bbd5709b37670d3, type: 2}
+  hudResources:
+    hudPrefab: {fileID: 7025855593915096214, guid: 435da83a705474fdc93499e15b12f999, type: 3}
+    panelBackground: {fileID: 21300000, guid: 6696ad01759e8463f901b7b1600aaba2, type: 3}
+    statusIcon: {fileID: 21300000, guid: f297ad7ee167a46709b129c9e2675828, type: 3}
+    interactionIcon: {fileID: 21300000, guid: 4131087ab01c84418905abb2be1dd7ab, type: 3}
+    feedbackIcon: {fileID: 21300000, guid: cd39dba8b6cff4da98a44ec33532ae05, type: 3}
+    warningIcon: {fileID: 21300000, guid: 7557a444f853a4cbd973283b34762830, type: 3}
+    upgradeIcon: {fileID: 21300000, guid: 6cb0cfede0cfa4084b3cd684b4b2eb63, type: 3}
+    buildIcon: {fileID: 21300000, guid: 855fdf92ef49f463687f11ee6acbcaaa, type: 3}
+    buildingInteractionIcon: {fileID: 21300000, guid: ce2119b45e7fd4e73b1beaba9e6e9818, type: 3}

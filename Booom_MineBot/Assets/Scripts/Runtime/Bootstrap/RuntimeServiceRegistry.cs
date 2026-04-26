@@ -19,6 +19,7 @@ namespace Minebot.Bootstrap
             PlayerEconomy economy,
             PlayerVitals vitals,
             ExperienceService experience,
+            WorldPickupService worldPickups,
             BaseOpsService baseOps,
             BuildingPlacementService buildings,
             IReadOnlyList<BuildingDefinition> buildingDefinitions,
@@ -36,6 +37,7 @@ namespace Minebot.Bootstrap
             Economy = economy;
             Vitals = vitals;
             Experience = experience;
+            WorldPickups = worldPickups;
             BaseOps = baseOps;
             Buildings = buildings;
             BuildingDefinitions = buildingDefinitions;
@@ -54,6 +56,7 @@ namespace Minebot.Bootstrap
         public PlayerEconomy Economy { get; }
         public PlayerVitals Vitals { get; }
         public ExperienceService Experience { get; }
+        public WorldPickupService WorldPickups { get; }
         public BaseOpsService BaseOps { get; }
         public BuildingPlacementService Buildings { get; }
         public IReadOnlyList<BuildingDefinition> BuildingDefinitions { get; }

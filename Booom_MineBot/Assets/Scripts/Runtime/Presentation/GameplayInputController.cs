@@ -115,6 +115,7 @@ namespace Minebot.Presentation
             if (moveResult.HasMoved)
             {
                 ResetAutoMineState();
+                presentation.NotifyPlayerMoved();
                 presentation.RefreshAll();
                 return true;
             }
@@ -427,11 +428,17 @@ namespace Minebot.Presentation
             autoMineState = decision.NextState;
             if (decision.ShouldShowFeedback)
             {
+                presentation.NotifyPlayerMiningContact(decision.TargetCell);
                 presentation.ShowFeedback($"正在挖掘 {decision.TargetCell}...");
             }
 
             if (!decision.ShouldMine)
             {
+                if (moveResult.WasBlocked && !decision.ShouldShowFeedback)
+                {
+                    presentation.NotifyPlayerBlocked();
+                }
+
                 return false;
             }
 
@@ -447,6 +454,7 @@ namespace Minebot.Presentation
         private bool MineTarget(GridPosition target)
         {
             MineInteractionResult result = services.Session.Mine(target);
+            presentation.NotifyPlayerMineResolved(target, result);
             presentation.ShowFeedback(result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb
                 ? $"自动挖掘 {target}：{ToChineseResultText(result)}"
                 : $"无法挖掘 {target}：{ToChineseResultText(result)}");

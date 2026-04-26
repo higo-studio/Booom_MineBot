@@ -23,11 +23,13 @@ namespace Minebot.Tests.EditMode
             Assert.That(rootRect.anchorMax, Is.EqualTo(Vector2.one));
             Assert.That(rootPrefab.transform.Find(MinebotHudView.StatusSlotName), Is.Not.Null);
             Assert.That(rootPrefab.transform.Find(MinebotHudView.WarningSlotName), Is.Not.Null);
+            Assert.That(rootPrefab.transform.Find(MinebotHudView.MinimapSlotName), Is.Not.Null);
             Assert.That(rootPrefab.transform.Find(MinebotHudView.BuildSlotName), Is.Not.Null);
             Assert.That(rootPrefab.transform.Find(MinebotHudView.BuildingInteractionSlotName), Is.Not.Null);
 
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.StatusPanelAssetPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.WarningPanelAssetPath), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.MinimapPanelAssetPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.UpgradePanelAssetPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BuildPanelAssetPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BuildingInteractionPanelAssetPath), Is.Not.Null);
@@ -40,6 +42,7 @@ namespace Minebot.Tests.EditMode
 
                 Assert.That(view.StatusPanel, Is.Not.Null);
                 Assert.That(view.WarningPanel, Is.Not.Null);
+                Assert.That(view.MinimapPanel, Is.Not.Null);
                 Assert.That(view.UpgradePanel, Is.Not.Null);
                 Assert.That(view.BuildPanel, Is.Not.Null);
                 Assert.That(view.BuildingInteractionPanel, Is.Not.Null);

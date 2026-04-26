@@ -8,20 +8,36 @@
 - `Assets/Art/Minebot/Sprites/Tiles/`：最终消费的地形、覆盖层和设施 PNG。
 - `Assets/Art/Minebot/Sprites/Tiles/DualGridTerrain/`：dual-grid terrain family 的 16-state PNG。
 - `Assets/Art/Minebot/Sprites/Actors/`：最终消费的主机器人和从属机器人 PNG。
+- `Assets/Art/Minebot/Sprites/Actors/States/`：主机器人 / 从属机器人状态序列帧。
+- `Assets/Art/Minebot/Sprites/Pickups/`：金属 / 能量 / 经验掉落物图标。
+- `Assets/Art/Minebot/Sprites/Effects/`：裂缝、裂墙、爆炸等 cell FX 序列帧。
 - `Assets/Art/Minebot/Sprites/UI/`：后续 HUD 或图标资源。
+- `Assets/Art/Minebot/Sprites/UI/HUD/`：HUD 背景、状态区图标和交互区图标。
+- `Assets/Art/Minebot/Sprites/UI/Hologram/`：全息 overlay atlas、BMFont atlas 与描述文件。
+- `Assets/Art/Minebot/Sprites/UI/Hologram/Glyphs/`：由 BMFont atlas 对应出的最终 digit sprite。
 - `Assets/Art/Minebot/Tiles/`：Unity Tile 资产。
 - `Assets/Art/Minebot/Tiles/DualGridTerrain/`：dual-grid terrain family 的 Unity Tile 资产。
 - `Assets/Art/Minebot/Palettes/`：Tile Palette 或调色板说明。
 - `Assets/Art/Minebot/Presets/`：导入设置或资源配置辅助资产。
 - `Assets/Art/Minebot/Docs/`：本文件和资源管理说明。
+- `Assets/Resources/Minebot/Presentation/`：默认 actor / pickup / cell FX prefab 与 sprite sequence 资源。
 
 ## 命名规则
 
 - Tile PNG：`tile_<semantic>.png`，例如 `tile_wall_soil.png`。
 - dual-grid Tile PNG：`tile_dg_<family>_<index>.png`，例如 `tile_dg_floor_15.png`、`tile_dg_hard_rock_08.png`。
 - Actor PNG：`actor_<semantic>.png`，例如 `actor_player_minebot.png`。
+- Actor state PNG：`<actor>_<state>_<frame>.png`，例如 `player_mining_1.png`、`robot_destroyed_0.png`。
+- Pickup PNG：`pickup_<semantic>.png`，例如 `pickup_energy.png`。
+- FX PNG：`<effect>_<frame>.png`，例如 `crack_mining_2.png`、`explosion_4.png`。
+- HUD PNG：`hud_<semantic>.png`，例如 `hud_panel_background.png`、`hud_icon_warning.png`。
 - Unity Tile：`Tile_<Semantic>.asset`，例如 `Tile_WallSoil.asset`。
 - dual-grid Unity Tile：`Tile_DG_<Family>_<Index>.asset`，例如 `Tile_DG_Floor_15.asset`、`Tile_DG_Boundary_03.asset`。
+- SpriteSequence：`<Group>_<Semantic>.asset`，例如 `Player_Mining.asset`、`Fx_WallBreak.asset`。
+- Presentation prefab：`<Semantic>.prefab`，例如 `PlayerActor.prefab`、`PickupMetal.prefab`、`ExplosionFx.prefab`。
+- 全息 atlas：`hologram_<semantic>.png`，例如 `hologram_overlay_atlas.png`、`hologram_bmfont_digits.png`。
+- 全息 digit sprite：`hologram_digit_<n>.png`，例如 `hologram_digit_3.png`。
+- BMFont 描述文件：`hologram_bmfont_digits.fnt`。
 - 美术配置：`MinebotPresentationArtSet_Default.asset`。
 - 源图：`minebot_pixel_sheet_<batch>.png`。
 - 角色优化源图：`minebot_actor_optimized_sheet_<batch>.png`。
@@ -41,6 +57,10 @@
 | 危险覆盖 | `tile_overlay_danger.png` | 地震危险区 |
 | 标记 | `tile_overlay_marker.png` | 玩家疑似炸药标记 |
 | 探测提示 | `tile_hint_scan.png` | 探测中心提示 |
+| hologram overlay atlas | `Sprites/UI/Hologram/hologram_overlay_atlas.png` | marker / danger / scan 统一风格来源 |
+| BMFont atlas | `Sprites/UI/Hologram/hologram_bmfont_digits.png` | 扫描数字位图字形来源 |
+| BMFont descriptor | `Sprites/UI/Hologram/hologram_bmfont_digits.fnt` | digit advance / atlas 记录 |
+| digit sprites | `Sprites/UI/Hologram/Glyphs/hologram_digit_0.png` - `hologram_digit_9.png` | `BitmapGlyphFontDefinition` 运行时消费 |
 | 合法建造预览 | `tile_build_preview_valid.png` | `BuildPreview` valid |
 | 非法建造预览 | `tile_build_preview_invalid.png` | `BuildPreview` invalid |
 | 旧单格地形 | `tile_floor_cave.png` / `tile_wall_soil.png` / `tile_wall_stone.png` / `tile_wall_hard_rock.png` / `tile_wall_ultra_hard.png` / `tile_boundary.png` | 迁移期兼容 / 旧批次归档 |
@@ -51,12 +71,42 @@
 | 机器人工厂 | `tile_facility_robot_factory.png` | 机器人工厂 |
 | 主机器人 | `actor_player_minebot.png` | 玩家 Sprite |
 | 从属机器人 | `actor_helper_robot.png` | 从属机器人 Sprite |
+| 玩家状态序列 | `Sprites/Actors/States/player_*` | 玩家 prefab 状态播放 |
+| 机器人状态序列 | `Sprites/Actors/States/robot_*` | 从属机器人 prefab 状态播放 |
+| 掉落物图标 | `Sprites/Pickups/pickup_*` | 掉落物 prefab / HUD 图标 |
+| 墙体交互 FX | `Sprites/Effects/crack_mining_*` / `wall_break_*` / `explosion_*` | cell FX prefab 时序 |
+| HUD 图形资源 | `Sprites/UI/HUD/hud_*` | HUD panel 背景与标题图标 |
+| Presentation prefabs | `Resources/Minebot/Presentation/**` | actor / pickup / cell FX / HUD 默认资源 |
 
 当前风格来源说明：
 
 - floor / wall base / boundary / danger base / marker / scan / facilities / actors / detail / build preview 已在 Batch 005 刷新到 `minebot_pixel_sheet_001_b` 风格族。
 - `tile_dg_*` 当前由 Editor pipeline 基于共享 shape mask + family tint 程序生成，保证默认 art set 在缺少最终 image2 atlas 时也能稳定落盘。
+- 全息反馈默认资源当前也由 Editor pipeline 程序生成并落盘到正式目录，作为 image2 / BMFont 资源到位前的可审查默认值。
 - `wall contour` / `danger contour` 的最终运行时切片已不再承担 terrain 主渲染，只作为过渡 change 的归档资产保留。
+
+## 全息反馈记录模板
+
+- 模板文件：`Assets/Art/Minebot/Docs/holographic-feedback-record-template.md`
+- 默认批次记录：`Assets/Art/Minebot/Generated/Prompts/minebot-hologram-feedback-batch-001.md`
+- 默认资产台账：`Assets/Art/Minebot/Generated/Selected/minebot-hologram-asset-manifest-001.md`
+
+要求：
+
+- 记录 prompt、筛选原因、atlas 路径、BMFont 描述文件、glyph 映射和 ArtSet 引用关系。
+- danger / marker / scan 三类全息资源应共用同一批次说明，避免风格链路分叉。
+
+## Prefab Gameplay Art 记录模板
+
+- 模板文件：`Assets/Art/Minebot/Docs/prefab-gameplay-art-record-template.md`
+- 默认批次记录：`Assets/Art/Minebot/Generated/Prompts/minebot-prefab-gameplay-art-batch-001.md`
+- 默认资产台账：`Assets/Art/Minebot/Generated/Selected/minebot-prefab-gameplay-art-manifest-001.md`
+
+要求：
+
+- 记录 actor state frame、pickup icon、cell FX frame、HUD 图形资源的 prompt 和筛选理由。
+- 明确每一组资源最终落到哪个 `SpriteSequenceAsset`、哪个 prefab、哪个 HUD panel/icon。
+- 墙体交互 FX 必须单独记录“连续岩体内部不重新造边”的筛选结论。
 
 ## dual-grid terrain family 目标结构
 
@@ -165,8 +215,9 @@ Layout: organized asset sheet on a flat dark neutral background, each sprite sep
 ## 已知限制
 
 - 第一批资源是 MVP 占位美术，不代表最终商业品质。
-- 角色暂不包含方向动画，只提供静态 Sprite。
-- 危险区、标记和探测提示先作为覆盖层 Tile，不做粒子或动画。
+- 角色目前仍是占位式序列帧，不含方向朝向分支。
+- 墙体交互 FX 目前是程序生成的首版时序资源，后续可替换为筛选后的 image2 批次。
+- 危险区、标记和探测提示先作为覆盖层 Tile，不做独立粒子系统。
 - Batch 002 已将角色替换为透明底静态 Sprite；后续如需更强操作反馈，应扩展为方向动画或工作状态动画。
 
 ## Batch 001 结果

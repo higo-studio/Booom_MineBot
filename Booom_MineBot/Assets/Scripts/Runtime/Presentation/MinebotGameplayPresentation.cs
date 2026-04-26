@@ -31,6 +31,8 @@ namespace Minebot.Presentation
             public const string DangerTilemapName = "Danger Tilemap";
             public const string BuildPreviewTilemapName = "Build Preview Tilemap";
             public const string ScanIndicatorRootName = "Scan Indicator Root";
+            public const string PickupRootName = "Pickup Root";
+            public const string CellFxRootName = "Cell FX Root";
             public const string OverlayTilemapName = MarkerTilemapName;
         public const string HintTilemapName = BuildPreviewTilemapName;
         public const string PlayerViewName = "Player View";
@@ -61,12 +63,19 @@ namespace Minebot.Presentation
         private TilemapGridPresentation gridPresentation;
         private ScanIndicatorPresenter scanIndicatorPresenter;
         private Transform actorRoot;
+        private Transform pickupRoot;
+        private Transform cellFxRoot;
         private Transform buildingRoot;
+        private MinebotActorView playerActorView;
         private SpriteRenderer playerView;
         private FreeformActorController playerFreeform;
-        private readonly List<SpriteRenderer> robotViews = new List<SpriteRenderer>();
+        private readonly List<MinebotActorView> robotViews = new List<MinebotActorView>();
+        private readonly Dictionary<int, MinebotPickupView> pickupViews = new Dictionary<int, MinebotPickupView>();
+        private readonly Dictionary<GridPosition, MinebotCellFxView> miningCrackViews = new Dictionary<GridPosition, MinebotCellFxView>();
+        private readonly Dictionary<RobotState, float> destroyedRobotVisualExpiry = new Dictionary<RobotState, float>();
         private readonly List<GameObject> buildingViews = new List<GameObject>();
         private static TMP_FontAsset runtimeFontAsset;
+        private Texture2D hudMinimapTexture;
         private MinebotHudView hudView;
         private UpgradeDefinition[] currentCandidates = Array.Empty<UpgradeDefinition>();
         private BuildingDefinition[] availableBuildingDefinitions = Array.Empty<BuildingDefinition>();
@@ -76,8 +85,10 @@ namespace Minebot.Presentation
         private readonly List<ScanReading> lastScanReadings = new List<ScanReading>();
         private bool hasPerformedScan;
         private GridPosition? buildPreviewOrigin;
-        private string feedbackMessage = "WASD 自由移动，贴墙自动挖掘。Q 探测，E 标记，R 建筑。";
+        private string feedbackMessage = "准备就绪 | 朝岩壁推进即可自动挖掘";
         private GameplayInteractionMode interactionMode = GameplayInteractionMode.Normal;
+        private PresentationActorState playerVisualState = PresentationActorState.Idle;
+        private float playerVisualHoldRemaining;
         private bool isSubscribed;
         private bool defaultFacilitiesRegistered;
 
@@ -92,7 +103,7 @@ namespace Minebot.Presentation
             get
             {
                 int count = 0;
-                foreach (SpriteRenderer view in robotViews)
+                foreach (MinebotActorView view in robotViews)
                 {
                     if (view != null && view.gameObject.activeSelf)
                     {
@@ -134,6 +145,11 @@ namespace Minebot.Presentation
             UnsubscribeFromServices();
         }
 
+        private void OnDestroy()
+        {
+            ReleaseHudMinimapTexture();
+        }
+
         private void Update()
         {
             if (services == null)
@@ -141,12 +157,17 @@ namespace Minebot.Presentation
                 return;
             }
 
+            UpdatePlayerVisualState(Time.deltaTime);
+            UpdateCameraFraming();
+
             if (enableWaveTick && !services.Vitals.IsDead && services.Waves.Tick(Time.deltaTime))
             {
                 ResolveWave();
             }
 
-            if (!services.Session.TickRobots(Time.deltaTime))
+            bool robotsChanged = services.Session.TickRobots(Time.deltaTime);
+            bool pickupRewardsGranted = services.Session.TickWorldPickups(Time.deltaTime, PlayerWorldPosition);
+            if (!robotsChanged && !pickupRewardsGranted)
             {
                 RefreshHud();
             }
@@ -168,6 +189,7 @@ namespace Minebot.Presentation
             gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
             scanIndicatorPresenter?.Refresh();
             RefreshActors();
+            RefreshPickups();
             RefreshBuildings();
             RefreshHud();
         }
@@ -427,6 +449,8 @@ namespace Minebot.Presentation
             Transform presentationRoot = EnsureChild(transform, PresentationRootName);
             Transform gridRoot = EnsureChild(presentationRoot, "Grid");
             actorRoot = EnsureChild(presentationRoot, "Actor Root");
+            pickupRoot = EnsureChild(presentationRoot, PickupRootName);
+            cellFxRoot = EnsureChild(presentationRoot, CellFxRootName);
             buildingRoot = EnsureChild(presentationRoot, "Building Root");
 
             var unityGrid = gridRoot.GetComponent<UnityEngine.Grid>();
@@ -453,20 +477,21 @@ namespace Minebot.Presentation
             }
 
             gridPresentation.Configure(terrainFamilies, facility, marker, danger, buildPreview, assets);
-            playerView = EnsureSpriteRenderer(actorRoot, PlayerViewName, assets.PlayerSprite, 40);
-            playerFreeform = EnsureFreeformActor(playerView, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
-            EnsureCircleCollider(playerView.gameObject, assets.PlayerColliderRadius);
+            playerActorView = EnsureActorView(actorRoot, PlayerViewName, assets.PlayerActorPrefab, assets.PlayerSprite, 40);
+            playerView = playerActorView.BodyRenderer;
+            playerFreeform = EnsureFreeformActor(playerActorView.gameObject, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
+            EnsureCircleCollider(playerActorView.gameObject, assets.PlayerColliderRadius);
             EnsureDefaultFacilityBuildings();
             EnsureHud();
             EnsureEventSystem();
         }
 
-        private static FreeformActorController EnsureFreeformActor(SpriteRenderer renderer, GridPosition position)
+        private static FreeformActorController EnsureFreeformActor(GameObject target, GridPosition position)
         {
-            FreeformActorController controller = renderer.GetComponent<FreeformActorController>();
+            FreeformActorController controller = target.GetComponent<FreeformActorController>();
             if (controller == null)
             {
-                controller = renderer.gameObject.AddComponent<FreeformActorController>();
+                controller = target.AddComponent<FreeformActorController>();
             }
 
             controller.SnapTo(position);
@@ -508,18 +533,50 @@ namespace Minebot.Presentation
             camera.orthographic = true;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.05f, 0.07f, 0.08f, 1f);
+            UpdateCameraFraming(camera);
+        }
 
-            if (services != null)
+        private void UpdateCameraFraming()
+        {
+            UpdateCameraFraming(Camera.main);
+        }
+
+        private void UpdateCameraFraming(Camera camera)
+        {
+            if (camera == null)
             {
-                Vector2 size = services.Grid.Size;
-                camera.transform.position = new Vector3(size.x * 0.5f, size.y * 0.5f, -10f);
-                camera.orthographicSize = Mathf.Max(size.x, size.y) * 0.58f;
+                return;
             }
-            else
+
+            if (services == null)
             {
                 camera.transform.position = new Vector3(6f, 6f, -10f);
-                camera.orthographicSize = 8f;
+                camera.orthographicSize = 6.5f;
+                return;
             }
+
+            Vector2 size = services.Grid.Size;
+            float boardInset = size.x > 4f && size.y > 4f ? 1f : 0f;
+            Vector2 interiorMin = new Vector2(boardInset, boardInset);
+            Vector2 interiorMax = new Vector2(
+                Mathf.Max(interiorMin.x + 1f, size.x - boardInset),
+                Mathf.Max(interiorMin.y + 1f, size.y - boardInset));
+            Vector2 interiorCenter = (interiorMin + interiorMax) * 0.5f;
+            Vector2 playerFocus = PlayerWorldPosition;
+            Vector2 focusCenter = Vector2.Lerp(interiorCenter, playerFocus, 0.18f);
+            float halfHeight = Mathf.Max(2.5f, (interiorMax.y - interiorMin.y) * 0.5f + 0.2f);
+            float halfWidth = Mathf.Max(2.5f, (interiorMax.x - interiorMin.x) * 0.5f + 0.2f);
+            float aspect = Mathf.Max(1f, camera.aspect);
+            camera.orthographicSize = Mathf.Clamp(Mathf.Max(halfHeight, halfWidth / aspect), 4.6f, 7f);
+            float visibleHalfHeight = camera.orthographicSize;
+            float visibleHalfWidth = visibleHalfHeight * aspect;
+            float minCenterX = visibleHalfWidth;
+            float maxCenterX = size.x - visibleHalfWidth;
+            float minCenterY = visibleHalfHeight;
+            float maxCenterY = size.y - visibleHalfHeight;
+            focusCenter.x = minCenterX <= maxCenterX ? Mathf.Clamp(focusCenter.x, minCenterX, maxCenterX) : size.x * 0.5f;
+            focusCenter.y = minCenterY <= maxCenterY ? Mathf.Clamp(focusCenter.y, minCenterY, maxCenterY) : size.y * 0.5f;
+            camera.transform.position = new Vector3(focusCenter.x, focusCenter.y, -10f);
         }
 
         private static void EnsureLight()
@@ -614,10 +671,50 @@ namespace Minebot.Presentation
             return renderer;
         }
 
+        private static MinebotActorView EnsureActorView(Transform parent, string objectName, GameObject prefab, Sprite fallbackSprite, int sortingOrder)
+        {
+            Transform existing = parent.Find(objectName);
+            MinebotActorView view = existing != null ? existing.GetComponent<MinebotActorView>() : null;
+            if (view == null)
+            {
+                if (existing != null)
+                {
+                    if (Application.isPlaying)
+                    {
+                        Destroy(existing.gameObject);
+                    }
+                    else
+                    {
+                        DestroyImmediate(existing.gameObject);
+                    }
+                }
+
+                GameObject instance = prefab != null ? Instantiate(prefab, parent, false) : new GameObject(objectName, typeof(MinebotActorView));
+                instance.name = objectName;
+                view = instance.GetComponent<MinebotActorView>();
+                if (view == null)
+                {
+                    view = instance.AddComponent<MinebotActorView>();
+                }
+            }
+
+            view.EnsureDefaultStructure(fallbackSprite, sortingOrder);
+            return view;
+        }
+
         private void EnsureHud()
         {
             hudView = ResolveHudView();
             hudView.EnsureDefaultStructure(GetDefaultTmpFontAsset(), Mathf.Max(2, availableBuildingDefinitions.Length));
+            hudView.ApplyGraphics(
+                assets != null ? assets.HudPanelBackground : null,
+                assets != null ? assets.HudStatusIcon : null,
+                assets != null ? assets.HudInteractionIcon : null,
+                assets != null ? assets.HudFeedbackIcon : null,
+                assets != null ? assets.HudWarningIcon : null,
+                assets != null ? assets.HudUpgradeIcon : null,
+                assets != null ? assets.HudBuildIcon : null,
+                assets != null ? assets.HudBuildingInteractionIcon : null);
 
             hudView.BindUpgradeButtons(index => SelectUpgradeIndex(index));
             hudView.BindBuildButtons(SelectBuildButtonIndex);
@@ -659,7 +756,9 @@ namespace Minebot.Presentation
                 return existingChild;
             }
 
-            MinebotHudView prefab = hudPrefab != null ? hudPrefab : Resources.Load<MinebotHudView>(MinebotHudView.ResourcePath);
+            MinebotHudView prefab = assets != null && assets.HudPrefab != null
+                ? assets.HudPrefab
+                : (hudPrefab != null ? hudPrefab : Resources.Load<MinebotHudView>(MinebotHudView.ResourcePath));
             if (prefab != null)
             {
                 MinebotHudView instance = Instantiate(prefab, transform, false);
@@ -674,13 +773,23 @@ namespace Minebot.Presentation
 
         private void SelectBuildButtonIndex(int index)
         {
+            if (services == null || services.Vitals.IsDead || services.Experience.HasPendingUpgrade)
+            {
+                return;
+            }
+
             if (index < 0 || index >= availableBuildingDefinitions.Length)
             {
                 return;
             }
 
             SetSelectedBuilding(availableBuildingDefinitions[index]);
-            ShowFeedback($"已选择建筑：{availableBuildingDefinitions[index].DisplayName}");
+            if (interactionMode != GameplayInteractionMode.Build)
+            {
+                SetInteractionMode(GameplayInteractionMode.Build);
+            }
+
+            ShowFeedback($"已选择建筑：{availableBuildingDefinitions[index].DisplayName}，点击空地建造。");
         }
 
         private static TMP_FontAsset GetDefaultTmpFontAsset()
@@ -712,6 +821,10 @@ namespace Minebot.Presentation
             services.Session.RewardGranted += OnRewardGranted;
             services.Session.ScanCompleted += OnScanCompleted;
             services.Session.RobotAutomationCompleted += OnRobotAutomationCompleted;
+            if (services.WorldPickups != null)
+            {
+                services.WorldPickups.PickupAbsorbed += OnPickupAbsorbed;
+            }
             isSubscribed = true;
         }
 
@@ -726,6 +839,10 @@ namespace Minebot.Presentation
             services.Session.RewardGranted -= OnRewardGranted;
             services.Session.ScanCompleted -= OnScanCompleted;
             services.Session.RobotAutomationCompleted -= OnRobotAutomationCompleted;
+            if (services.WorldPickups != null)
+            {
+                services.WorldPickups.PickupAbsorbed -= OnPickupAbsorbed;
+            }
             isSubscribed = false;
         }
 
@@ -749,8 +866,15 @@ namespace Minebot.Presentation
             {
                 case RobotAutomationResultKind.Mined:
                     feedbackMessage = $"从属机器人挖掘完成：+{result.Reward.Metal} 金属 / +{result.Reward.Energy} 能量 / +{result.Reward.Experience} 经验";
+                    PlayWallBreakFx(result.Target, triggerExplosion: false);
                     break;
                 case RobotAutomationResultKind.Destroyed:
+                    destroyedRobotVisualExpiry[result.Robot] = Time.time + 0.35f;
+                    if (!result.Target.Equals(GridPosition.Zero) && !string.IsNullOrEmpty(result.Status) && result.Status.Contains("炸药", StringComparison.Ordinal))
+                    {
+                        PlayWallBreakFx(result.Target, triggerExplosion: true);
+                    }
+
                     feedbackMessage = result.Reward.Metal > 0 || result.Reward.Energy > 0 || result.Reward.Experience > 0
                         ? $"从属机器人损毁，回收 +{result.Reward.Metal} 金属。"
                         : "从属机器人损毁。";
@@ -762,23 +886,67 @@ namespace Minebot.Presentation
             }
         }
 
+        private void OnPickupAbsorbed(WorldPickupAbsorption absorption)
+        {
+            if (pickupViews.TryGetValue(absorption.Pickup.Id, out MinebotPickupView view) && view != null)
+            {
+                view.BeginAbsorb(PlayerWorldPosition);
+            }
+        }
+
+        public void NotifyPlayerMoved()
+        {
+            SetPlayerVisualState(PresentationActorState.Moving, 0.12f);
+        }
+
+        public void NotifyPlayerBlocked()
+        {
+            SetPlayerVisualState(PresentationActorState.Blocked, 0.18f);
+        }
+
+        public void NotifyPlayerMiningContact(GridPosition target)
+        {
+            SetPlayerVisualState(PresentationActorState.Mining, 0.24f);
+            RefreshMiningCrack(target);
+        }
+
+        public void NotifyPlayerMineResolved(GridPosition target, MineInteractionResult result)
+        {
+            SetPlayerVisualState(PresentationActorState.Mining, 0.24f);
+            RefreshMiningCrack(target);
+            if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
+            {
+                PlayWallBreakFx(target, result == MineInteractionResult.TriggeredBomb);
+            }
+            else
+            {
+                NotifyPlayerBlocked();
+            }
+        }
+
         private void RefreshActors()
         {
             if (playerFreeform == null)
             {
-                playerFreeform = EnsureFreeformActor(playerView, services.PlayerMiningState.Position);
+                playerFreeform = EnsureFreeformActor(playerActorView.gameObject, services.PlayerMiningState.Position);
             }
+
+            PresentationActorState playerState = services.Vitals.IsDead ? PresentationActorState.Destroyed : playerVisualState;
+            playerActorView.ApplyState(assets.PlayerActorStates, playerState, assets.PlayerSprite, Color.white);
 
             int visibleRobotCount = 0;
             for (int i = 0; i < services.Robots.Count; i++)
             {
                 RobotState robot = services.Robots[i];
-                if (!robot.IsActive)
+                bool showDestroyedVisual = !robot.IsActive
+                    && destroyedRobotVisualExpiry.TryGetValue(robot, out float visibleUntil)
+                    && Time.time <= visibleUntil;
+                if (!robot.IsActive && !showDestroyedVisual)
                 {
                     continue;
                 }
 
-                SpriteRenderer robotView = EnsureRobotView(visibleRobotCount);
+                MinebotActorView robotView = EnsureRobotView(visibleRobotCount);
                 Vector3 target = GridToWorld(robot.Position);
                 HelperRobotMotionController motion = robotView.GetComponent<HelperRobotMotionController>();
                 if (motion != null)
@@ -795,7 +963,8 @@ namespace Minebot.Presentation
                     robotView.transform.position = target;
                 }
 
-                robotView.color = ColorForRobotActivity(robot.Activity);
+                PresentationActorState actorState = !robot.IsActive ? PresentationActorState.Destroyed : ToPresentationActorState(robot.Activity);
+                robotView.ApplyState(assets.HelperRobotStates, actorState, assets.RobotSprite, ColorForRobotActivity(robot.Activity));
                 robotView.gameObject.SetActive(true);
                 visibleRobotCount++;
             }
@@ -806,22 +975,185 @@ namespace Minebot.Presentation
             }
         }
 
-        private SpriteRenderer EnsureRobotView(int index)
+        private MinebotActorView EnsureRobotView(int index)
         {
             while (robotViews.Count <= index)
             {
                 int displayIndex = robotViews.Count + 1;
-                SpriteRenderer renderer = EnsureSpriteRenderer(actorRoot, $"Robot View {displayIndex}", assets.RobotSprite, 40);
-                if (renderer.GetComponent<HelperRobotMotionController>() == null)
+                MinebotActorView view = EnsureActorView(actorRoot, $"Robot View {displayIndex}", assets.HelperRobotPrefab, assets.RobotSprite, 40);
+                if (view.GetComponent<HelperRobotMotionController>() == null)
                 {
-                    renderer.gameObject.AddComponent<HelperRobotMotionController>();
+                    view.gameObject.AddComponent<HelperRobotMotionController>();
                 }
 
-                EnsureCircleCollider(renderer.gameObject, 0.28f);
-                robotViews.Add(renderer);
+                EnsureCircleCollider(view.gameObject, 0.28f);
+                robotViews.Add(view);
             }
 
             return robotViews[index];
+        }
+
+        private void RefreshPickups()
+        {
+            if (services == null || services.WorldPickups == null || pickupRoot == null)
+            {
+                return;
+            }
+
+            var activeIds = new HashSet<int>();
+            IReadOnlyList<WorldPickupState> activePickups = services.WorldPickups.ActivePickups;
+            for (int i = 0; i < activePickups.Count; i++)
+            {
+                WorldPickupState pickup = activePickups[i];
+                activeIds.Add(pickup.Id);
+                MinebotPickupView view = EnsurePickupView(pickup);
+                view.Bind(pickup, assets.PickupIconFor(pickup.Type), GridToWorld(pickup.Origin), 34);
+            }
+
+            var staleIds = new List<int>();
+            foreach (KeyValuePair<int, MinebotPickupView> pair in pickupViews)
+            {
+                if (pair.Value == null)
+                {
+                    staleIds.Add(pair.Key);
+                    continue;
+                }
+
+                if (!activeIds.Contains(pair.Key) && !pair.Value.IsAbsorbingVisual)
+                {
+                    Destroy(pair.Value.gameObject);
+                    staleIds.Add(pair.Key);
+                }
+            }
+
+            for (int i = 0; i < staleIds.Count; i++)
+            {
+                pickupViews.Remove(staleIds[i]);
+            }
+        }
+
+        private MinebotPickupView EnsurePickupView(WorldPickupState pickup)
+        {
+            if (pickupViews.TryGetValue(pickup.Id, out MinebotPickupView existing) && existing != null)
+            {
+                return existing;
+            }
+
+            GameObject prefab = assets.PickupPrefabFor(pickup.Type);
+            GameObject instance = prefab != null ? Instantiate(prefab, pickupRoot, false) : new GameObject($"Pickup {pickup.Id}", typeof(MinebotPickupView));
+            instance.name = $"Pickup {pickup.Id} - {pickup.Type}";
+            instance.transform.SetParent(pickupRoot, false);
+            MinebotPickupView view = instance.GetComponent<MinebotPickupView>();
+            if (view == null)
+            {
+                view = instance.AddComponent<MinebotPickupView>();
+            }
+
+            pickupViews[pickup.Id] = view;
+            return view;
+        }
+
+        private void RefreshMiningCrack(GridPosition target)
+        {
+            if (cellFxRoot == null)
+            {
+                return;
+            }
+
+            if (!miningCrackViews.TryGetValue(target, out MinebotCellFxView view) || view == null)
+            {
+                GameObject prefab = assets.MiningCrackPrefab;
+                GameObject instance = prefab != null ? Instantiate(prefab, cellFxRoot, false) : new GameObject($"Mining Crack {target}", typeof(MinebotCellFxView));
+                instance.name = $"Mining Crack {target}";
+                instance.transform.SetParent(cellFxRoot, false);
+                view = instance.GetComponent<MinebotCellFxView>();
+                if (view == null)
+                {
+                    view = instance.AddComponent<MinebotCellFxView>();
+                }
+
+                miningCrackViews[target] = view;
+            }
+
+            view.RefreshPersistent(assets.MiningCrackSequence, GridToWorld(target), 36);
+        }
+
+        private void PlayWallBreakFx(GridPosition target, bool triggerExplosion)
+        {
+            if (cellFxRoot == null)
+            {
+                return;
+            }
+
+            GameObject prefab = triggerExplosion && assets.ExplosionPrefab != null
+                ? assets.ExplosionPrefab
+                : assets.WallBreakPrefab;
+            GameObject instance = prefab != null ? Instantiate(prefab, cellFxRoot, false) : new GameObject($"Cell Fx {target}", typeof(MinebotCellFxView));
+            instance.name = triggerExplosion ? $"Wall Break + Explosion {target}" : $"Wall Break {target}";
+            instance.transform.SetParent(cellFxRoot, false);
+            MinebotCellFxView view = instance.GetComponent<MinebotCellFxView>();
+            if (view == null)
+            {
+                view = instance.AddComponent<MinebotCellFxView>();
+            }
+
+            view.PlayOneShot(
+                assets.WallBreakSequence,
+                GridToWorld(target),
+                37,
+                triggerExplosion ? assets.ExplosionSequence : null,
+                0.08f);
+        }
+
+        private void UpdatePlayerVisualState(float deltaTime)
+        {
+            if (services != null && services.Vitals.IsDead)
+            {
+                playerVisualState = PresentationActorState.Destroyed;
+                playerVisualHoldRemaining = 0f;
+                return;
+            }
+
+            if (playerVisualState == PresentationActorState.Destroyed)
+            {
+                playerVisualState = PresentationActorState.Idle;
+            }
+
+            playerVisualHoldRemaining = Mathf.Max(0f, playerVisualHoldRemaining - Mathf.Max(0f, deltaTime));
+            if (playerVisualHoldRemaining <= 0f)
+            {
+                playerVisualState = PresentationActorState.Idle;
+            }
+        }
+
+        private void SetPlayerVisualState(PresentationActorState state, float holdDuration)
+        {
+            if (services != null && services.Vitals.IsDead)
+            {
+                playerVisualState = PresentationActorState.Destroyed;
+                playerVisualHoldRemaining = 0f;
+                return;
+            }
+
+            playerVisualState = state;
+            playerVisualHoldRemaining = Mathf.Max(playerVisualHoldRemaining, Mathf.Max(0.02f, holdDuration));
+        }
+
+        private static PresentationActorState ToPresentationActorState(RobotActivity activity)
+        {
+            switch (activity)
+            {
+                case RobotActivity.Moving:
+                    return PresentationActorState.Moving;
+                case RobotActivity.Mining:
+                    return PresentationActorState.Mining;
+                case RobotActivity.Blocked:
+                    return PresentationActorState.Blocked;
+                case RobotActivity.Destroyed:
+                    return PresentationActorState.Destroyed;
+                default:
+                    return PresentationActorState.Idle;
+            }
         }
 
         private void RefreshBuildings()
@@ -912,10 +1244,9 @@ namespace Minebot.Presentation
 
             ResourceAmount resources = services.Economy.Resources;
             hudView.StatusPanel.SetText(
-                $"生命 {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy}\n" +
-                $"等级 {services.Experience.Level} | 经验 {services.Experience.Experience}/{services.Experience.NextThreshold} | 波次 {services.Waves.CurrentWave}\n" +
-                $"当前位置 {services.PlayerMiningState.Position} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}\n" +
-                BuildRobotStatusText());
+                $"HP {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy} | 波次 {services.Waves.CurrentWave}\n" +
+                $"Lv {services.Experience.Level} | XP {services.Experience.Experience}/{services.Experience.NextThreshold} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}\n" +
+                $"坐标 {services.PlayerMiningState.Position} | {BuildRobotStatusText()}");
 
             if (hudView.InteractionPanel != null)
             {
@@ -941,6 +1272,7 @@ namespace Minebot.Presentation
                 hudView.GameOverPanel.SetText(services.Vitals.IsDead ? "任务失败\n核心机体已失效" : string.Empty);
             }
 
+            RefreshMinimapPanel();
             RefreshUpgradePanel();
             RefreshBuildPanel();
             RefreshBuildingInteractionPanel();
@@ -948,39 +1280,39 @@ namespace Minebot.Presentation
 
         private string BuildInteractionText()
         {
-            string baseHint = "WASD 自由移动 | 贴墙自动挖掘 | Q 探测前沿岩壁 | E 标记模式 | R 建筑模式 | 鼠标点击确认 | 1/2/3 选择升级";
+            const string baseHint = "WASD 移动  贴墙即挖掘  Q 探测  E 标记  点击底栏选建筑  R 开关建造  1-3 升级";
             if (services.Experience.HasPendingUpgrade)
             {
-                return "升级待选择：普通操作已暂停。按 1/2/3 或点击升级项继续。\n" + baseHint;
+                return "升级可用：按 1/2/3 或点击右下升级卡片";
             }
 
             if (interactionMode == GameplayInteractionMode.Marker)
             {
-                return "标记模式：鼠标点击岩壁标记/取消标记，再按 E 或右键/Esc 退出。\n" + baseHint;
+                return "标记模式：点击岩壁切换标记，E / 右键 / Esc 退出";
             }
 
             if (interactionMode == GameplayInteractionMode.Build)
             {
                 string selected = GetSelectedBuildingOrDefault() != null ? GetSelectedBuildingOrDefault().DisplayName : "未选择";
                 string preview = buildPreviewOrigin.HasValue
-                    ? (CanPlaceBuildingAt(GetSelectedBuildingOrDefault(), buildPreviewOrigin.Value) ? "当前位置可建造" : "当前位置不可建造")
-                    : "移动鼠标选择空地";
-                return $"建筑模式：已选择 {selected}，{preview}。再按 R 或右键/Esc 退出。\n" + baseHint;
+                    ? (CanPlaceBuildingAt(GetSelectedBuildingOrDefault(), buildPreviewOrigin.Value) ? "当前位置可建" : "当前位置不可建")
+                    : "移动鼠标选空地";
+                return $"建筑模式：{selected} | {preview} | 点击底栏切换，R / 右键 / Esc 退出";
             }
 
             if (IsNearRepairStation() && IsNearRobotFactory())
             {
-                return baseHint + "\n可交互：点击建筑交互按钮维修或生产从属机器人。";
+                return "可交互：右侧卡片可维修或生产从属机器人";
             }
 
             if (IsNearRepairStation())
             {
-                return baseHint + "\n可交互：点击建筑交互按钮在维修站恢复生命。";
+                return "可交互：右侧卡片可在维修站恢复生命";
             }
 
             if (IsNearRobotFactory())
             {
-                return baseHint + "\n可交互：点击建筑交互按钮在机器人工厂生产从属机器人。";
+                return "可交互：右侧卡片可生产从属机器人";
             }
 
             return baseHint;
@@ -989,16 +1321,16 @@ namespace Minebot.Presentation
         private string BuildWarningText()
         {
             string scanLine = BuildScanSummaryText();
-            string countdown = $"地震波倒计时 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s | 下一波危险带厚度 {services.Waves.NextDangerRadius}";
-            string statusLine = PlayerIsInDangerZone()
-                ? "你位于危险区，地震结算会失败！"
-                : $"橙红底纹与轮廓为危险区 | 已标记 {CountMarkedCells()} 格";
+            string countdown = $"地震波 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s | 下一波厚度 {services.Waves.NextDangerRadius}";
             if (services.Waves.TimeUntilNextWave <= 5f)
             {
-                return $"{countdown}\n危险区正在逼近，立即避开。\n{statusLine}\n{scanLine}";
+                return $"{countdown}\n危险区逼近，立即避开 | {scanLine}";
             }
 
-            return $"{countdown}\n{statusLine}\n{scanLine}";
+            string statusLine = PlayerIsInDangerZone()
+                ? "你在危险区内，立即撤离"
+                : $"危险区红色轮廓 | 已标记 {CountMarkedCells()} 格";
+            return $"{countdown}\n{statusLine} | {scanLine}";
         }
 
         private void ApplyScanReadings(IReadOnlyList<ScanReading> readings)
@@ -1020,34 +1352,34 @@ namespace Minebot.Presentation
         {
             if (lastScanReadings.Count == 0)
             {
-                return "探测完成：附近没有可读数的前沿岩壁。";
+                return "探测完成：附近无可读前沿岩壁";
             }
 
             if (lastScanReadings.Count == 1)
             {
                 ScanReading reading = lastScanReadings[0];
-                return $"探测完成：{reading.WallPosition} 上方显示数字 {reading.BombCount}。";
+                return $"探测完成：{reading.WallPosition} 显示 {reading.BombCount}";
             }
 
-            return $"探测完成：已在 {lastScanReadings.Count} 块前沿岩壁上显示数字。";
+            return $"探测完成：{lastScanReadings.Count} 块前沿岩壁已显示数字";
         }
 
         private string BuildScanSummaryText()
         {
             if (!hasPerformedScan)
             {
-                return "尚未探测：按 Q 消耗能量显示前沿岩壁数字";
+                return "按 Q 探测前沿岩壁数字";
             }
 
             if (lastScanReadings.Count == 0)
             {
-                return "最近探测：附近没有可显示数字的前沿岩壁";
+                return "最近探测：附近无可读前沿岩壁";
             }
 
             if (lastScanReadings.Count == 1)
             {
                 ScanReading reading = lastScanReadings[0];
-                return $"最近探测：{reading.WallPosition} 显示 {reading.BombCount}";
+                return $"最近探测：{reading.WallPosition} = {reading.BombCount}";
             }
 
             int highestRisk = 0;
@@ -1056,7 +1388,7 @@ namespace Minebot.Presentation
                 highestRisk = Mathf.Max(highestRisk, lastScanReadings[i].BombCount);
             }
 
-            return $"最近探测：{lastScanReadings.Count} 块前沿岩壁已显示数字，最高风险 {highestRisk}";
+            return $"最近探测：{lastScanReadings.Count} 处，最高风险 {highestRisk}";
         }
 
         private string BuildRobotStatusText()
@@ -1087,7 +1419,7 @@ namespace Minebot.Presentation
                 }
             }
 
-            return $"从属机器人 {active} | 工作 {working} | 待机 {idle} | 受阻 {blocked}";
+            return $"机器人 {active} | 工 {working} 待 {idle} 阻 {blocked}";
         }
 
         private static Color ColorForRobotActivity(RobotActivity activity)
@@ -1228,26 +1560,103 @@ namespace Minebot.Presentation
                 return;
             }
 
-            bool show = interactionMode == GameplayInteractionMode.Build;
+            bool show = services != null
+                && !services.Vitals.IsDead
+                && !services.Experience.HasPendingUpgrade
+                && availableBuildingDefinitions.Length > 0;
             hudView.BuildPanel.SetVisible(show);
-            hudView.BuildPanel.SetTitle(MinebotHudDefaults.BuildTitle);
+            if (!show)
+            {
+                return;
+            }
+
+            hudView.BuildPanel.SetTitle(interactionMode == GameplayInteractionMode.Build ? "R 退出建造" : "R 建造");
+            BuildingDefinition selectedDefinition = GetSelectedBuildingOrDefault();
             for (int i = 0; i < Mathf.Max(MinebotHudDefaults.MinimumBuildButtonCount, availableBuildingDefinitions.Length); i++)
             {
                 bool hasDefinition = i < availableBuildingDefinitions.Length;
                 string label = string.Empty;
+                bool selected = false;
                 if (hasDefinition)
                 {
                     BuildingDefinition definition = availableBuildingDefinitions[i];
-                    string selected = definition == selectedBuildingDefinition ? ">" : " ";
-                    label = $"{selected} {definition.DisplayName} | 金属 {definition.Cost.Metal} | {definition.FootprintSize.x}x{definition.FootprintSize.y}";
+                    selected = definition == selectedDefinition;
+                    label = $"{i + 1}\n{definition.DisplayName}\n{definition.Cost.Metal}金 {definition.FootprintSize.x}x{definition.FootprintSize.y}";
                 }
 
-                hudView.BuildPanel.SetButton(i, hasDefinition, label);
+                hudView.BuildPanel.SetButton(i, hasDefinition, label, selected);
                 if (!hasDefinition)
                 {
                     continue;
                 }
             }
+        }
+
+        private void RefreshMinimapPanel()
+        {
+            if (hudView == null || hudView.MinimapPanel == null)
+            {
+                return;
+            }
+
+            if (services == null)
+            {
+                hudView.MinimapPanel.SetVisible(false);
+                return;
+            }
+
+            Vector2Int size = services.Grid.Size;
+            if (size.x <= 0 || size.y <= 0)
+            {
+                hudView.MinimapPanel.SetVisible(false);
+                return;
+            }
+
+            if (hudMinimapTexture == null || hudMinimapTexture.width != size.x || hudMinimapTexture.height != size.y)
+            {
+                ReleaseHudMinimapTexture();
+                hudMinimapTexture = new Texture2D(size.x, size.y, TextureFormat.RGBA32, false)
+                {
+                    name = "HUD Minimap",
+                    filterMode = FilterMode.Point,
+                    wrapMode = TextureWrapMode.Clamp
+                };
+            }
+
+            foreach (GridPosition position in services.Grid.Positions())
+            {
+                GridCellState cell = services.Grid.GetCell(position);
+                hudMinimapTexture.SetPixel(position.X, size.y - 1 - position.Y, ColorForMinimapCell(cell));
+            }
+
+            if (services.Grid.IsInside(repairStationPosition))
+            {
+                hudMinimapTexture.SetPixel(repairStationPosition.X, size.y - 1 - repairStationPosition.Y, new Color32(72, 220, 255, 255));
+            }
+
+            if (services.Grid.IsInside(robotFactoryPosition))
+            {
+                hudMinimapTexture.SetPixel(robotFactoryPosition.X, size.y - 1 - robotFactoryPosition.Y, new Color32(255, 142, 64, 255));
+            }
+
+            foreach (RobotState robot in services.Robots)
+            {
+                if (robot.IsActive && services.Grid.IsInside(robot.Position))
+                {
+                    hudMinimapTexture.SetPixel(robot.Position.X, size.y - 1 - robot.Position.Y, new Color32(112, 255, 148, 255));
+                }
+            }
+
+            GridPosition playerPosition = services.PlayerMiningState.Position;
+            if (services.Grid.IsInside(playerPosition))
+            {
+                hudMinimapTexture.SetPixel(playerPosition.X, size.y - 1 - playerPosition.Y, new Color32(40, 168, 255, 255));
+            }
+
+            hudMinimapTexture.Apply(false, false);
+            hudView.MinimapPanel.SetTexture(hudMinimapTexture);
+            hudView.MinimapPanel.SetSummary($"已标记 {CountMarkedCells()} | 危险 {CountDangerZoneCells()}");
+            hudView.MinimapPanel.SetVisible(true);
         }
 
         private void RefreshBuildingInteractionPanel()
@@ -1308,6 +1717,21 @@ namespace Minebot.Presentation
             return count;
         }
 
+        private int CountDangerZoneCells()
+        {
+            int count = 0;
+            foreach (GridPosition position in services.Grid.Positions())
+            {
+                GridCellState cell = services.Grid.GetCell(position);
+                if (cell.TerrainKind == TerrainKind.Empty && cell.IsDangerZone)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
         private bool PlayerIsInDangerZone()
         {
             GridPosition position = services.PlayerMiningState.Position;
@@ -1325,7 +1749,7 @@ namespace Minebot.Presentation
             var resolution = services.Waves.ResolveWave(services.PlayerMiningState.Position, services.Vitals, mutableRobots);
             if (resolution.DroppedResources.Metal > 0 || resolution.DroppedResources.Energy > 0 || resolution.DroppedResources.Experience > 0)
             {
-                services.Economy.Add(resolution.DroppedResources);
+                services.Session.SpawnWorldPickupReward(services.PlayerMiningState.Position, resolution.DroppedResources, WorldPickupSource.WaveRecycle);
             }
 
             EvaluateDangerZones();
@@ -1333,6 +1757,62 @@ namespace Minebot.Presentation
                 ? "地震波吞没了主机器人。"
                 : $"地震波结算：存活到第 {resolution.SurvivedWave} 波，损失机器人 {resolution.RobotsDestroyed}。";
             RefreshAll();
+        }
+
+        private void ReleaseHudMinimapTexture()
+        {
+            if (hudMinimapTexture == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(hudMinimapTexture);
+            }
+            else
+            {
+                DestroyImmediate(hudMinimapTexture);
+            }
+
+            hudMinimapTexture = null;
+        }
+
+        private static Color32 ColorForMinimapCell(GridCellState cell)
+        {
+            if (cell.IsMarked)
+            {
+                return new Color32(32, 232, 220, 255);
+            }
+
+            if (cell.IsOccupiedByBuilding)
+            {
+                return new Color32(196, 206, 212, 255);
+            }
+
+            if (cell.TerrainKind == TerrainKind.Empty)
+            {
+                return cell.IsDangerZone
+                    ? new Color32(196, 64, 58, 255)
+                    : new Color32(128, 92, 58, 255);
+            }
+
+            if (cell.TerrainKind == TerrainKind.Indestructible)
+            {
+                return new Color32(28, 34, 40, 255);
+            }
+
+            switch (cell.HardnessTier)
+            {
+                case HardnessTier.Stone:
+                    return new Color32(116, 122, 128, 255);
+                case HardnessTier.HardRock:
+                    return new Color32(82, 90, 102, 255);
+                case HardnessTier.UltraHard:
+                    return new Color32(56, 64, 78, 255);
+                default:
+                    return new Color32(150, 128, 92, 255);
+            }
         }
 
         private GridPosition PickFacilityPosition(GridPosition direction)

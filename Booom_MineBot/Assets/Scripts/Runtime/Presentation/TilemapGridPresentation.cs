@@ -87,7 +87,8 @@ namespace Minebot.Presentation
                 bool dangerMask = cell.TerrainKind == TerrainKind.Empty && cell.IsDangerZone;
                 if (dangerMask)
                 {
-                    DangerTilemap.SetTile(tilePosition, assets.DangerTile);
+                    int currentWave = services.Waves != null ? services.Waves.CurrentWave : 0;
+                    DangerTilemap.SetTile(tilePosition, assets.ResolveDangerOverlayTile(DangerOverlayGeometryKind.Base, currentWave));
                 }
 
                 int cellIndex = ToMaterialIndex(grid.Size, position);
