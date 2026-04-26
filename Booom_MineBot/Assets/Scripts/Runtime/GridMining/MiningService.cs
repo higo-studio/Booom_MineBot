@@ -57,8 +57,13 @@ namespace Minebot.GridMining
 
         public MineInteractionResult TryMine(PlayerMiningState player, GridPosition target, out ResourceAmount reward)
         {
+            return TryMineFrom(player.Position, player.DrillTier, target, out reward);
+        }
+
+        public MineInteractionResult TryMineFrom(GridPosition actorPosition, HardnessTier drillTier, GridPosition target, out ResourceAmount reward)
+        {
             reward = ResourceAmount.Zero;
-            if (!grid.IsInside(target) || player.Position.ManhattanDistance(target) != 1)
+            if (!grid.IsInside(target) || actorPosition.ManhattanDistance(target) != 1)
             {
                 return MineInteractionResult.InvalidTarget;
             }
@@ -69,7 +74,7 @@ namespace Minebot.GridMining
                 return MineInteractionResult.BlockedByTerrain;
             }
 
-            if (cell.HardnessTier > player.DrillTier)
+            if (cell.HardnessTier > drillTier)
             {
                 return MineInteractionResult.DrillTooWeak;
             }

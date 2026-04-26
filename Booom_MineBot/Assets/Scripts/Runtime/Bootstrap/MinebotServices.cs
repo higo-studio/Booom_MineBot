@@ -1,5 +1,6 @@
 using Minebot.Automation;
 using System.Collections.Generic;
+using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.HazardInference;
 using Minebot.Progression;
@@ -32,6 +33,7 @@ namespace Minebot.Bootstrap
             var vitals = new PlayerVitals(maxHealth);
             var experience = new ExperienceService(firstThreshold);
             var robots = new List<RobotState>();
+            WaveConfig waveConfig = config != null ? config.WaveConfig : null;
 
             var miningState = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
             var mining = new MiningService(grid);
@@ -46,6 +48,10 @@ namespace Minebot.Bootstrap
                     hazardRules != null ? hazardRules.BombSafeRadius : HazardRules.DefaultBombSafeRadius);
             }
 
+            var robotAutomation = new RobotAutomationService(
+                grid,
+                balance != null ? balance.RobotMaxTargetDistance : RobotAutomationService.DefaultMaxTargetDistance,
+                balance != null ? balance.RobotActionInterval : 0.35f);
             var session = new GameSessionService(
                 miningState,
                 mining,
@@ -53,7 +59,12 @@ namespace Minebot.Bootstrap
                 hazardRules,
                 economy,
                 experience,
-                vitals);
+                vitals,
+                robotAutomation,
+                robots,
+                waveConfig != null ? waveConfig.RobotRecycleDrop : ResourceAmount.Zero,
+                balance == null || balance.RobotUsesPlayerDrillTier,
+                balance != null ? balance.RobotFixedDrillTier : HardnessTier.Soil);
             var upgrades = new UpgradeSelectionService(
                 experience,
                 miningState,
@@ -75,10 +86,10 @@ namespace Minebot.Bootstrap
                 vitals,
                 experience,
                 new BaseOpsService(economy, vitals),
-                new RobotAutomationService(grid),
+                robotAutomation,
                 factory,
                 robots,
-                new WaveSurvivalService(grid, config != null ? config.WaveConfig : null));
+                new WaveSurvivalService(grid, waveConfig));
 
             return Current;
         }

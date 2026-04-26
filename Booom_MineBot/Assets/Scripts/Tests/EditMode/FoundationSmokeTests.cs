@@ -186,14 +186,14 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void RobotAutomationAvoidsMarkedAndBombTargets()
+        public void RobotAutomationAvoidsMarkedTargets()
         {
             RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
             var robot = new RobotState(registry.Grid.PlayerSpawn);
             GridPosition unsafeTarget = new GridPosition(registry.Grid.PlayerSpawn.X, registry.Grid.PlayerSpawn.Y + 2);
             registry.Grid.GetCellRef(unsafeTarget).IsMarked = true;
 
-            bool found = registry.RobotAutomation.TrySelectNearestSafeMineTarget(robot, out GridPosition target);
+            bool found = registry.RobotAutomation.TrySelectNearestSafeMineTarget(robot, registry.PlayerMiningState.DrillTier, out GridPosition target);
 
             Assert.That(found, Is.True);
             Assert.That(target, Is.Not.EqualTo(unsafeTarget));

@@ -116,7 +116,10 @@ namespace Minebot.Presentation
                 ResolveWave();
             }
 
-            RefreshHud();
+            if (!services.Session.TickRobots(Time.deltaTime))
+            {
+                RefreshHud();
+            }
         }
 
         public void RefreshAll()
@@ -667,6 +670,7 @@ namespace Minebot.Presentation
             services.Session.StateChanged += RefreshAll;
             services.Session.RewardGranted += OnRewardGranted;
             services.Session.ScanCompleted += OnScanCompleted;
+            services.Session.RobotAutomationCompleted += OnRobotAutomationCompleted;
             isSubscribed = true;
         }
 
@@ -680,6 +684,7 @@ namespace Minebot.Presentation
             services.Session.StateChanged -= RefreshAll;
             services.Session.RewardGranted -= OnRewardGranted;
             services.Session.ScanCompleted -= OnScanCompleted;
+            services.Session.RobotAutomationCompleted -= OnRobotAutomationCompleted;
             isSubscribed = false;
         }
 
@@ -699,6 +704,25 @@ namespace Minebot.Presentation
             feedbackMessage = $"探测完成：周边 8 格炸药 {bombCount} 个。";
         }
 
+        private void OnRobotAutomationCompleted(RobotAutomationResult result)
+        {
+            switch (result.Kind)
+            {
+                case RobotAutomationResultKind.Mined:
+                    feedbackMessage = $"从属机器人挖掘完成：+{result.Reward.Metal} 金属 / +{result.Reward.Energy} 能量 / +{result.Reward.Experience} 经验";
+                    break;
+                case RobotAutomationResultKind.Destroyed:
+                    feedbackMessage = result.Reward.Metal > 0 || result.Reward.Energy > 0 || result.Reward.Experience > 0
+                        ? $"从属机器人损毁，回收 +{result.Reward.Metal} 金属。"
+                        : "从属机器人损毁。";
+                    break;
+                case RobotAutomationResultKind.Idle:
+                case RobotAutomationResultKind.Blocked:
+                    feedbackMessage = string.IsNullOrEmpty(result.Status) ? "从属机器人待机。" : result.Status;
+                    break;
+            }
+        }
+
         private void RefreshActors()
         {
             playerView.transform.position = GridToWorld(services.PlayerMiningState.Position);
@@ -714,6 +738,7 @@ namespace Minebot.Presentation
 
                 SpriteRenderer robotView = EnsureRobotView(visibleRobotCount);
                 robotView.transform.position = GridToWorld(robot.Position);
+                robotView.color = ColorForRobotActivity(robot.Activity);
                 robotView.gameObject.SetActive(true);
                 visibleRobotCount++;
             }
@@ -747,7 +772,8 @@ namespace Minebot.Presentation
             hudText.text =
                 $"生命 {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy}\n" +
                 $"等级 {services.Experience.Level} | 经验 {services.Experience.Experience}/{services.Experience.NextThreshold} | 波次 {services.Waves.CurrentWave}\n" +
-                $"当前位置 {services.PlayerMiningState.Position} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}";
+                $"当前位置 {services.PlayerMiningState.Position} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}\n" +
+                BuildRobotStatusText();
 
             interactionText.text = BuildInteractionText();
             feedbackText.text = feedbackMessage;
@@ -801,6 +827,52 @@ namespace Minebot.Presentation
             }
 
             return $"{countdown}\n{statusLine}\n{scanLine}";
+        }
+
+        private string BuildRobotStatusText()
+        {
+            int active = 0;
+            int working = 0;
+            int idle = 0;
+            int blocked = 0;
+            foreach (RobotState robot in services.Robots)
+            {
+                if (!robot.IsActive)
+                {
+                    continue;
+                }
+
+                active++;
+                if (robot.Activity == RobotActivity.Moving || robot.Activity == RobotActivity.Mining)
+                {
+                    working++;
+                }
+                else if (robot.Activity == RobotActivity.Blocked)
+                {
+                    blocked++;
+                }
+                else
+                {
+                    idle++;
+                }
+            }
+
+            return $"从属机器人 {active} | 工作 {working} | 待机 {idle} | 受阻 {blocked}";
+        }
+
+        private static Color ColorForRobotActivity(RobotActivity activity)
+        {
+            switch (activity)
+            {
+                case RobotActivity.Mining:
+                    return new Color(1f, 0.92f, 0.45f, 1f);
+                case RobotActivity.Blocked:
+                    return new Color(1f, 0.45f, 0.36f, 1f);
+                case RobotActivity.Idle:
+                    return new Color(0.78f, 0.92f, 0.78f, 1f);
+                default:
+                    return Color.white;
+            }
         }
 
         private static string ToChineseHardnessText(HardnessTier hardness)

@@ -1,4 +1,5 @@
 using Minebot.Common;
+using Minebot.GridMining;
 using UnityEngine;
 
 namespace Minebot.Progression
@@ -21,10 +22,26 @@ namespace Minebot.Progression
         [SerializeField]
         private ResourceAmount robotCost = new ResourceAmount(4, 0, 0);
 
+        [SerializeField]
+        private int robotMaxTargetDistance = 7;
+
+        [SerializeField]
+        private float robotActionInterval = 0.35f;
+
+        [SerializeField]
+        private bool robotUsesPlayerDrillTier = true;
+
+        [SerializeField]
+        private HardnessTier robotFixedDrillTier = HardnessTier.Soil;
+
         public int PlayerMaxHealth => Mathf.Max(1, playerMaxHealth);
         public int FirstUpgradeThreshold => Mathf.Max(1, firstUpgradeThreshold);
         public ResourceAmount StartingResources => startingResources;
         public ResourceAmount RepairCost => repairCost;
         public ResourceAmount RobotCost => robotCost;
+        public int RobotMaxTargetDistance => Mathf.Max(1, robotMaxTargetDistance);
+        public float RobotActionInterval => Mathf.Max(0f, robotActionInterval);
+        public bool RobotUsesPlayerDrillTier => robotUsesPlayerDrillTier;
+        public HardnessTier RobotFixedDrillTier => robotFixedDrillTier;
     }
 }
