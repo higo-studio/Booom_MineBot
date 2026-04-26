@@ -41,6 +41,30 @@ namespace Minebot.Presentation
         private Tile[] dangerOutlineTiles = Array.Empty<Tile>();
 
         [SerializeField]
+        private Tile[] wallContourTiles = Array.Empty<Tile>();
+
+        [SerializeField]
+        private Tile[] dangerContourTiles = Array.Empty<Tile>();
+
+        [SerializeField]
+        private Tile soilDetailTile;
+
+        [SerializeField]
+        private Tile stoneDetailTile;
+
+        [SerializeField]
+        private Tile hardRockDetailTile;
+
+        [SerializeField]
+        private Tile ultraHardDetailTile;
+
+        [SerializeField]
+        private Tile buildPreviewValidTile;
+
+        [SerializeField]
+        private Tile buildPreviewInvalidTile;
+
+        [SerializeField]
         private Vector2 scanLabelOffset = new Vector2(0f, 0.62f);
 
         [SerializeField]
@@ -76,6 +100,14 @@ namespace Minebot.Presentation
         public Tile MarkerTile => markerTile;
         public Tile ScanHintTile => scanHintTile;
         public Tile[] DangerOutlineTiles => dangerOutlineTiles ?? Array.Empty<Tile>();
+        public Tile[] WallContourTiles => wallContourTiles ?? Array.Empty<Tile>();
+        public Tile[] DangerContourTiles => dangerContourTiles ?? Array.Empty<Tile>();
+        public Tile SoilDetailTile => soilDetailTile;
+        public Tile StoneDetailTile => stoneDetailTile;
+        public Tile HardRockDetailTile => hardRockDetailTile;
+        public Tile UltraHardDetailTile => ultraHardDetailTile;
+        public Tile BuildPreviewValidTile => buildPreviewValidTile;
+        public Tile BuildPreviewInvalidTile => buildPreviewInvalidTile;
         public Vector2 ScanLabelOffset => scanLabelOffset;
         public Color ScanLabelColor => scanLabelColor.a > 0f ? scanLabelColor : new Color(1f, 0.95f, 0.58f, 1f);
         public float ScanLabelFontSize => Mathf.Max(0.5f, scanLabelFontSize);
@@ -114,7 +146,15 @@ namespace Minebot.Presentation
             Tile repairStation,
             Tile robotFactory,
             Sprite player,
-            Sprite robot)
+            Sprite robot,
+            Tile soilDetail = null,
+            Tile stoneDetail = null,
+            Tile hardRockDetail = null,
+            Tile ultraHardDetail = null,
+            Tile buildPreviewValid = null,
+            Tile buildPreviewInvalid = null,
+            Tile[] wallContour = null,
+            Tile[] dangerContour = null)
         {
             emptyTile = empty;
             soilWallTile = soilWall;
@@ -129,6 +169,14 @@ namespace Minebot.Presentation
             robotFactoryTile = robotFactory;
             playerSprite = player;
             robotSprite = robot;
+            soilDetailTile = soilDetail;
+            stoneDetailTile = stoneDetail;
+            hardRockDetailTile = hardRockDetail;
+            ultraHardDetailTile = ultraHardDetail;
+            buildPreviewValidTile = buildPreviewValid;
+            buildPreviewInvalidTile = buildPreviewInvalid;
+            wallContourTiles = wallContour ?? Array.Empty<Tile>();
+            dangerContourTiles = dangerContour ?? Array.Empty<Tile>();
         }
 #endif
     }

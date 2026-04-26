@@ -29,7 +29,7 @@ namespace Minebot.GridMining
                 {
                     var position = new GridPosition(x, y);
                     bool border = x == 0 || y == 0 || x == settings.Size.x - 1 || y == settings.Size.y - 1;
-                    bool safe = position.ManhattanDistance(settings.Spawn) <= settings.SafeRadius;
+                    bool safe = ChebyshevDistance(position, settings.Spawn) <= settings.SafeRadius;
                     TerrainKind terrain = border ? TerrainKind.Indestructible : safe ? TerrainKind.Empty : TerrainKind.MineableWall;
                     int distance = position.ManhattanDistance(settings.Spawn);
                     HardnessTier hardness = GetHardness(distance, settings.SafeRadius);
@@ -41,6 +41,11 @@ namespace Minebot.GridMining
             }
 
             return new LogicalGridState(settings.Size, settings.Spawn, cells);
+        }
+
+        private static int ChebyshevDistance(GridPosition a, GridPosition b)
+        {
+            return Mathf.Max(Mathf.Abs(a.X - b.X), Mathf.Abs(a.Y - b.Y));
         }
 
         private static HardnessTier GetHardness(int distanceFromSpawn, int safeRadius)

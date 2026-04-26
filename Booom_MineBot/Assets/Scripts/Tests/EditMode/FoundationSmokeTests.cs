@@ -3,11 +3,15 @@ using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.HazardInference;
 using Minebot.Automation;
+using Minebot.Editor;
+using Minebot.Presentation;
 using Minebot.Progression;
 using Minebot.WaveSurvival;
 using NUnit.Framework;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
 namespace Minebot.Tests.EditMode
 {
@@ -26,6 +30,8 @@ namespace Minebot.Tests.EditMode
             LogicalGridState grid = MapGenerator.Generate(new MapGenerationSettings(new Vector2Int(7, 7), spawn, 1));
 
             Assert.That(grid.GetCell(spawn).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            Assert.That(grid.GetCell(spawn + GridPosition.Up + GridPosition.Left).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            Assert.That(grid.GetCell(spawn + GridPosition.Up + GridPosition.Right).TerrainKind, Is.EqualTo(TerrainKind.Empty));
             Assert.That(grid.GetCell(new GridPosition(3, 5)).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
         }
 
@@ -266,6 +272,170 @@ namespace Minebot.Tests.EditMode
             Assert.That(registry.Waves.BestSurvivedWave, Is.EqualTo(0));
         }
 
+        [Test]
+        public void EvaluateDangerZonesMarksOnlyEdgeBandAtThicknessOne()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            SetMineableWall(grid, new GridPosition(3, 3), false);
+            SetMineableWall(grid, new GridPosition(3, 4), false);
+            SetMineableWall(grid, new GridPosition(3, 5), false);
+            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+
+            waves.EvaluateDangerZones();
+
+            Assert.That(grid.GetCell(new GridPosition(2, 3)).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(new GridPosition(4, 4)).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(new GridPosition(1, 3)).IsDangerZone, Is.False);
+            Assert.That(grid.GetCell(new GridPosition(5, 4)).IsDangerZone, Is.False);
+        }
+
+        [Test]
+        public void GeneratedStarterCavityProducesConnectedDangerRingAtThicknessOne()
+        {
+            GridPosition spawn = new GridPosition(3, 3);
+            LogicalGridState grid = MapGenerator.Generate(new MapGenerationSettings(new Vector2Int(9, 9), spawn, 1));
+            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+
+            waves.EvaluateDangerZones();
+
+            Assert.That(grid.GetCell(spawn).IsDangerZone, Is.False);
+            Assert.That(grid.GetCell(spawn + GridPosition.Up).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(spawn + GridPosition.Down).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(spawn + GridPosition.Left).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(spawn + GridPosition.Right).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(spawn + GridPosition.Up + GridPosition.Left).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(spawn + GridPosition.Up + GridPosition.Right).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(spawn + GridPosition.Down + GridPosition.Left).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(spawn + GridPosition.Down + GridPosition.Right).IsDangerZone, Is.True);
+        }
+
+        [Test]
+        public void DangerZonesDoNotMarkDiagonalOnlyWallAdjacency()
+        {
+            GridPosition spawn = new GridPosition(4, 4);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), spawn);
+            SetMineableWall(grid, spawn + GridPosition.Up + GridPosition.Right, false);
+            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+
+            waves.EvaluateDangerZones();
+
+            Assert.That(grid.GetCell(spawn).IsDangerZone, Is.False);
+            Assert.That(grid.GetCell(spawn + GridPosition.Up).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(spawn + GridPosition.Right).IsDangerZone, Is.True);
+        }
+
+        [Test]
+        public void EvaluateDangerZonesCollapsesDisconnectedSafeIslandOutsidePrimaryCavity()
+        {
+            GridPosition spawn = new GridPosition(3, 3);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(10, 10), spawn);
+
+            for (int y = 1; y < 9; y++)
+            {
+                for (int x = 1; x < 9; x++)
+                {
+                    SetMineableWall(grid, new GridPosition(x, y), false);
+                }
+            }
+
+            CarveEmptyRoom(grid, new GridPosition(2, 2), 3, 3);
+            CarveEmptyRoom(grid, new GridPosition(6, 6), 3, 3);
+
+            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+
+            waves.EvaluateDangerZones();
+
+            Assert.That(grid.GetCell(spawn).IsDangerZone, Is.False);
+            Assert.That(grid.GetCell(new GridPosition(7, 7)).IsDangerZone, Is.True);
+        }
+
+        [Test]
+        public void EvaluateDangerZonesKeepsSafePocketInsideSpawnConnectedCavity()
+        {
+            GridPosition spawn = new GridPosition(4, 4);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), spawn);
+
+            for (int y = 1; y < 8; y++)
+            {
+                for (int x = 1; x < 8; x++)
+                {
+                    SetMineableWall(grid, new GridPosition(x, y), false);
+                }
+            }
+
+            GridPosition[] carvedCells =
+            {
+                new(4, 1),
+                new(1, 2), new(4, 2),
+                new(1, 3), new(2, 3), new(3, 3), new(4, 3), new(5, 3),
+                new(1, 4), new(2, 4), new(3, 4), new(4, 4), new(5, 4),
+                new(1, 5), new(2, 5), new(3, 5), new(4, 5), new(5, 5), new(6, 5),
+                new(1, 6), new(3, 6), new(4, 6), new(5, 6), new(6, 6), new(7, 6),
+                new(1, 7), new(2, 7), new(3, 7), new(6, 7)
+            };
+
+            for (int i = 0; i < carvedCells.Length; i++)
+            {
+                SetEmpty(grid, carvedCells[i]);
+            }
+
+            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+
+            waves.EvaluateDangerZones();
+
+            Assert.That(grid.GetCell(spawn).IsDangerZone, Is.False);
+            Assert.That(grid.GetCell(new GridPosition(6, 6)).IsDangerZone, Is.False);
+            Assert.That(grid.GetCell(new GridPosition(7, 6)).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(new GridPosition(6, 7)).IsDangerZone, Is.True);
+        }
+
+        [Test]
+        public void EvaluateDangerZonesExpandsInwardAsWaveThicknessGrows()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), new GridPosition(4, 4));
+            for (int y = 2; y <= 6; y++)
+            {
+                SetMineableWall(grid, new GridPosition(2, y), false);
+            }
+
+            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+            waves.ResolveWave(new GridPosition(4, 4), new PlayerVitals(3), new List<RobotState>());
+            waves.ResolveWave(new GridPosition(4, 4), new PlayerVitals(3), new List<RobotState>());
+
+            waves.EvaluateDangerZones();
+
+            Assert.That(grid.GetCell(new GridPosition(3, 4)).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(new GridPosition(4, 4)).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(new GridPosition(5, 4)).IsDangerZone, Is.False);
+        }
+
+        [Test]
+        public void PixelArtPipelineBindsContourFamilyAssetsIntoDefaultArtSet()
+        {
+            AssetDatabase.Refresh();
+            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
+
+            MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(
+                "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset");
+
+            Assert.That(artSet, Is.Not.Null);
+            Assert.That(artSet.WallContourTiles.Length, Is.EqualTo(DualGridContour.TileCount));
+            Assert.That(artSet.DangerContourTiles.Length, Is.EqualTo(DualGridContour.TileCount));
+            Assert.That(artSet.BuildPreviewValidTile, Is.Not.Null);
+            Assert.That(artSet.BuildPreviewInvalidTile, Is.Not.Null);
+            Assert.That(artSet.SoilDetailTile, Is.Not.Null);
+            Assert.That(artSet.StoneDetailTile, Is.Not.Null);
+            Assert.That(artSet.HardRockDetailTile, Is.Not.Null);
+            Assert.That(artSet.UltraHardDetailTile, Is.Not.Null);
+            Assert.That(artSet.WallContourTiles[5], Is.Not.Null);
+            Assert.That(artSet.DangerContourTiles[5], Is.Not.Null);
+
+            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_WallContour_05.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_DangerContour_05.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_BuildPreviewValid.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_DetailUltraHard.asset"), Is.Not.Null);
+        }
+
         private static LogicalGridState CreateOpenGrid(Vector2Int size, GridPosition spawn)
         {
             var cells = new List<GridCellState>(size.x * size.y);
@@ -294,6 +464,23 @@ namespace Minebot.Tests.EditMode
             cell.IsMarked = false;
             cell.IsOccupiedByBuilding = false;
             cell.StaticFlags = hasBomb ? CellStaticFlags.Bomb : CellStaticFlags.None;
+        }
+
+        private static void SetEmpty(LogicalGridState grid, GridPosition position)
+        {
+            ref GridCellState cell = ref grid.GetCellRef(position);
+            cell = new GridCellState(TerrainKind.Empty, HardnessTier.Soil, CellStaticFlags.None, ResourceAmount.Zero);
+        }
+
+        private static void CarveEmptyRoom(LogicalGridState grid, GridPosition origin, int width, int height)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    SetEmpty(grid, new GridPosition(origin.X + x, origin.Y + y));
+                }
+            }
         }
 
         private static ScanReading FindReading(IReadOnlyList<ScanReading> readings, GridPosition position)

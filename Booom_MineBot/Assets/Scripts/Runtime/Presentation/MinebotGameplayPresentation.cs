@@ -20,9 +20,11 @@ namespace Minebot.Presentation
     {
         public const string PresentationRootName = "Presentation Root";
         public const string TerrainTilemapName = "Terrain Tilemap";
+        public const string WallContourTilemapName = "Wall Contour Tilemap";
         public const string FacilityTilemapName = "Facility Tilemap";
         public const string MarkerTilemapName = "Marker Tilemap";
         public const string DangerTilemapName = "Danger Tilemap";
+        public const string DangerContourTilemapName = "Danger Contour Tilemap";
         public const string BuildPreviewTilemapName = "Build Preview Tilemap";
         public const string ScanIndicatorRootName = "Scan Indicator Root";
         public const string OverlayTilemapName = MarkerTilemapName;
@@ -433,8 +435,10 @@ namespace Minebot.Presentation
             unityGrid.cellGap = Vector3.zero;
 
             Tilemap terrain = EnsureTilemapLayer(gridRoot, TerrainTilemapName, 0);
+            Tilemap wallContour = EnsureTilemapLayer(gridRoot, WallContourTilemapName, 2, new Vector3(-0.5f, -0.5f, 0f));
+            Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, 4);
             Tilemap facility = EnsureTilemapLayer(gridRoot, FacilityTilemapName, 5);
-            Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, 10);
+            Tilemap dangerContour = EnsureTilemapLayer(gridRoot, DangerContourTilemapName, 10, new Vector3(-0.5f, -0.5f, 0f));
             Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, 15);
             Tilemap buildPreview = EnsureTilemapLayer(gridRoot, BuildPreviewTilemapName, 20);
             scanIndicatorPresenter = EnsureScanIndicatorPresenter(EnsureChild(gridRoot, ScanIndicatorRootName));
@@ -446,7 +450,7 @@ namespace Minebot.Presentation
                 gridPresentation = gridRoot.gameObject.AddComponent<TilemapGridPresentation>();
             }
 
-            gridPresentation.Configure(terrain, facility, marker, danger, buildPreview, assets);
+            gridPresentation.Configure(terrain, facility, marker, wallContour, danger, dangerContour, buildPreview, assets);
             playerView = EnsureSpriteRenderer(actorRoot, PlayerViewName, assets.PlayerSprite, 30);
             playerFreeform = EnsureFreeformActor(playerView, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
             EnsureCircleCollider(playerView.gameObject, assets.PlayerColliderRadius);
@@ -543,9 +547,10 @@ namespace Minebot.Presentation
             return childObject.transform;
         }
 
-        private static Tilemap EnsureTilemapLayer(Transform gridRoot, string layerName, int sortingOrder)
+        private static Tilemap EnsureTilemapLayer(Transform gridRoot, string layerName, int sortingOrder, Vector3? localPosition = null)
         {
             Transform layer = EnsureChild(gridRoot, layerName);
+            layer.localPosition = localPosition ?? Vector3.zero;
             Tilemap tilemap = layer.GetComponent<Tilemap>();
             if (tilemap == null)
             {
@@ -969,10 +974,10 @@ namespace Minebot.Presentation
         private string BuildWarningText()
         {
             string scanLine = BuildScanSummaryText();
-            string countdown = $"地震波倒计时 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s | 下一波半径 {services.Waves.NextDangerRadius}";
+            string countdown = $"地震波倒计时 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s | 下一波危险带厚度 {services.Waves.NextDangerRadius}";
             string statusLine = PlayerIsInDangerZone()
                 ? "你位于危险区，地震结算会失败！"
-                : $"橙红内描边为危险区 | 已标记 {CountMarkedCells()} 格";
+                : $"橙红底纹与轮廓为危险区 | 已标记 {CountMarkedCells()} 格";
             if (services.Waves.TimeUntilNextWave <= 5f)
             {
                 return $"{countdown}\n危险区正在逼近，立即避开。\n{statusLine}\n{scanLine}";
@@ -1296,14 +1301,7 @@ namespace Minebot.Presentation
 
         private void EvaluateDangerZones()
         {
-            services.Waves.EvaluateDangerZones(BuildDangerOrigins());
-        }
-
-        private IEnumerable<GridPosition> BuildDangerOrigins()
-        {
-            Vector2Int size = services.Grid.Size;
-            yield return new GridPosition(1, 1);
-            yield return new GridPosition(Mathf.Max(1, size.x - 2), Mathf.Max(1, size.y - 2));
+            services.Waves.EvaluateDangerZones();
         }
 
         private void ResolveWave()

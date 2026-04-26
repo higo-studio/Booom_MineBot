@@ -134,7 +134,7 @@ namespace Minebot.GridMining
         }
 
         public bool HasBomb => (StaticFlags & CellStaticFlags.Bomb) != 0;
-        public bool IsPassable => TerrainKind == TerrainKind.Empty && !IsDangerZone && !IsOccupiedByBuilding;
+        public bool IsPassable => TerrainKind == TerrainKind.Empty && !IsOccupiedByBuilding;
         public bool IsMineable => TerrainKind == TerrainKind.MineableWall;
 
         public void ClearBomb()
