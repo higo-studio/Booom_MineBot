@@ -534,8 +534,10 @@ namespace Minebot.Tests.PlayMode
             yield return null;
             Assert.That(services.Robots.Count, Is.EqualTo(1));
             Assert.That(presentation.ActiveRobotViewCount, Is.EqualTo(1));
-            Assert.That(GameObject.Find("Robot View 1"), Is.Not.Null);
+            GameObject robotViewObject = GameObject.Find("Robot View 1");
+            Assert.That(robotViewObject, Is.Not.Null);
             RobotState robot = services.Robots[0];
+            Assert.That(robotViewObject.transform.position, Is.EqualTo(presentation.GridToWorld(robot.Position)));
             GridPosition robotStart = robot.Position;
             GridPosition robotStagingCell = robotStart + GridPosition.Left;
             GridPosition robotTarget = robotStagingCell + GridPosition.Up;

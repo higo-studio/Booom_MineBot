@@ -24,6 +24,8 @@ namespace Minebot.WaveSurvival
 
     public sealed class WaveSurvivalService
     {
+        public const float DangerWarningLeadTime = 5f;
+
         private readonly LogicalGridState grid;
         private readonly WaveConfig config;
         private float timeUntilNextWave;
@@ -38,6 +40,7 @@ namespace Minebot.WaveSurvival
         public int CurrentWave { get; private set; }
         public int BestSurvivedWave { get; private set; }
         public float TimeUntilNextWave => timeUntilNextWave;
+        public bool IsWarningWindowActive => timeUntilNextWave <= DangerWarningLeadTime;
         public int NextDangerRadius => config != null
             ? config.DangerRadiusForWave(CurrentWave + 1)
             : WaveConfig.DefaultBaseDangerRadius + CurrentWave / WaveConfig.DefaultRadiusGrowthEveryWaves;
@@ -251,6 +254,8 @@ namespace Minebot.WaveSurvival
                 }
             }
 
+            CollapseResolvedDangerZone();
+
             int survivedWave = playerKilled ? CurrentWave - 1 : CurrentWave;
             if (survivedWave > BestSurvivedWave)
             {
@@ -258,6 +263,26 @@ namespace Minebot.WaveSurvival
             }
 
             return new WaveResolution(playerKilled, robotsDestroyed, drops, survivedWave);
+        }
+
+        private void CollapseResolvedDangerZone()
+        {
+            foreach (GridPosition position in grid.Positions())
+            {
+                ref GridCellState cell = ref grid.GetCellRef(position);
+                if (cell.TerrainKind != TerrainKind.Empty || !cell.IsDangerZone)
+                {
+                    continue;
+                }
+
+                cell.TerrainKind = TerrainKind.MineableWall;
+                cell.HardnessTier = HardnessTier.Soil;
+                cell.Reward = new ResourceAmount(1, 0, 1);
+                cell.IsDangerZone = false;
+                cell.IsMarked = false;
+                cell.IsRevealed = false;
+                cell.StaticFlags &= ~CellStaticFlags.Bomb;
+            }
         }
     }
 }

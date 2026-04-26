@@ -34,6 +34,7 @@ namespace Minebot.Bootstrap
             var worldPickups = new WorldPickupService();
             var robots = new List<RobotState>();
             WaveConfig waveConfig = config != null ? config.WaveConfig : null;
+            var waves = new WaveSurvivalService(grid, waveConfig);
 
             var miningState = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
             var mining = new MiningService(grid);
@@ -63,6 +64,7 @@ namespace Minebot.Bootstrap
                 vitals,
                 robotAutomation,
                 robots,
+                waves,
                 waveConfig != null ? waveConfig.RobotRecycleDrop : ResourceAmount.Zero,
                 balance == null || balance.RobotUsesPlayerDrillTier,
                 balance != null ? balance.RobotFixedDrillTier : HardnessTier.Soil);
@@ -97,7 +99,7 @@ namespace Minebot.Bootstrap
                 robotAutomation,
                 factory,
                 robots,
-                new WaveSurvivalService(grid, waveConfig));
+                waves);
 
             return Current;
         }

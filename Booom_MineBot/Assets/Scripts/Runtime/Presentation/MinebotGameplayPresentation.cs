@@ -7,6 +7,7 @@ using Minebot.GridMining;
 using Minebot.HazardInference;
 using Minebot.Progression;
 using Minebot.UI;
+using Minebot.WaveSurvival;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -987,6 +988,7 @@ namespace Minebot.Presentation
                 }
 
                 EnsureCircleCollider(view.gameObject, 0.28f);
+                view.gameObject.SetActive(false);
                 robotViews.Add(view);
             }
 
@@ -1261,7 +1263,7 @@ namespace Minebot.Presentation
             if (hudView.WarningPanel != null)
             {
                 hudView.WarningPanel.SetText(BuildWarningText());
-                hudView.WarningPanel.SetColor(PlayerIsInDangerZone() || services.Waves.TimeUntilNextWave <= 5f
+                hudView.WarningPanel.SetColor(PlayerIsInDangerZone() || services.Waves.TimeUntilNextWave <= WaveSurvivalService.DangerWarningLeadTime
                 ? new Color(1f, 0.36f, 0.24f, 1f)
                 : new Color(1f, 0.91f, 0.58f, 1f));
             }
@@ -1322,7 +1324,7 @@ namespace Minebot.Presentation
         {
             string scanLine = BuildScanSummaryText();
             string countdown = $"地震波 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s | 下一波厚度 {services.Waves.NextDangerRadius}";
-            if (services.Waves.TimeUntilNextWave <= 5f)
+            if (services.Waves.TimeUntilNextWave <= WaveSurvivalService.DangerWarningLeadTime)
             {
                 return $"{countdown}\n危险区逼近，立即避开 | {scanLine}";
             }

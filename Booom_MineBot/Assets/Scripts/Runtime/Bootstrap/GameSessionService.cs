@@ -5,6 +5,7 @@ using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.HazardInference;
 using Minebot.Progression;
+using Minebot.WaveSurvival;
 using UnityEngine;
 
 namespace Minebot.Bootstrap
@@ -33,6 +34,7 @@ namespace Minebot.Bootstrap
         private readonly PlayerVitals vitals;
         private readonly RobotAutomationService robotAutomation;
         private readonly IList<RobotState> robots;
+        private readonly WaveSurvivalService waves;
         private readonly ResourceAmount robotRecycleDrop;
         private readonly bool robotUsesPlayerDrillTier;
         private readonly HardnessTier robotFixedDrillTier;
@@ -48,6 +50,7 @@ namespace Minebot.Bootstrap
             PlayerVitals vitals,
             RobotAutomationService robotAutomation,
             IList<RobotState> robots,
+            WaveSurvivalService waves,
             ResourceAmount robotRecycleDrop,
             bool robotUsesPlayerDrillTier,
             HardnessTier robotFixedDrillTier)
@@ -62,6 +65,7 @@ namespace Minebot.Bootstrap
             this.vitals = vitals;
             this.robotAutomation = robotAutomation;
             this.robots = robots;
+            this.waves = waves;
             this.robotRecycleDrop = robotRecycleDrop;
             this.robotUsesPlayerDrillTier = robotUsesPlayerDrillTier;
             this.robotFixedDrillTier = robotFixedDrillTier;
@@ -153,9 +157,10 @@ namespace Minebot.Bootstrap
 
             bool changed = false;
             HardnessTier drillTier = robotUsesPlayerDrillTier ? player.DrillTier : robotFixedDrillTier;
+            bool avoidDangerZones = waves == null || waves.IsWarningWindowActive;
             foreach (RobotState robot in robots)
             {
-                RobotAutomationResult result = robotAutomation.TickRobot(robot, drillTier, mining, deltaTime);
+                RobotAutomationResult result = robotAutomation.TickRobot(robot, drillTier, mining, deltaTime, avoidDangerZones);
                 if (!result.HasStateChange)
                 {
                     continue;

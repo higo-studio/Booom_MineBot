@@ -5,6 +5,7 @@ using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.HazardInference;
 using Minebot.Progression;
+using Minebot.WaveSurvival;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -240,6 +241,56 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void SessionRobotTickMinesCollapsedWaveWallBetweenWarnings()
+        {
+            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
+            GridPosition target = registry.Grid.PlayerSpawn + GridPosition.Up;
+            ref GridCellState cell = ref registry.Grid.GetCellRef(target);
+            cell.TerrainKind = TerrainKind.Empty;
+            cell.IsDangerZone = true;
+            cell.IsMarked = true;
+            cell.StaticFlags |= CellStaticFlags.Bomb;
+
+            registry.Waves.ResolveWave(registry.Grid.PlayerSpawn, registry.Vitals, new List<RobotState>());
+            registry.Waves.EvaluateDangerZones();
+            Assert.That(registry.Grid.GetCell(registry.Grid.PlayerSpawn).IsDangerZone, Is.True);
+
+            registry.Economy.Add(new ResourceAmount(5, 0, 0));
+            Assert.That(registry.RobotFactory.TryProduce(registry.Grid.PlayerSpawn, out RobotState robot), Is.True);
+
+            RunRobotTicks(registry, 2);
+
+            Assert.That(robot.IsActive, Is.True);
+            Assert.That(registry.Session.LastRobotAutomationResult.Kind, Is.EqualTo(RobotAutomationResultKind.Mined));
+            Assert.That(registry.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+        }
+
+        [Test]
+        public void SessionRobotTickAvoidsDangerZoneTargetsDuringWarningWindow()
+        {
+            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
+            GridPosition target = registry.Grid.PlayerSpawn + GridPosition.Up;
+            ref GridCellState cell = ref registry.Grid.GetCellRef(target);
+            cell.TerrainKind = TerrainKind.MineableWall;
+            cell.HardnessTier = HardnessTier.Soil;
+            cell.Reward = new ResourceAmount(1, 0, 1);
+            cell.IsRevealed = false;
+            registry.Waves.EvaluateDangerZones();
+            Assert.That(registry.Grid.GetCell(registry.Grid.PlayerSpawn).IsDangerZone, Is.True);
+            Assert.That(registry.Waves.Tick(WaveConfig.DefaultFirstWaveDelay - WaveSurvivalService.DangerWarningLeadTime + 0.1f), Is.False);
+
+            registry.Economy.Add(new ResourceAmount(5, 0, 0));
+            Assert.That(registry.RobotFactory.TryProduce(registry.Grid.PlayerSpawn, out RobotState robot), Is.True);
+
+            bool changed = registry.Session.TickRobots(1f);
+
+            Assert.That(changed, Is.True);
+            Assert.That(robot.TargetPosition.HasValue, Is.False);
+            Assert.That(registry.Session.LastRobotAutomationResult.Kind, Is.EqualTo(RobotAutomationResultKind.Idle));
+            Assert.That(registry.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+        }
+
+        [Test]
         public void RobotBombDestructionCanDropConfiguredRecyclePickupBeforeCollection()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
@@ -267,6 +318,7 @@ namespace Minebot.Tests.EditMode
                 vitals,
                 automation,
                 robots,
+                null,
                 new ResourceAmount(2, 0, 0),
                 true,
                 HardnessTier.Soil);
