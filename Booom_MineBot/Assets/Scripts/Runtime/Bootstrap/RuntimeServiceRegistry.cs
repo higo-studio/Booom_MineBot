@@ -20,6 +20,8 @@ namespace Minebot.Bootstrap
             PlayerVitals vitals,
             ExperienceService experience,
             BaseOpsService baseOps,
+            BuildingPlacementService buildings,
+            IReadOnlyList<BuildingDefinition> buildingDefinitions,
             RobotAutomationService robotAutomation,
             RobotFactoryService robotFactory,
             IReadOnlyList<RobotState> robots,
@@ -35,6 +37,8 @@ namespace Minebot.Bootstrap
             Vitals = vitals;
             Experience = experience;
             BaseOps = baseOps;
+            Buildings = buildings;
+            BuildingDefinitions = buildingDefinitions;
             RobotAutomation = robotAutomation;
             RobotFactory = robotFactory;
             Robots = robots;
@@ -51,6 +55,8 @@ namespace Minebot.Bootstrap
         public PlayerVitals Vitals { get; }
         public ExperienceService Experience { get; }
         public BaseOpsService BaseOps { get; }
+        public BuildingPlacementService Buildings { get; }
+        public IReadOnlyList<BuildingDefinition> BuildingDefinitions { get; }
         public RobotAutomationService RobotAutomation { get; }
         public RobotFactoryService RobotFactory { get; }
         public IReadOnlyList<RobotState> Robots { get; }

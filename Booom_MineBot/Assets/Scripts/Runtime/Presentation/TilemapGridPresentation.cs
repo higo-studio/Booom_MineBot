@@ -1,6 +1,7 @@
 using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
+using Minebot.Progression;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -10,6 +11,9 @@ namespace Minebot.Presentation
     {
         private MinebotPresentationAssets assets;
         private GridPosition? scanOrigin;
+        private BuildingDefinition buildPreviewDefinition;
+        private GridPosition? buildPreviewOrigin;
+        private bool buildPreviewIsValid;
 
         public Tilemap TerrainTilemap { get; private set; }
         public Tilemap FacilityTilemap { get; private set; }
@@ -33,6 +37,13 @@ namespace Minebot.Presentation
         public void ShowScanAt(GridPosition origin)
         {
             scanOrigin = origin;
+        }
+
+        public void ShowBuildPreview(BuildingDefinition definition, GridPosition? origin, bool isValid)
+        {
+            buildPreviewDefinition = definition;
+            buildPreviewOrigin = origin;
+            buildPreviewIsValid = isValid;
         }
 
         public void Refresh(RuntimeServiceRegistry services, GridPosition repairStationPosition, GridPosition robotFactoryPosition)
@@ -79,6 +90,18 @@ namespace Minebot.Presentation
                 }
             }
 
+            if (buildPreviewDefinition != null && buildPreviewOrigin.HasValue)
+            {
+                TileBase previewTile = buildPreviewIsValid ? assets.ScanHintTile : assets.DangerTile;
+                foreach (GridPosition previewPosition in FootprintCells(buildPreviewDefinition, buildPreviewOrigin.Value))
+                {
+                    if (grid.IsInside(previewPosition))
+                    {
+                        HintTilemap.SetTile(ToTilePosition(previewPosition), previewTile);
+                    }
+                }
+            }
+
             TerrainTilemap.CompressBounds();
             FacilityTilemap.CompressBounds();
             OverlayTilemap.CompressBounds();
@@ -102,6 +125,18 @@ namespace Minebot.Presentation
                     return assets.BoundaryTile;
                 default:
                     return assets.BoundaryTile;
+            }
+        }
+
+        private static System.Collections.Generic.IEnumerable<GridPosition> FootprintCells(BuildingDefinition definition, GridPosition origin)
+        {
+            Vector2Int size = definition.FootprintSize;
+            for (int y = 0; y < size.y; y++)
+            {
+                for (int x = 0; x < size.x; x++)
+                {
+                    yield return new GridPosition(origin.X + x, origin.Y + y);
+                }
             }
         }
     }

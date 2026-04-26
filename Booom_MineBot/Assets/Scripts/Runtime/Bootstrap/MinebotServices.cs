@@ -74,6 +74,10 @@ namespace Minebot.Bootstrap
                 economy,
                 balance != null ? balance.RobotCost : new Minebot.Common.ResourceAmount(4, 0, 0),
                 robots);
+            var buildings = new BuildingPlacementService(grid, economy);
+            IReadOnlyList<BuildingDefinition> buildingDefinitions = config != null
+                ? config.BuildingDefinitions
+                : null;
 
             Current = new RuntimeServiceRegistry(
                 grid,
@@ -86,6 +90,8 @@ namespace Minebot.Bootstrap
                 vitals,
                 experience,
                 new BaseOpsService(economy, vitals),
+                buildings,
+                buildingDefinitions,
                 robotAutomation,
                 factory,
                 robots,

@@ -53,6 +53,12 @@ namespace Minebot.GridMining
         [SerializeField]
         private bool isRevealed;
 
+        [SerializeField]
+        private bool isOccupiedByBuilding;
+
+        [SerializeField]
+        private string occupyingBuildingId;
+
         public GridCellState(TerrainKind terrainKind, HardnessTier hardnessTier, CellStaticFlags staticFlags, ResourceAmount reward)
         {
             this.terrainKind = terrainKind;
@@ -62,6 +68,8 @@ namespace Minebot.GridMining
             isMarked = false;
             isDangerZone = false;
             isRevealed = terrainKind == TerrainKind.Empty;
+            isOccupiedByBuilding = false;
+            occupyingBuildingId = string.Empty;
         }
 
         public TerrainKind TerrainKind
@@ -106,8 +114,27 @@ namespace Minebot.GridMining
             set => isRevealed = value;
         }
 
+        public bool IsOccupiedByBuilding
+        {
+            get => isOccupiedByBuilding;
+            set
+            {
+                isOccupiedByBuilding = value;
+                if (!value)
+                {
+                    occupyingBuildingId = string.Empty;
+                }
+            }
+        }
+
+        public string OccupyingBuildingId
+        {
+            get => occupyingBuildingId;
+            set => occupyingBuildingId = value ?? string.Empty;
+        }
+
         public bool HasBomb => (StaticFlags & CellStaticFlags.Bomb) != 0;
-        public bool IsPassable => TerrainKind == TerrainKind.Empty && !IsDangerZone;
+        public bool IsPassable => TerrainKind == TerrainKind.Empty && !IsDangerZone && !IsOccupiedByBuilding;
         public bool IsMineable => TerrainKind == TerrainKind.MineableWall;
 
         public void ClearBomb()

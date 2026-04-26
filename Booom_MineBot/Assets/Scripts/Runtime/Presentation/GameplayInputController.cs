@@ -1,6 +1,7 @@
 using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
+using Minebot.Progression;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -15,6 +16,15 @@ namespace Minebot.Presentation
         private MinebotGameplayPresentation presentation;
         private RuntimeServiceRegistry services;
         private GridPosition lastDirection = GridPosition.Up;
+        private Vector2 currentMoveInput;
+        private Vector2 pointerPosition;
+        private float autoMineTimer;
+
+        [SerializeField]
+        private float freeMoveStepSeconds = 0.25f;
+
+        [SerializeField]
+        private float autoMineInterval = 0.18f;
 
         private void Awake()
         {
@@ -32,11 +42,13 @@ namespace Minebot.Presentation
 
             MinebotInputActions.PlayerActions player = inputActions.Player;
             player.Move.performed += OnMovePerformed;
-            player.Mine.performed += OnMinePerformed;
+            player.Move.canceled += OnMoveCanceled;
             player.Scan.performed += OnScanPerformed;
-            player.ToggleMarker.performed += OnToggleMarkerPerformed;
-            player.Repair.performed += OnRepairPerformed;
-            player.BuildRobot.performed += OnBuildRobotPerformed;
+            player.ToggleMarkerMode.performed += OnToggleMarkerModePerformed;
+            player.ToggleBuildMode.performed += OnToggleBuildModePerformed;
+            player.PointerPosition.performed += OnPointerPositionPerformed;
+            player.PointerClick.performed += OnPointerClickPerformed;
+            player.Cancel.performed += OnCancelPerformed;
             player.SelectUpgrade1.performed += OnSelectUpgrade1Performed;
             player.SelectUpgrade2.performed += OnSelectUpgrade2Performed;
             player.SelectUpgrade3.performed += OnSelectUpgrade3Performed;
@@ -56,11 +68,13 @@ namespace Minebot.Presentation
             player.Disable();
             inputActions.UI.Disable();
             player.Move.performed -= OnMovePerformed;
-            player.Mine.performed -= OnMinePerformed;
+            player.Move.canceled -= OnMoveCanceled;
             player.Scan.performed -= OnScanPerformed;
-            player.ToggleMarker.performed -= OnToggleMarkerPerformed;
-            player.Repair.performed -= OnRepairPerformed;
-            player.BuildRobot.performed -= OnBuildRobotPerformed;
+            player.ToggleMarkerMode.performed -= OnToggleMarkerModePerformed;
+            player.ToggleBuildMode.performed -= OnToggleBuildModePerformed;
+            player.PointerPosition.performed -= OnPointerPositionPerformed;
+            player.PointerClick.performed -= OnPointerClickPerformed;
+            player.Cancel.performed -= OnCancelPerformed;
             player.SelectUpgrade1.performed -= OnSelectUpgrade1Performed;
             player.SelectUpgrade2.performed -= OnSelectUpgrade2Performed;
             player.SelectUpgrade3.performed -= OnSelectUpgrade3Performed;
@@ -69,23 +83,43 @@ namespace Minebot.Presentation
             inputActions = null;
         }
 
+        private void Update()
+        {
+            if (currentMoveInput.sqrMagnitude > 0.0001f)
+            {
+                MoveFreeform(currentMoveInput, Time.deltaTime);
+            }
+        }
+
         public bool Move(GridPosition direction)
         {
-            if (!CanAcceptGameplayInput())
+            lastDirection = direction;
+            return MoveFreeform(ToVector2(direction), Mathf.Max(0.02f, freeMoveStepSeconds));
+        }
+
+        public bool MoveFreeform(Vector2 direction, float deltaTime)
+        {
+            if (!CanAcceptGameplayInput() || presentation.InteractionMode != GameplayInteractionMode.Normal)
             {
                 return false;
             }
 
-            lastDirection = direction;
-            MineInteractionResult result = services.Session.Move(direction);
-            if (result == MineInteractionResult.Moved)
+            if (direction.sqrMagnitude < 0.0001f)
             {
-                presentation.ShowFeedback($"移动到 {services.PlayerMiningState.Position}");
+                autoMineTimer = 0f;
+                return false;
+            }
+
+            lastDirection = QuantizeDirection(direction);
+            bool moved = presentation.TryMovePlayerFreeform(direction, deltaTime, out GridPosition contactCell);
+            if (moved)
+            {
+                autoMineTimer = 0f;
+                presentation.RefreshAll();
                 return true;
             }
 
-            presentation.ShowFeedback($"移动受阻：{ToChineseResultText(result)}");
-            return false;
+            return TryAutoMineContact(contactCell, deltaTime);
         }
 
         public bool MineFacingCell()
@@ -96,11 +130,7 @@ namespace Minebot.Presentation
             }
 
             GridPosition target = services.PlayerMiningState.Position + lastDirection;
-            MineInteractionResult result = services.Session.Mine(target);
-            presentation.ShowFeedback(result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb
-                ? $"挖掘 {target}：{ToChineseResultText(result)}"
-                : $"无法挖掘 {target}：{ToChineseResultText(result)}");
-            return result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb;
+            return MineTarget(target);
         }
 
         public bool ScanCurrentCell()
@@ -135,6 +165,66 @@ namespace Minebot.Presentation
             return marked;
         }
 
+        public bool ToggleMarkerMode()
+        {
+            if (!CanChangeMode())
+            {
+                return false;
+            }
+
+            bool entering = presentation.InteractionMode != GameplayInteractionMode.Marker;
+            presentation.SetInteractionMode(entering ? GameplayInteractionMode.Marker : GameplayInteractionMode.Normal);
+            presentation.ShowFeedback(entering ? "已进入标记模式：点击岩壁标记。" : "已退出标记模式。");
+            return true;
+        }
+
+        public bool ToggleBuildMode()
+        {
+            if (!CanChangeMode())
+            {
+                return false;
+            }
+
+            bool entering = presentation.InteractionMode != GameplayInteractionMode.Build;
+            presentation.SetInteractionMode(entering ? GameplayInteractionMode.Build : GameplayInteractionMode.Normal);
+            if (entering)
+            {
+                presentation.SetSelectedBuilding(presentation.GetSelectedBuildingOrDefault());
+            }
+
+            presentation.ShowFeedback(entering ? "已进入建筑模式：选择建筑后点击空地。" : "已退出建筑模式。");
+            return true;
+        }
+
+        public bool ClickGridCell(GridPosition target)
+        {
+            if (!EnsureServices())
+            {
+                return false;
+            }
+
+            if (services.Vitals.IsDead || services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
+            {
+                presentation.ShowFeedback("输入已锁定，先处理升级或失败状态。");
+                return false;
+            }
+
+            if (presentation.InteractionMode == GameplayInteractionMode.Marker)
+            {
+                bool marked = services.Session.ToggleMarker(target);
+                presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
+                return true;
+            }
+
+            if (presentation.InteractionMode == GameplayInteractionMode.Build)
+            {
+                BuildingDefinition definition = presentation.GetSelectedBuildingOrDefault();
+                return presentation.TryPlaceBuildingAt(definition, target);
+            }
+
+            return false;
+        }
+
         public bool Repair()
         {
             if (!CanAcceptGameplayInput())
@@ -162,19 +252,55 @@ namespace Minebot.Presentation
                 return false;
             }
 
-            return presentation.SelectUpgradeIndex(index);
+            bool selected = presentation.SelectUpgradeIndex(index);
+            if (selected && !services.Experience.HasPendingUpgrade && !services.Vitals.IsDead)
+            {
+                presentation.SetInteractionMode(GameplayInteractionMode.Normal);
+            }
+
+            return selected;
         }
 
         private bool CanAcceptGameplayInput()
         {
-            if (!EnsureServices() || services.Vitals.IsDead)
+            if (!EnsureServices())
             {
+                return false;
+            }
+
+            if (services.Vitals.IsDead)
+            {
+                presentation.SetInteractionMode(GameplayInteractionMode.GameOver);
                 return false;
             }
 
             if (services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
             {
+                presentation.SetInteractionMode(GameplayInteractionMode.UpgradeLocked);
                 presentation.ShowFeedback("升级待选择，普通操作已暂停。请按 1/2/3 或点击升级项。");
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool CanChangeMode()
+        {
+            if (!EnsureServices())
+            {
+                return false;
+            }
+
+            if (services.Vitals.IsDead)
+            {
+                presentation.SetInteractionMode(GameplayInteractionMode.GameOver);
+                return false;
+            }
+
+            if (services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
+            {
+                presentation.SetInteractionMode(GameplayInteractionMode.UpgradeLocked);
+                presentation.ShowFeedback("升级待选择，模式操作已暂停。请按 1/2/3 或点击升级项。");
                 return false;
             }
 
@@ -198,17 +324,13 @@ namespace Minebot.Presentation
 
         private void OnMovePerformed(InputAction.CallbackContext context)
         {
-            Vector2 value = context.ReadValue<Vector2>();
-            GridPosition direction = QuantizeDirection(value);
-            if (!direction.Equals(GridPosition.Zero))
-            {
-                Move(direction);
-            }
+            currentMoveInput = context.ReadValue<Vector2>();
         }
 
-        private void OnMinePerformed(InputAction.CallbackContext context)
+        private void OnMoveCanceled(InputAction.CallbackContext context)
         {
-            MineFacingCell();
+            currentMoveInput = Vector2.zero;
+            autoMineTimer = 0f;
         }
 
         private void OnScanPerformed(InputAction.CallbackContext context)
@@ -216,19 +338,42 @@ namespace Minebot.Presentation
             ScanCurrentCell();
         }
 
-        private void OnToggleMarkerPerformed(InputAction.CallbackContext context)
+        private void OnToggleMarkerModePerformed(InputAction.CallbackContext context)
         {
-            ToggleMarkerFacingCell();
+            ToggleMarkerMode();
         }
 
-        private void OnRepairPerformed(InputAction.CallbackContext context)
+        private void OnToggleBuildModePerformed(InputAction.CallbackContext context)
         {
-            Repair();
+            ToggleBuildMode();
         }
 
-        private void OnBuildRobotPerformed(InputAction.CallbackContext context)
+        private void OnPointerPositionPerformed(InputAction.CallbackContext context)
         {
-            BuildRobot();
+            pointerPosition = context.ReadValue<Vector2>();
+            if (presentation != null && presentation.InteractionMode == GameplayInteractionMode.Build)
+            {
+                presentation.SetBuildPreview(presentation.ScreenToGridPosition(pointerPosition));
+            }
+        }
+
+        private void OnPointerClickPerformed(InputAction.CallbackContext context)
+        {
+            ClickGridCell(presentation.ScreenToGridPosition(pointerPosition));
+        }
+
+        private void OnCancelPerformed(InputAction.CallbackContext context)
+        {
+            if (!EnsureServices())
+            {
+                return;
+            }
+
+            if (presentation.InteractionMode == GameplayInteractionMode.Marker || presentation.InteractionMode == GameplayInteractionMode.Build)
+            {
+                presentation.SetInteractionMode(GameplayInteractionMode.Normal);
+                presentation.ShowFeedback("已退出当前模式。");
+            }
         }
 
         private void OnSelectUpgrade1Performed(InputAction.CallbackContext context)
@@ -267,6 +412,51 @@ namespace Minebot.Presentation
             }
 
             return value.y > 0f ? GridPosition.Up : GridPosition.Down;
+        }
+
+        private bool TryAutoMineContact(GridPosition contactCell, float deltaTime)
+        {
+            if (!services.Grid.IsInside(contactCell) || !services.Grid.GetCell(contactCell).IsMineable)
+            {
+                return false;
+            }
+
+            if (services.PlayerMiningState.Position.ManhattanDistance(contactCell) != 1)
+            {
+                GridPosition staging = services.PlayerMiningState.Position + lastDirection;
+                if (services.Grid.IsInside(staging) && services.Grid.GetCell(staging).IsMineable)
+                {
+                    contactCell = staging;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            autoMineTimer += Mathf.Max(0f, deltaTime);
+            if (autoMineTimer < Mathf.Max(0.01f, autoMineInterval))
+            {
+                presentation.ShowFeedback($"正在挖掘 {contactCell}...");
+                return false;
+            }
+
+            autoMineTimer = 0f;
+            return MineTarget(contactCell);
+        }
+
+        private bool MineTarget(GridPosition target)
+        {
+            MineInteractionResult result = services.Session.Mine(target);
+            presentation.ShowFeedback(result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb
+                ? $"自动挖掘 {target}：{ToChineseResultText(result)}"
+                : $"无法挖掘 {target}：{ToChineseResultText(result)}");
+            return result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb;
+        }
+
+        private static Vector2 ToVector2(GridPosition direction)
+        {
+            return new Vector2(direction.X, direction.Y);
         }
 
         private static string ToChineseResultText(MineInteractionResult result)
