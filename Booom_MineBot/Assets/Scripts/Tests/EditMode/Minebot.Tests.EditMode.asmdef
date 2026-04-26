@@ -9,7 +9,10 @@
     "Minebot.Runtime.Automation",
     "Minebot.Runtime.WaveSurvival",
     "Minebot.Runtime.Bootstrap",
-    "Minebot.Runtime.Presentation"
+    "Minebot.Runtime.Presentation",
+    "Minebot.Runtime.UI",
+    "Minebot.Editor",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"

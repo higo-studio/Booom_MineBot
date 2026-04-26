@@ -5,6 +5,7 @@ using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.Presentation;
 using Minebot.Progression;
+using Minebot.UI;
 using TMPro;
 using NUnit.Framework;
 using UnityEngine;
@@ -41,6 +42,17 @@ namespace Minebot.Tests.PlayMode
             Assert.That(GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<CircleCollider2D>(), Is.Not.Null);
             GameObject hud = GameObject.Find(MinebotGameplayPresentation.HudRootName);
             Assert.That(hud, Is.Not.Null);
+            Assert.That(Resources.Load<MinebotHudView>(MinebotHudView.ResourcePath), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.StatusPanelResourcePath), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.BuildPanelResourcePath), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.BuildingInteractionPanelResourcePath), Is.Not.Null);
+            MinebotHudView hudView = hud.GetComponent<MinebotHudView>();
+            Assert.That(hudView, Is.Not.Null);
+            Assert.That(hudView.StatusPanel, Is.Not.Null);
+            Assert.That(hudView.WarningPanel, Is.Not.Null);
+            Assert.That(hudView.UpgradePanel, Is.Not.Null);
+            Assert.That(hudView.BuildPanel, Is.Not.Null);
+            Assert.That(hudView.BuildingInteractionPanel, Is.Not.Null);
             TMP_Text hudText = hud.GetComponentInChildren<TMP_Text>();
             Assert.That(hudText, Is.Not.Null);
             Assert.That(hudText.font, Is.Not.Null);
@@ -63,8 +75,8 @@ namespace Minebot.Tests.PlayMode
             Assert.That(overlay.GetTile(new Vector3Int(1, 1, 0)), Is.Not.Null);
             Assert.That(presentation.HudSummary, Does.Contain("生命"));
             Assert.That(presentation.HudSummary, Does.Contain("波次"));
-            Assert.That(hud.transform.Find(MinebotGameplayPresentation.BuildPanelName), Is.Not.Null);
-            Assert.That(hud.transform.Find(MinebotGameplayPresentation.BuildingInteractionPanelName), Is.Not.Null);
+            Assert.That(hud.transform.Find(MinebotHudView.BuildSlotName), Is.Not.Null);
+            Assert.That(hud.transform.Find(MinebotHudView.BuildingInteractionSlotName), Is.Not.Null);
             Assert.That(services.Buildings.Buildings.Count, Is.GreaterThanOrEqualTo(2));
         }
 
@@ -285,11 +297,9 @@ namespace Minebot.Tests.PlayMode
 
         private static Button FindBuildingInteractionButton(string buttonName)
         {
-            GameObject hud = GameObject.Find(MinebotGameplayPresentation.HudRootName);
+            MinebotHudView hud = Object.FindAnyObjectByType<MinebotHudView>();
             Assert.That(hud, Is.Not.Null);
-            Transform panel = hud.transform.Find(MinebotGameplayPresentation.BuildingInteractionPanelName);
-            Assert.That(panel, Is.Not.Null);
-            Transform button = panel.Find(buttonName);
+            Transform button = hud.transform.Find($"{MinebotHudView.BuildingInteractionSlotName}/{MinebotGameplayPresentation.BuildingInteractionPanelName}/{buttonName}");
             Assert.That(button, Is.Not.Null);
             Button component = button.GetComponent<Button>();
             Assert.That(component, Is.Not.Null);

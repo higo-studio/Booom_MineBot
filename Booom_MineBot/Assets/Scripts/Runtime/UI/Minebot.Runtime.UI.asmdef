@@ -6,7 +6,9 @@
     "Minebot.Runtime.Common",
     "Minebot.Runtime.Progression",
     "Minebot.Runtime.WaveSurvival",
-    "Minebot.Runtime.GridMining"
+    "Minebot.Runtime.GridMining",
+    "UnityEngine.UI",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

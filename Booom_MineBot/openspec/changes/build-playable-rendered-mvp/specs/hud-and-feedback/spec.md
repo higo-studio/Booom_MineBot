@@ -11,6 +11,21 @@
 - **WHEN** 玩家挖掘、探测、维修、升级或生产机器人导致状态变化
 - **THEN** HUD 会在同一轮刷新中显示最新数值
 
+### Requirement: HUD UI 必须以独立 prefab 资产迭代
+项目 SHALL 将主玩法 HUD 的 UGUI 层级保存为可复用 prefab 资产，使 UI 布局、面板和按钮可以脱离场景脚本单独更新。
+
+#### Scenario: 进入 Gameplay
+- **WHEN** `Gameplay` 或 `DebugSandbox` 场景初始化表现层
+- **THEN** 表现层会实例化或复用 HUD prefab，并通过绑定脚本刷新文本、面板和按钮状态
+
+#### Scenario: prefab 缺少局部节点
+- **WHEN** HUD prefab 在迭代中暂时缺少某个必需文本、面板或按钮节点
+- **THEN** 绑定脚本会补齐最小默认节点，保证运行时 HUD 不会因空引用失效
+
+#### Scenario: 按功能拆分面板 prefab
+- **WHEN** HUD 包含状态、提示、升级、建筑或建筑交互等不同功能面板
+- **THEN** 每个功能面板都应拥有独立 prefab 和面板绑定脚本，HUD root 只负责 slot 布局与装配，不直接硬编码所有子节点结构
+
 ### Requirement: 升级选择必须以可交互 UI 呈现
 项目 SHALL 在经验达到阈值时显示可交互升级选择 UI，并允许玩家选择升级后返回玩法循环。
 

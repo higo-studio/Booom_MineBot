@@ -8,6 +8,7 @@
     "Minebot.Runtime.Progression",
     "Minebot.Runtime.Automation",
     "Minebot.Runtime.Presentation",
+    "Minebot.Runtime.UI",
     "Unity.TextMeshPro",
     "UnityEngine.UI"
   ],

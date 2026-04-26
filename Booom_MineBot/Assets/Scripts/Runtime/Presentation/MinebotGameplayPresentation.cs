@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Minebot.Automation;
 using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.Progression;
+using Minebot.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.TextCore.LowLevel;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
 
@@ -24,13 +23,12 @@ namespace Minebot.Presentation
         public const string OverlayTilemapName = "Overlay Tilemap";
         public const string HintTilemapName = "Hint Tilemap";
         public const string PlayerViewName = "Player View";
-        public const string HudRootName = "Minebot HUD";
-        public const string UpgradePanelName = "Upgrade Panel";
-        public const string BuildPanelName = "Build Panel";
-        public const string BuildingInteractionPanelName = "Building Interaction Panel";
-        public const string RepairStationInteractionButtonName = "Repair Station Interaction Button";
-        public const string RobotFactoryInteractionButtonName = "Robot Factory Interaction Button";
-        private const string BundledChineseFontRelativePath = "Minebot/Fonts/NotoSansSC-Regular.ttf";
+        public const string HudRootName = MinebotHudView.RootName;
+        public const string UpgradePanelName = MinebotHudView.UpgradePanelName;
+        public const string BuildPanelName = MinebotHudView.BuildPanelName;
+        public const string BuildingInteractionPanelName = MinebotHudView.BuildingInteractionPanelName;
+        public const string RepairStationInteractionButtonName = MinebotHudView.RepairStationInteractionButtonName;
+        public const string RobotFactoryInteractionButtonName = MinebotHudView.RobotFactoryInteractionButtonName;
 
         [SerializeField]
         private bool autoInitializeServices = true;
@@ -40,6 +38,9 @@ namespace Minebot.Presentation
 
         [SerializeField]
         private MinebotPresentationArtSet artSet;
+
+        [SerializeField]
+        private MinebotHudView hudPrefab;
 
         [SerializeField]
         private int repairMetalCost = 2;
@@ -53,19 +54,8 @@ namespace Minebot.Presentation
         private FreeformActorController playerFreeform;
         private readonly List<SpriteRenderer> robotViews = new List<SpriteRenderer>();
         private readonly List<GameObject> buildingViews = new List<GameObject>();
-        private TMP_Text hudText;
-        private TMP_Text interactionText;
-        private TMP_Text feedbackText;
-        private TMP_Text warningText;
-        private TMP_Text gameOverText;
         private static TMP_FontAsset runtimeFontAsset;
-        private GameObject upgradePanel;
-        private GameObject buildPanel;
-        private GameObject buildingInteractionPanel;
-        private Button repairStationInteractionButton;
-        private Button robotFactoryInteractionButton;
-        private readonly List<Button> upgradeButtons = new List<Button>();
-        private readonly List<Button> buildButtons = new List<Button>();
+        private MinebotHudView hudView;
         private UpgradeDefinition[] currentCandidates = Array.Empty<UpgradeDefinition>();
         private BuildingDefinition[] availableBuildingDefinitions = Array.Empty<BuildingDefinition>();
         private BuildingDefinition selectedBuildingDefinition;
@@ -82,9 +72,9 @@ namespace Minebot.Presentation
         public TilemapGridPresentation GridPresentation => gridPresentation;
         public GridPosition RepairStationPosition => repairStationPosition;
         public GridPosition RobotFactoryPosition => robotFactoryPosition;
-        public string HudSummary => hudText != null ? hudText.text : string.Empty;
+        public string HudSummary => hudView != null && hudView.StatusPanel != null ? hudView.StatusPanel.Content : string.Empty;
         public string FeedbackMessage => feedbackMessage;
-        public string WarningSummary => warningText != null ? warningText.text : string.Empty;
+        public string WarningSummary => hudView != null && hudView.WarningPanel != null ? hudView.WarningPanel.Content : string.Empty;
         public int ActiveRobotViewCount
         {
             get
@@ -102,9 +92,9 @@ namespace Minebot.Presentation
             }
         }
 
-        public bool IsUpgradePanelShowing => upgradePanel != null && upgradePanel.activeSelf;
-        public bool IsRepairInteractionButtonShowing => repairStationInteractionButton != null && repairStationInteractionButton.gameObject.activeInHierarchy;
-        public bool IsRobotFactoryInteractionButtonShowing => robotFactoryInteractionButton != null && robotFactoryInteractionButton.gameObject.activeInHierarchy;
+        public bool IsUpgradePanelShowing => hudView != null && hudView.UpgradePanel != null && hudView.UpgradePanel.gameObject.activeSelf;
+        public bool IsRepairInteractionButtonShowing => hudView != null && hudView.RepairStationInteractionButton != null && hudView.RepairStationInteractionButton.gameObject.activeInHierarchy;
+        public bool IsRobotFactoryInteractionButtonShowing => hudView != null && hudView.RobotFactoryInteractionButton != null && hudView.RobotFactoryInteractionButton.gameObject.activeInHierarchy;
         public bool IsGameOver => services != null && services.Vitals.IsDead;
         public bool IsUsingConfiguredArtSet => assets != null && assets.IsUsingConfiguredArtSet;
         public GameplayInteractionMode InteractionMode => interactionMode;
@@ -568,428 +558,77 @@ namespace Minebot.Presentation
 
         private void EnsureHud()
         {
+            hudView = ResolveHudView();
+            hudView.EnsureDefaultStructure(GetDefaultTmpFontAsset(), Mathf.Max(2, availableBuildingDefinitions.Length));
+
+            hudView.BindUpgradeButtons(index => SelectUpgradeIndex(index));
+            hudView.BindBuildButtons(SelectBuildButtonIndex);
+            hudView.BindBuildingInteractionButtons(
+                () =>
+                {
+                    if (CanUseBuildingInteractionButtons())
+                    {
+                        TryRepairAtStation();
+                    }
+                },
+                () =>
+                {
+                    if (CanUseBuildingInteractionButtons())
+                    {
+                        TryBuildRobotAtFactory();
+                    }
+                });
+        }
+
+        private MinebotHudView ResolveHudView()
+        {
+            if (hudView != null)
+            {
+                return hudView;
+            }
+
             Transform hudRoot = transform.Find(HudRootName);
-            if (hudRoot == null)
+            if (hudRoot != null)
             {
-                var canvasObject = new GameObject(HudRootName, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-                hudRoot = canvasObject.transform;
-                hudRoot.SetParent(transform, false);
+                MinebotHudView existingView = hudRoot.GetComponent<MinebotHudView>();
+                return existingView != null ? existingView : hudRoot.gameObject.AddComponent<MinebotHudView>();
             }
 
-            Canvas canvas = hudRoot.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 200;
-            canvas.pixelPerfect = true;
+            MinebotHudView existingChild = GetComponentInChildren<MinebotHudView>(true);
+            if (existingChild != null)
+            {
+                existingChild.name = HudRootName;
+                return existingChild;
+            }
 
-            CanvasScaler scaler = hudRoot.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280, 720);
-            scaler.matchWidthOrHeight = 0.5f;
+            MinebotHudView prefab = hudPrefab != null ? hudPrefab : Resources.Load<MinebotHudView>(MinebotHudView.ResourcePath);
+            if (prefab != null)
+            {
+                MinebotHudView instance = Instantiate(prefab, transform, false);
+                instance.name = HudRootName;
+                return instance;
+            }
 
-            hudText = EnsureText(hudRoot, "Status Text", new Vector2(16f, -16f), new Vector2(520f, 128f), 22, TextAnchor.UpperLeft);
-            interactionText = EnsureText(hudRoot, "Interaction Text", new Vector2(16f, -136f), new Vector2(760f, 110f), 18, TextAnchor.UpperLeft);
-            feedbackText = EnsureText(hudRoot, "Feedback Text", new Vector2(16f, -250f), new Vector2(720f, 96f), 20, TextAnchor.UpperLeft);
-            warningText = EnsureText(hudRoot, "Wave Warning Text", new Vector2(-16f, -16f), new Vector2(420f, 110f), 22, TextAnchor.UpperRight);
-            warningText.rectTransform.anchorMin = new Vector2(1f, 1f);
-            warningText.rectTransform.anchorMax = new Vector2(1f, 1f);
-            warningText.rectTransform.pivot = new Vector2(1f, 1f);
-            gameOverText = EnsureText(hudRoot, "Game Over Text", Vector2.zero, new Vector2(760f, 160f), 42, TextAnchor.MiddleCenter);
-            gameOverText.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            gameOverText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            gameOverText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-
-            EnsureUpgradePanel(hudRoot);
-            EnsureBuildPanel(hudRoot);
-            EnsureBuildingInteractionPanel(hudRoot);
+            var canvasObject = new GameObject(HudRootName, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(MinebotHudView));
+            canvasObject.transform.SetParent(transform, false);
+            return canvasObject.GetComponent<MinebotHudView>();
         }
 
-        private void EnsureUpgradePanel(Transform hudRoot)
+        private void SelectBuildButtonIndex(int index)
         {
-            Transform panel = hudRoot.Find(UpgradePanelName);
-            if (panel == null)
+            if (index < 0 || index >= availableBuildingDefinitions.Length)
             {
-                panel = new GameObject(UpgradePanelName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)).transform;
-                panel.SetParent(hudRoot, false);
+                return;
             }
 
-            upgradePanel = panel.gameObject;
-            var panelRect = (RectTransform)panel;
-            panelRect.anchorMin = new Vector2(1f, 0f);
-            panelRect.anchorMax = new Vector2(1f, 0f);
-            panelRect.pivot = new Vector2(1f, 0f);
-            panelRect.anchoredPosition = new Vector2(-24f, 24f);
-            panelRect.sizeDelta = new Vector2(420f, 230f);
-
-            Image image = panel.GetComponent<Image>();
-            image.color = new Color(0.05f, 0.07f, 0.08f, 0.92f);
-
-            TMP_Text title = EnsureText(panel, "Upgrade Title", new Vector2(16f, -16f), new Vector2(388f, 42f), 20, TextAnchor.UpperLeft);
-            title.text = "升级可用：按 1/2/3 或点击";
-
-            for (int i = 0; i < 3; i++)
-            {
-                Button button = EnsureUpgradeButton(panel, i);
-                if (!upgradeButtons.Contains(button))
-                {
-                    upgradeButtons.Add(button);
-                }
-            }
-        }
-
-        private Button EnsureUpgradeButton(Transform panel, int index)
-        {
-            string objectName = $"Upgrade Button {index + 1}";
-            Transform child = panel.Find(objectName);
-            if (child == null)
-            {
-                child = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button)).transform;
-                child.SetParent(panel, false);
-            }
-
-            var rect = (RectTransform)child;
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(16f, -64f - index * 52f);
-            rect.sizeDelta = new Vector2(388f, 44f);
-
-            Image image = child.GetComponent<Image>();
-            image.color = new Color(0.16f, 0.23f, 0.24f, 0.96f);
-
-            Button button = child.GetComponent<Button>();
-            int capturedIndex = index;
-            button.onClick.RemoveAllListeners();
-            button.onClick.AddListener(() => SelectUpgradeIndex(capturedIndex));
-
-            EnsureText(child, "Label", new Vector2(10f, -6f), new Vector2(368f, 34f), 17, TextAnchor.MiddleLeft);
-            return button;
-        }
-
-        private void EnsureBuildPanel(Transform hudRoot)
-        {
-            Transform panel = hudRoot.Find(BuildPanelName);
-            if (panel == null)
-            {
-                panel = new GameObject(BuildPanelName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)).transform;
-                panel.SetParent(hudRoot, false);
-            }
-
-            buildPanel = panel.gameObject;
-            var panelRect = (RectTransform)panel;
-            panelRect.anchorMin = new Vector2(1f, 1f);
-            panelRect.anchorMax = new Vector2(1f, 1f);
-            panelRect.pivot = new Vector2(1f, 1f);
-            panelRect.anchoredPosition = new Vector2(-24f, -144f);
-            int buttonCount = Mathf.Max(2, availableBuildingDefinitions.Length);
-            panelRect.sizeDelta = new Vector2(420f, Mathf.Max(190f, 86f + buttonCount * 52f));
-
-            Image image = panel.GetComponent<Image>();
-            image.color = new Color(0.07f, 0.09f, 0.1f, 0.93f);
-
-            TMP_Text title = EnsureText(panel, "Build Title", new Vector2(16f, -12f), new Vector2(388f, 38f), 20, TextAnchor.UpperLeft);
-            title.text = "建筑模式：选择建筑后点击空地";
-
-            for (int i = 0; i < buttonCount; i++)
-            {
-                Button button = EnsureBuildButton(panel, i);
-                if (!buildButtons.Contains(button))
-                {
-                    buildButtons.Add(button);
-                }
-            }
-        }
-
-        private Button EnsureBuildButton(Transform panel, int index)
-        {
-            string objectName = $"Build Button {index + 1}";
-            Transform child = panel.Find(objectName);
-            if (child == null)
-            {
-                child = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button)).transform;
-                child.SetParent(panel, false);
-            }
-
-            var rect = (RectTransform)child;
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(16f, -56f - index * 52f);
-            rect.sizeDelta = new Vector2(388f, 44f);
-
-            Image image = child.GetComponent<Image>();
-            image.color = new Color(0.18f, 0.22f, 0.2f, 0.96f);
-
-            Button button = child.GetComponent<Button>();
-            int capturedIndex = index;
-            button.onClick.RemoveAllListeners();
-            button.onClick.AddListener(() =>
-            {
-                if (capturedIndex >= 0 && capturedIndex < availableBuildingDefinitions.Length)
-                {
-                    SetSelectedBuilding(availableBuildingDefinitions[capturedIndex]);
-                    ShowFeedback($"已选择建筑：{availableBuildingDefinitions[capturedIndex].DisplayName}");
-                }
-            });
-
-            EnsureText(child, "Label", new Vector2(10f, -6f), new Vector2(368f, 34f), 17, TextAnchor.MiddleLeft);
-            return button;
-        }
-
-        private void EnsureBuildingInteractionPanel(Transform hudRoot)
-        {
-            Transform panel = hudRoot.Find(BuildingInteractionPanelName);
-            if (panel == null)
-            {
-                panel = new GameObject(BuildingInteractionPanelName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)).transform;
-                panel.SetParent(hudRoot, false);
-            }
-
-            buildingInteractionPanel = panel.gameObject;
-            var panelRect = (RectTransform)panel;
-            panelRect.anchorMin = new Vector2(0f, 0f);
-            panelRect.anchorMax = new Vector2(0f, 0f);
-            panelRect.pivot = new Vector2(0f, 0f);
-            panelRect.anchoredPosition = new Vector2(16f, 24f);
-            panelRect.sizeDelta = new Vector2(420f, 142f);
-
-            Image image = panel.GetComponent<Image>();
-            image.color = new Color(0.06f, 0.08f, 0.08f, 0.92f);
-
-            TMP_Text title = EnsureText(panel, "Building Interaction Title", new Vector2(16f, -12f), new Vector2(388f, 34f), 19, TextAnchor.UpperLeft);
-            title.text = "建筑交互";
-
-            repairStationInteractionButton = EnsureBuildingInteractionButton(panel, RepairStationInteractionButtonName, 0);
-            repairStationInteractionButton.onClick.RemoveAllListeners();
-            repairStationInteractionButton.onClick.AddListener(() =>
-            {
-                if (CanUseBuildingInteractionButtons())
-                {
-                    TryRepairAtStation();
-                }
-            });
-
-            robotFactoryInteractionButton = EnsureBuildingInteractionButton(panel, RobotFactoryInteractionButtonName, 1);
-            robotFactoryInteractionButton.onClick.RemoveAllListeners();
-            robotFactoryInteractionButton.onClick.AddListener(() =>
-            {
-                if (CanUseBuildingInteractionButtons())
-                {
-                    TryBuildRobotAtFactory();
-                }
-            });
-        }
-
-        private Button EnsureBuildingInteractionButton(Transform panel, string objectName, int index)
-        {
-            Transform child = panel.Find(objectName);
-            if (child == null)
-            {
-                child = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button)).transform;
-                child.SetParent(panel, false);
-            }
-
-            var rect = (RectTransform)child;
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(16f, -48f - index * 48f);
-            rect.sizeDelta = new Vector2(388f, 40f);
-
-            Image image = child.GetComponent<Image>();
-            image.color = new Color(0.17f, 0.24f, 0.22f, 0.98f);
-
-            EnsureText(child, "Label", new Vector2(10f, -5f), new Vector2(368f, 30f), 17, TextAnchor.MiddleLeft);
-            return child.GetComponent<Button>();
-        }
-
-        private static TMP_Text EnsureText(Transform parent, string objectName, Vector2 anchoredPosition, Vector2 size, int fontSize, TextAnchor alignment)
-        {
-            Transform child = parent.Find(objectName);
-            if (child == null)
-            {
-                child = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI)).transform;
-                child.SetParent(parent, false);
-            }
-
-            var rect = (RectTransform)child;
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = size;
-
-            Text legacyText = child.GetComponent<Text>();
-            if (legacyText != null)
-            {
-                Destroy(legacyText);
-            }
-
-            TMP_Text text = child.GetComponent<TMP_Text>();
-            if (text == null)
-            {
-                text = child.gameObject.AddComponent<TextMeshProUGUI>();
-            }
-
-            text.font = GetDefaultTmpFontAsset();
-            text.fontSize = fontSize;
-            text.alignment = ToTmpAlignment(alignment);
-            text.color = Color.white;
-            text.raycastTarget = false;
-            text.enableAutoSizing = false;
-            text.enableWordWrapping = true;
-            text.overflowMode = TextOverflowModes.Overflow;
-            return text;
+            SetSelectedBuilding(availableBuildingDefinitions[index]);
+            ShowFeedback($"已选择建筑：{availableBuildingDefinitions[index].DisplayName}");
         }
 
         private static TMP_FontAsset GetDefaultTmpFontAsset()
         {
-            if (runtimeFontAsset != null)
-            {
-                return runtimeFontAsset;
-            }
-
-            runtimeFontAsset = CreateBundledChineseFontAsset();
-            if (runtimeFontAsset != null)
-            {
-                return runtimeFontAsset;
-            }
-
-            runtimeFontAsset = CreateRuntimeChineseFontAsset();
-            if (runtimeFontAsset != null)
-            {
-                return runtimeFontAsset;
-            }
-
-            runtimeFontAsset = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            runtimeFontAsset = runtimeFontAsset ?? MinebotHudFontUtility.GetDefaultFontAsset();
             return runtimeFontAsset;
-        }
-
-        private static TMP_FontAsset CreateBundledChineseFontAsset()
-        {
-            return CreateFontAssetFromFile(Path.Combine(Application.streamingAssetsPath, BundledChineseFontRelativePath));
-        }
-
-        private static TMP_FontAsset CreateRuntimeChineseFontAsset()
-        {
-            string[] preferredFontFiles =
-            {
-                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-                "/Library/Fonts/Arial Unicode.ttf",
-                "/System/Library/Fonts/STHeiti Medium.ttc",
-                "/System/Library/Fonts/Hiragino Sans GB.ttc"
-            };
-
-            foreach (string fontPath in preferredFontFiles)
-            {
-                TMP_FontAsset fontAsset = CreateFontAssetFromFile(fontPath);
-                if (fontAsset != null)
-                {
-                    return fontAsset;
-                }
-            }
-
-            string[] preferredFonts =
-            {
-                "PingFang SC",
-                "Hiragino Sans GB",
-                "Heiti SC",
-                "STHeiti",
-                "Noto Sans CJK SC",
-                "Noto Sans CJK",
-                "Microsoft YaHei",
-                "SimHei",
-                "Arial Unicode MS"
-            };
-
-            foreach (string fontName in preferredFonts)
-            {
-                if (!IsOsFontInstalled(fontName))
-                {
-                    continue;
-                }
-
-                Font font = Font.CreateDynamicFontFromOSFont(fontName, 90);
-                if (font == null)
-                {
-                    continue;
-                }
-
-                TMP_FontAsset fontAsset = TMP_FontAsset.CreateFontAsset(font, 90, 9, GlyphRenderMode.SDFAA, 2048, 2048, AtlasPopulationMode.Dynamic, true);
-                if (fontAsset == null)
-                {
-                    continue;
-                }
-
-                fontAsset.name = $"Minebot TMP {fontName}";
-                WarmupMinebotGlyphs(fontAsset);
-                return fontAsset;
-            }
-
-            return null;
-        }
-
-        private static TMP_FontAsset CreateFontAssetFromFile(string fontPath)
-        {
-            if (!File.Exists(fontPath))
-            {
-                return null;
-            }
-
-            TMP_FontAsset fontAsset = TMP_FontAsset.CreateFontAsset(fontPath, 0, 90, 9, GlyphRenderMode.SDFAA, 2048, 2048);
-            if (fontAsset == null)
-            {
-                return null;
-            }
-
-            fontAsset.name = $"Minebot TMP {Path.GetFileNameWithoutExtension(fontPath)}";
-            WarmupMinebotGlyphs(fontAsset);
-            return fontAsset;
-        }
-
-        private static void WarmupMinebotGlyphs(TMP_FontAsset fontAsset)
-        {
-            fontAsset.TryAddCharacters("方向键移动挖掘金属能量等级经验波次当前位置钻头可交互维修站机器人工厂恢复生命生产从属机器人升级可用点击地震倒计时红色区域危险立即避开尚未探测上次任务失败核心机体失效炸药标记取消不足完成应用选择暂停土层石层硬岩极硬已挖开触发目标无效地形阻挡强度未知结果空格当前版本暂未冻结时间周边蓝色中心输入已锁定先选择升级下一波半径已标记格自由贴墙自动建筑模式鼠标空地右键退出占地不可建造按钮执行");
-        }
-
-        private static bool IsOsFontInstalled(string fontName)
-        {
-            string[] installedFonts = Font.GetOSInstalledFontNames();
-            for (int i = 0; i < installedFonts.Length; i++)
-            {
-                if (string.Equals(installedFonts[i], fontName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static TextAlignmentOptions ToTmpAlignment(TextAnchor alignment)
-        {
-            switch (alignment)
-            {
-                case TextAnchor.UpperLeft:
-                    return TextAlignmentOptions.TopLeft;
-                case TextAnchor.UpperCenter:
-                    return TextAlignmentOptions.Top;
-                case TextAnchor.UpperRight:
-                    return TextAlignmentOptions.TopRight;
-                case TextAnchor.MiddleLeft:
-                    return TextAlignmentOptions.MidlineLeft;
-                case TextAnchor.MiddleCenter:
-                    return TextAlignmentOptions.Center;
-                case TextAnchor.MiddleRight:
-                    return TextAlignmentOptions.MidlineRight;
-                case TextAnchor.LowerLeft:
-                    return TextAlignmentOptions.BottomLeft;
-                case TextAnchor.LowerCenter:
-                    return TextAlignmentOptions.Bottom;
-                case TextAnchor.LowerRight:
-                    return TextAlignmentOptions.BottomRight;
-                default:
-                    return TextAlignmentOptions.TopLeft;
-            }
         }
 
         private static void EnsureEventSystem()
@@ -1210,26 +849,42 @@ namespace Minebot.Presentation
 
         private void RefreshHud()
         {
-            if (services == null || hudText == null)
+            if (services == null || hudView == null || hudView.StatusPanel == null)
             {
                 return;
             }
 
             ResourceAmount resources = services.Economy.Resources;
-            hudText.text =
+            hudView.StatusPanel.SetText(
                 $"生命 {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy}\n" +
                 $"等级 {services.Experience.Level} | 经验 {services.Experience.Experience}/{services.Experience.NextThreshold} | 波次 {services.Waves.CurrentWave}\n" +
                 $"当前位置 {services.PlayerMiningState.Position} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}\n" +
-                BuildRobotStatusText();
+                BuildRobotStatusText());
 
-            interactionText.text = BuildInteractionText();
-            feedbackText.text = feedbackMessage;
-            warningText.text = BuildWarningText();
-            warningText.color = PlayerIsInDangerZone() || services.Waves.TimeUntilNextWave <= 5f
+            if (hudView.InteractionPanel != null)
+            {
+                hudView.InteractionPanel.SetText(BuildInteractionText());
+            }
+
+            if (hudView.FeedbackPanel != null)
+            {
+                hudView.FeedbackPanel.SetText(feedbackMessage);
+            }
+
+            if (hudView.WarningPanel != null)
+            {
+                hudView.WarningPanel.SetText(BuildWarningText());
+                hudView.WarningPanel.SetColor(PlayerIsInDangerZone() || services.Waves.TimeUntilNextWave <= 5f
                 ? new Color(1f, 0.36f, 0.24f, 1f)
-                : new Color(1f, 0.91f, 0.58f, 1f);
-            gameOverText.gameObject.SetActive(services.Vitals.IsDead);
-            gameOverText.text = services.Vitals.IsDead ? "任务失败\n核心机体已失效" : string.Empty;
+                : new Color(1f, 0.91f, 0.58f, 1f));
+            }
+
+            if (hudView.GameOverPanel != null)
+            {
+                hudView.GameOverPanel.SetVisible(services.Vitals.IsDead);
+                hudView.GameOverPanel.SetText(services.Vitals.IsDead ? "任务失败\n核心机体已失效" : string.Empty);
+            }
+
             RefreshUpgradePanel();
             RefreshBuildPanel();
             RefreshBuildingInteractionPanel();
@@ -1431,55 +1086,61 @@ namespace Minebot.Presentation
 
         private void RefreshUpgradePanel()
         {
-            currentCandidates = services.Upgrades.GetCandidates(3);
-            bool show = currentCandidates.Length > 0;
-            upgradePanel.SetActive(show);
-
-            for (int i = 0; i < upgradeButtons.Count; i++)
+            if (hudView == null || hudView.UpgradePanel == null)
             {
-                Button button = upgradeButtons[i];
+                return;
+            }
+
+            currentCandidates = services.Upgrades.GetCandidates(MinebotHudDefaults.UpgradeButtonCount);
+            bool show = currentCandidates.Length > 0;
+            hudView.UpgradePanel.SetVisible(show);
+            hudView.UpgradePanel.SetTitle(MinebotHudDefaults.UpgradeTitle);
+
+            for (int i = 0; i < MinebotHudDefaults.UpgradeButtonCount; i++)
+            {
                 bool hasCandidate = i < currentCandidates.Length;
-                button.gameObject.SetActive(hasCandidate);
+                UpgradeDefinition upgrade = hasCandidate ? currentCandidates[i] : null;
+                string label = hasCandidate ? $"{i + 1}. {upgrade.displayName} - {DescribeUpgrade(upgrade)}" : string.Empty;
+                hudView.UpgradePanel.SetButton(i, hasCandidate, label);
                 if (!hasCandidate)
                 {
                     continue;
                 }
-
-                TMP_Text label = button.GetComponentInChildren<TMP_Text>();
-                UpgradeDefinition upgrade = currentCandidates[i];
-                label.text = $"{i + 1}. {upgrade.displayName} - {DescribeUpgrade(upgrade)}";
             }
         }
 
         private void RefreshBuildPanel()
         {
-            if (buildPanel == null)
+            if (hudView == null || hudView.BuildPanel == null)
             {
                 return;
             }
 
             bool show = interactionMode == GameplayInteractionMode.Build;
-            buildPanel.SetActive(show);
-            for (int i = 0; i < buildButtons.Count; i++)
+            hudView.BuildPanel.SetVisible(show);
+            hudView.BuildPanel.SetTitle(MinebotHudDefaults.BuildTitle);
+            for (int i = 0; i < Mathf.Max(MinebotHudDefaults.MinimumBuildButtonCount, availableBuildingDefinitions.Length); i++)
             {
-                Button button = buildButtons[i];
                 bool hasDefinition = i < availableBuildingDefinitions.Length;
-                button.gameObject.SetActive(hasDefinition);
+                string label = string.Empty;
+                if (hasDefinition)
+                {
+                    BuildingDefinition definition = availableBuildingDefinitions[i];
+                    string selected = definition == selectedBuildingDefinition ? ">" : " ";
+                    label = $"{selected} {definition.DisplayName} | 金属 {definition.Cost.Metal} | {definition.FootprintSize.x}x{definition.FootprintSize.y}";
+                }
+
+                hudView.BuildPanel.SetButton(i, hasDefinition, label);
                 if (!hasDefinition)
                 {
                     continue;
                 }
-
-                BuildingDefinition definition = availableBuildingDefinitions[i];
-                TMP_Text label = button.GetComponentInChildren<TMP_Text>();
-                string selected = definition == selectedBuildingDefinition ? ">" : " ";
-                label.text = $"{selected} {definition.DisplayName} | 金属 {definition.Cost.Metal} | {definition.FootprintSize.x}x{definition.FootprintSize.y}";
             }
         }
 
         private void RefreshBuildingInteractionPanel()
         {
-            if (buildingInteractionPanel == null)
+            if (hudView == null || hudView.BuildingInteractionPanel == null)
             {
                 return;
             }
@@ -1487,9 +1148,10 @@ namespace Minebot.Presentation
             bool canUse = CanUseBuildingInteractionButtons();
             bool showRepair = canUse && IsNearRepairStation();
             bool showFactory = canUse && IsNearRobotFactory();
-            buildingInteractionPanel.SetActive(showRepair || showFactory);
-            SetBuildingInteractionButton(repairStationInteractionButton, showRepair, $"维修站：维修（金属 {Mathf.Max(0, repairMetalCost)}）");
-            SetBuildingInteractionButton(robotFactoryInteractionButton, showFactory, "机器人工厂：生产从属机器人");
+            hudView.BuildingInteractionPanel.SetVisible(showRepair || showFactory);
+            hudView.BuildingInteractionPanel.SetTitle(MinebotHudDefaults.BuildingInteractionTitle);
+            hudView.BuildingInteractionPanel.SetButton(0, showRepair, $"维修站：维修（金属 {Mathf.Max(0, repairMetalCost)}）");
+            hudView.BuildingInteractionPanel.SetButton(1, showFactory, "机器人工厂：生产从属机器人");
         }
 
         private bool CanUseBuildingInteractionButtons()
@@ -1498,22 +1160,6 @@ namespace Minebot.Presentation
                 && !services.Vitals.IsDead
                 && !services.Experience.HasPendingUpgrade
                 && interactionMode == GameplayInteractionMode.Normal;
-        }
-
-        private static void SetBuildingInteractionButton(Button button, bool show, string labelText)
-        {
-            if (button == null)
-            {
-                return;
-            }
-
-            button.gameObject.SetActive(show);
-            button.interactable = show;
-            TMP_Text label = button.GetComponentInChildren<TMP_Text>();
-            if (label != null)
-            {
-                label.text = labelText;
-            }
         }
 
         private static string DescribeUpgrade(UpgradeDefinition upgrade)
