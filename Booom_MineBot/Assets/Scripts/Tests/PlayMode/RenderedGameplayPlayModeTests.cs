@@ -1,4 +1,5 @@
 using System.Collections;
+using Minebot.Automation;
 using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
@@ -128,6 +129,22 @@ namespace Minebot.Tests.PlayMode
             Assert.That(services.Robots.Count, Is.EqualTo(1));
             Assert.That(presentation.ActiveRobotViewCount, Is.EqualTo(1));
             Assert.That(GameObject.Find("Robot View 1"), Is.Not.Null);
+            RobotState robot = services.Robots[0];
+            GridPosition robotStart = robot.Position;
+            int metalBeforeAutomation = services.Economy.Resources.Metal;
+            for (int i = 0; i < 5; i++)
+            {
+                services.Session.TickRobots(1f);
+                presentation.RefreshAll();
+                yield return null;
+                if (!robot.IsActive || !robot.Position.Equals(robotStart) || services.Economy.Resources.Metal > metalBeforeAutomation)
+                {
+                    break;
+                }
+            }
+
+            Assert.That(!robot.IsActive || !robot.Position.Equals(robotStart) || services.Economy.Resources.Metal > metalBeforeAutomation, Is.True);
+            Assert.That(presentation.HudSummary, Does.Contain("从属机器人"));
 
             services.Vitals.Damage(services.Vitals.MaxHealth);
             presentation.RefreshAll();
