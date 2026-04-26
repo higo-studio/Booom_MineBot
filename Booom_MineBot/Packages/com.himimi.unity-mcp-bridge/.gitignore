@@ -1,10 +1,9 @@
-# Package-local OS metadata
-.DS_Store
-**/.DS_Store
-
-# Embedded .NET tool build outputs
-Tools~/**/bin/
-Tools~/**/obj/
-
-# Keep the tool project definition tracked
-!Tools~/UnityMcpBridge.Host/UnityMcpBridge.Host.csproj
+Tools~/UnityMcpBridge.Host/bin/
+Tools~/UnityMcpBridge.Host/obj/
+Published~/host/*
+!Published~/host/*/
+!Published~/host/*/**
+Published~/host/**/*.pdb
+.vs/
+*.user
+*.suo

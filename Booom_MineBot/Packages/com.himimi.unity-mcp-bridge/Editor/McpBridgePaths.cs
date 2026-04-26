@@ -42,7 +42,7 @@ namespace McpBridge.Editor
         public static string HostProgramPath =>
             Path.GetFullPath(Path.Combine(PackageRoot, "Tools~/UnityMcpBridge.Host/Program.cs"));
 
-        public static string HostPublishDir =>
-            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "Library/McpBridge/Host"));
+        public static string HostPublishRoot =>
+            Path.GetFullPath(Path.Combine(PackageRoot, "Published~/host"));
     }
 }

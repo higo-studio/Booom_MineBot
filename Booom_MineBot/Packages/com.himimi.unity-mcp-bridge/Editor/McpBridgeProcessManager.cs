@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using UnityEditor;
+using UnityEngine;
 
 namespace McpBridge.Editor
 {
@@ -49,27 +50,24 @@ namespace McpBridge.Editor
             }
 
             var dotnet = ResolveDotnetPath();
-            if (string.IsNullOrEmpty(dotnet))
-            {
-                UnityEngine.Debug.LogError("Unable to locate a 'dotnet' executable for the MCP host.");
-                return;
-            }
-
-            var dllPath = EnsurePublished(dotnet);
-            if (string.IsNullOrEmpty(dllPath)) return;
+            var launch = EnsurePublished(dotnet);
+            if (launch == null) return;
 
             var settings = McpBridgeSettings.instance;
             KillOrphanHosts(settings.HttpPort, settings.IpcPort);
             var startInfo = new ProcessStartInfo
             {
-                FileName = dotnet,
+                FileName = launch.FileName,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                WorkingDirectory = Path.GetDirectoryName(dllPath),
+                WorkingDirectory = launch.WorkingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             };
-            startInfo.ArgumentList.Add(dllPath);
+            foreach (var argument in launch.Arguments)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
             startInfo.ArgumentList.Add("--http-port");
             startInfo.ArgumentList.Add(settings.HttpPort.ToString());
             startInfo.ArgumentList.Add("--ipc-port");
@@ -112,20 +110,27 @@ namespace McpBridge.Editor
             }
         }
 
-        private static string EnsurePublished(string dotnet)
+        private static HostLaunchInfo EnsurePublished(string dotnet)
         {
-            var publishDir = McpBridgePaths.HostPublishDir;
-            Directory.CreateDirectory(publishDir);
-            var dllPath = Path.Combine(publishDir, "UnityMcpBridge.Host.dll");
+            var publishRoot = McpBridgePaths.HostPublishRoot;
+            Directory.CreateDirectory(publishRoot);
 
-            if (File.Exists(dllPath) &&
-                File.GetLastWriteTimeUtc(dllPath) >= File.GetLastWriteTimeUtc(McpBridgePaths.HostProjectPath) &&
-                File.GetLastWriteTimeUtc(dllPath) >= File.GetLastWriteTimeUtc(McpBridgePaths.HostProgramPath))
+            var preferredRid = GetPreferredRuntimeIdentifier();
+            var preferredPublishDir = Path.Combine(publishRoot, preferredRid);
+            Directory.CreateDirectory(preferredPublishDir);
+
+            var preferredLaunch = TryBuildExistingLaunchInfo(dotnet, preferredPublishDir);
+            if (preferredLaunch != null)
             {
-                return dllPath;
+                return preferredLaunch;
             }
 
-            UnityEngine.Debug.Log("[McpBridge] Publishing host project...");
+            if (string.IsNullOrEmpty(dotnet))
+            {
+                return TryBuildExistingFrameworkDependentLaunch(dotnet, publishRoot);
+            }
+
+            UnityEngine.Debug.Log($"[McpBridge] Publishing host project for RID '{preferredRid}'...");
             var info = new ProcessStartInfo
             {
                 FileName = dotnet,
@@ -138,8 +143,13 @@ namespace McpBridge.Editor
             info.ArgumentList.Add(McpBridgePaths.HostProjectPath);
             info.ArgumentList.Add("-c");
             info.ArgumentList.Add("Release");
+            info.ArgumentList.Add("-r");
+            info.ArgumentList.Add(preferredRid);
+            info.ArgumentList.Add("--self-contained");
+            info.ArgumentList.Add("true");
+            info.ArgumentList.Add("/p:PublishSingleFile=true");
             info.ArgumentList.Add("-o");
-            info.ArgumentList.Add(publishDir);
+            info.ArgumentList.Add(preferredPublishDir);
             info.ArgumentList.Add("--nologo");
 
             try
@@ -161,7 +171,86 @@ namespace McpBridge.Editor
                 return null;
             }
 
-            return File.Exists(dllPath) ? dllPath : null;
+            var launch = TryBuildExistingLaunchInfo(dotnet, preferredPublishDir);
+            if (launch != null)
+            {
+                return launch;
+            }
+
+            return TryBuildExistingFrameworkDependentLaunch(dotnet, publishRoot);
+        }
+
+        private static HostLaunchInfo TryBuildExistingLaunchInfo(string dotnet, string publishDir)
+        {
+            var dllPath = Path.Combine(publishDir, "UnityMcpBridge.Host.dll");
+            var executablePath = GetHostExecutablePath(publishDir);
+
+            if (!IsPublishedArtifactCurrent(dllPath) && !IsPublishedArtifactCurrent(executablePath))
+            {
+                return null;
+            }
+
+            if (File.Exists(executablePath))
+            {
+                return new HostLaunchInfo(executablePath, publishDir);
+            }
+
+            return BuildFrameworkDependentLaunch(dotnet, publishDir, dllPath);
+        }
+
+        private static HostLaunchInfo TryBuildExistingFrameworkDependentLaunch(string dotnet, string publishRoot)
+        {
+            var dllPath = Path.Combine(publishRoot, "UnityMcpBridge.Host.dll");
+            if (!IsPublishedArtifactCurrent(dllPath))
+            {
+                return null;
+            }
+
+            return BuildFrameworkDependentLaunch(dotnet, publishRoot, dllPath);
+        }
+
+        private static HostLaunchInfo BuildFrameworkDependentLaunch(string dotnet, string workingDirectory, string dllPath)
+        {
+            if (!File.Exists(dllPath))
+            {
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(dotnet))
+            {
+                UnityEngine.Debug.LogError("A framework-dependent host was published but no dotnet runtime was found.");
+                return null;
+            }
+
+            return new HostLaunchInfo(dotnet, workingDirectory, dllPath);
+        }
+
+        private static bool IsPublishedArtifactCurrent(string path)
+        {
+            return File.Exists(path) &&
+                   File.GetLastWriteTimeUtc(path) >= File.GetLastWriteTimeUtc(McpBridgePaths.HostProjectPath) &&
+                   File.GetLastWriteTimeUtc(path) >= File.GetLastWriteTimeUtc(McpBridgePaths.HostProgramPath);
+        }
+
+        private static string GetHostExecutablePath(string publishDir)
+        {
+            var fileName = UnityEngine.Application.platform == RuntimePlatform.WindowsEditor
+                ? "UnityMcpBridge.Host.exe"
+                : "UnityMcpBridge.Host";
+            return Path.Combine(publishDir, fileName);
+        }
+
+        private static string GetPreferredRuntimeIdentifier()
+        {
+            return Application.platform switch
+            {
+                RuntimePlatform.OSXEditor => SystemInfo.processorType.Contains("Apple", StringComparison.OrdinalIgnoreCase) ||
+                                             SystemInfo.processorType.Contains("arm", StringComparison.OrdinalIgnoreCase)
+                    ? "osx-arm64"
+                    : "osx-x64",
+                RuntimePlatform.WindowsEditor => "win-x64",
+                _ => "osx-arm64"
+            };
         }
 
         private static HostState LoadState()
@@ -254,6 +343,20 @@ namespace McpBridge.Editor
                 if (!string.IsNullOrWhiteSpace(candidate) && File.Exists(candidate)) return candidate;
             }
             return null;
+        }
+
+        private sealed class HostLaunchInfo
+        {
+            public HostLaunchInfo(string fileName, string workingDirectory, params string[] arguments)
+            {
+                FileName = fileName;
+                WorkingDirectory = workingDirectory;
+                Arguments = arguments;
+            }
+
+            public string FileName { get; }
+            public string WorkingDirectory { get; }
+            public IReadOnlyList<string> Arguments { get; }
         }
     }
 }
