@@ -26,6 +26,7 @@ namespace Minebot.Presentation
         public const string PlayerViewName = "Player View";
         public const string HudRootName = "Minebot HUD";
         public const string UpgradePanelName = "Upgrade Panel";
+        private const string BundledChineseFontRelativePath = "Minebot/Fonts/NotoSansSC-Regular.ttf";
 
         [SerializeField]
         private bool autoInitializeServices = true;
@@ -515,6 +516,12 @@ namespace Minebot.Presentation
                 return runtimeFontAsset;
             }
 
+            runtimeFontAsset = CreateBundledChineseFontAsset();
+            if (runtimeFontAsset != null)
+            {
+                return runtimeFontAsset;
+            }
+
             runtimeFontAsset = CreateRuntimeChineseFontAsset();
             if (runtimeFontAsset != null)
             {
@@ -523,6 +530,11 @@ namespace Minebot.Presentation
 
             runtimeFontAsset = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
             return runtimeFontAsset;
+        }
+
+        private static TMP_FontAsset CreateBundledChineseFontAsset()
+        {
+            return CreateFontAssetFromFile(Path.Combine(Application.streamingAssetsPath, BundledChineseFontRelativePath));
         }
 
         private static TMP_FontAsset CreateRuntimeChineseFontAsset()

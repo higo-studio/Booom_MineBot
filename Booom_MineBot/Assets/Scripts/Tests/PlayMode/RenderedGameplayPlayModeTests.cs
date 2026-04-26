@@ -38,7 +38,14 @@ namespace Minebot.Tests.PlayMode
             Assert.That(GameObject.Find(MinebotGameplayPresentation.PlayerViewName), Is.Not.Null);
             GameObject hud = GameObject.Find(MinebotGameplayPresentation.HudRootName);
             Assert.That(hud, Is.Not.Null);
-            Assert.That(hud.GetComponentInChildren<TMP_Text>(), Is.Not.Null);
+            TMP_Text hudText = hud.GetComponentInChildren<TMP_Text>();
+            Assert.That(hudText, Is.Not.Null);
+            Assert.That(hudText.font, Is.Not.Null);
+            Assert.That(hudText.font.name, Does.Contain("NotoSansSC"));
+            Assert.That(hudText.font.HasCharacter('生'), Is.True);
+            Assert.That(hudText.font.HasCharacter('探'), Is.True);
+            Assert.That(hudText.font.HasCharacter('震'), Is.True);
+            Assert.That(hudText.font.HasCharacter('机'), Is.True);
             Assert.That(hud.GetComponentsInChildren<Text>().Length, Is.EqualTo(0));
 
             Tilemap terrain = GameObject.Find(MinebotGameplayPresentation.TerrainTilemapName).GetComponent<Tilemap>();
