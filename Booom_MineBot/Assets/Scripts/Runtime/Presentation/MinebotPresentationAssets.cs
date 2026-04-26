@@ -21,6 +21,10 @@ namespace Minebot.Presentation
         public Tile[] WallContourTiles { get; private set; }
         public Tile[] DangerContourTiles { get; private set; }
         public Tile[] DangerOutlineTiles { get; private set; }
+        public Tile SoilDetailTile { get; private set; }
+        public Tile StoneDetailTile { get; private set; }
+        public Tile HardRockDetailTile { get; private set; }
+        public Tile UltraHardDetailTile { get; private set; }
         public Sprite PlayerSprite { get; private set; }
         public Sprite RobotSprite { get; private set; }
         public Vector2 ScanLabelOffset { get; private set; }
@@ -55,6 +59,10 @@ namespace Minebot.Presentation
                 WallContourTiles = NormalizeContourTiles(artSet.WallContourTiles, fallback.WallContourTiles),
                 DangerContourTiles = NormalizeContourTiles(artSet.DangerContourTiles, fallback.DangerContourTiles),
                 DangerOutlineTiles = NormalizeDangerOutlineTiles(artSet.DangerOutlineTiles, fallback.DangerOutlineTiles),
+                SoilDetailTile = artSet.SoilDetailTile != null ? artSet.SoilDetailTile : fallback.SoilDetailTile,
+                StoneDetailTile = artSet.StoneDetailTile != null ? artSet.StoneDetailTile : fallback.StoneDetailTile,
+                HardRockDetailTile = artSet.HardRockDetailTile != null ? artSet.HardRockDetailTile : fallback.HardRockDetailTile,
+                UltraHardDetailTile = artSet.UltraHardDetailTile != null ? artSet.UltraHardDetailTile : fallback.UltraHardDetailTile,
                 PlayerSprite = artSet.PlayerSprite != null ? artSet.PlayerSprite : fallback.PlayerSprite,
                 RobotSprite = artSet.RobotSprite != null ? artSet.RobotSprite : fallback.RobotSprite,
                 ScanLabelOffset = artSet.ScanLabelOffset,
@@ -86,18 +94,18 @@ namespace Minebot.Presentation
             return TileForContourIndex(DangerContourTiles, index);
         }
 
-        public Tile WallTileForHardness(Minebot.GridMining.HardnessTier hardness)
+        public Tile WallBaseTileForHardness(Minebot.GridMining.HardnessTier hardness)
         {
             switch (hardness)
             {
                 case Minebot.GridMining.HardnessTier.Stone:
-                    return StoneWallTile;
+                    return StoneDetailTile != null ? StoneDetailTile : StoneWallTile;
                 case Minebot.GridMining.HardnessTier.HardRock:
-                    return HardRockWallTile;
+                    return HardRockDetailTile != null ? HardRockDetailTile : HardRockWallTile;
                 case Minebot.GridMining.HardnessTier.UltraHard:
-                    return UltraHardWallTile;
+                    return UltraHardDetailTile != null ? UltraHardDetailTile : UltraHardWallTile;
                 default:
-                    return SoilWallTile;
+                    return SoilDetailTile != null ? SoilDetailTile : SoilWallTile;
             }
         }
 
@@ -126,6 +134,10 @@ namespace Minebot.Presentation
                     CreateOutlineTile("Danger Outline Medium Tile", new Color(1f, 0.42f, 0.24f, 0.95f), 2),
                     CreateOutlineTile("Danger Outline Thick Tile", new Color(1f, 0.48f, 0.26f, 0.95f), 3)
                 },
+                SoilDetailTile = CreateDetailTile("Soil Detail Tile", new Color(0.43f, 0.34f, 0.24f, 1f), new Color(0.5f, 0.4f, 0.29f, 1f)),
+                StoneDetailTile = CreateDetailTile("Stone Detail Tile", new Color(0.36f, 0.36f, 0.34f, 1f), new Color(0.54f, 0.54f, 0.51f, 1f)),
+                HardRockDetailTile = CreateDetailTile("Hard Rock Detail Tile", new Color(0.24f, 0.26f, 0.28f, 1f), new Color(0.34f, 0.38f, 0.41f, 1f)),
+                UltraHardDetailTile = CreateDetailTile("Ultra Hard Detail Tile", new Color(0.18f, 0.16f, 0.23f, 1f), new Color(0.28f, 0.24f, 0.35f, 1f)),
                 PlayerSprite = CreateSprite("Player Sprite", new Color(1f, 0.86f, 0.22f, 1f), new Color(0.1f, 0.75f, 0.95f, 1f)),
                 RobotSprite = CreateSprite("Robot Sprite", new Color(0.34f, 0.94f, 0.38f, 1f), new Color(0.05f, 0.28f, 0.12f, 1f)),
                 ScanLabelOffset = new Vector2(0f, 0.62f),
@@ -181,6 +193,15 @@ namespace Minebot.Presentation
             var tile = ScriptableObject.CreateInstance<Tile>();
             tile.name = name;
             tile.sprite = CreateSprite(name + " Sprite", fill, border);
+            tile.colliderType = Tile.ColliderType.None;
+            return tile;
+        }
+
+        private static Tile CreateDetailTile(string name, Color fill, Color accent)
+        {
+            var tile = ScriptableObject.CreateInstance<Tile>();
+            tile.name = name;
+            tile.sprite = CreateDetailSprite(name + " Sprite", fill, accent);
             tile.colliderType = Tile.ColliderType.None;
             return tile;
         }
@@ -315,6 +336,35 @@ namespace Minebot.Presentation
                 {
                     bool isBorder = x == 0 || y == 0 || x == size - 1 || y == size - 1;
                     texture.SetPixel(x, y, isBorder ? border : fill);
+                }
+            }
+
+            texture.Apply(false, true);
+            var sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+            sprite.name = name;
+            return sprite;
+        }
+
+        private static Sprite CreateDetailSprite(string name, Color fill, Color accent)
+        {
+            const int size = 16;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = name + " Texture",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp
+            };
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    bool accentPixel = x > 1
+                        && y > 1
+                        && x < size - 2
+                        && y < size - 2
+                        && ((x * 5 + y * 3) % 11 == 0 || (x * 7 + y * 2) % 13 == 0);
+                    texture.SetPixel(x, y, accentPixel ? accent : fill);
                 }
             }
 

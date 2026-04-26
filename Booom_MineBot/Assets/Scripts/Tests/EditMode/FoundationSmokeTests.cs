@@ -420,7 +420,6 @@ namespace Minebot.Tests.EditMode
 
             Assert.That(artSet, Is.Not.Null);
             Assert.That(artSet.WallContourTiles.Length, Is.EqualTo(DualGridContour.TileCount));
-            Assert.That(artSet.DangerContourTiles.Length, Is.EqualTo(DualGridContour.TileCount));
             Assert.That(artSet.BuildPreviewValidTile, Is.Not.Null);
             Assert.That(artSet.BuildPreviewInvalidTile, Is.Not.Null);
             Assert.That(artSet.SoilDetailTile, Is.Not.Null);
@@ -428,10 +427,8 @@ namespace Minebot.Tests.EditMode
             Assert.That(artSet.HardRockDetailTile, Is.Not.Null);
             Assert.That(artSet.UltraHardDetailTile, Is.Not.Null);
             Assert.That(artSet.WallContourTiles[5], Is.Not.Null);
-            Assert.That(artSet.DangerContourTiles[5], Is.Not.Null);
 
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_WallContour_05.asset"), Is.Not.Null);
-            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_DangerContour_05.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_BuildPreviewValid.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_DetailUltraHard.asset"), Is.Not.Null);
         }

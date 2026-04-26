@@ -47,6 +47,11 @@
 | 主机器人 | `actor_player_minebot.png` | 玩家 Sprite |
 | 从属机器人 | `actor_helper_robot.png` | 从属机器人 Sprite |
 
+当前风格来源说明：
+
+- floor / wall base / boundary / danger base / marker / scan / facilities / actors / detail / build preview 已在 Batch 005 刷新到 `minebot_pixel_sheet_001_b` 风格族。
+- `wall contour` / `danger contour` 的最终运行时切片仍继续使用 Batch 004，以保持 dual-grid 拓扑索引稳定。
+
 ## contour family 目标结构
 
 当前 change 的正式目标不再是“每种硬度一张完整墙 tile”，而是以下组合：
@@ -199,6 +204,25 @@ Layout: organized asset sheet on a flat dark neutral background, each sprite sep
 | danger contour atlas | `Assets/Art/Minebot/Sprites/Tiles/tile_danger_contour_00.png` - `Assets/Art/Minebot/Sprites/Tiles/tile_danger_contour_15.png` |
 | hardness detail | `Assets/Art/Minebot/Sprites/Tiles/tile_detail_soil.png` / `tile_detail_stone.png` / `tile_detail_hard_rock.png` / `tile_detail_ultra_hard.png` |
 | build preview | `Assets/Art/Minebot/Sprites/Tiles/tile_build_preview_valid.png` / `tile_build_preview_invalid.png` |
+
+## Batch 005 风格统一刷新
+
+- Prompt / 批次记录：`Assets/Art/Minebot/Generated/Prompts/minebot-style-refresh-batch-005.md`
+- 主源图：`Assets/Art/Minebot/Generated/SourceSheets/minebot_pixel_sheet_005_a.png`
+- 主 selected：`Assets/Art/Minebot/Generated/Selected/minebot_pixel_sheet_005_selected.png`
+- contour 源图：`Assets/Art/Minebot/Generated/SourceSheets/minebot_contour_family_sheet_005_a.png`
+- contour selected：`Assets/Art/Minebot/Generated/Selected/minebot_contour_family_sheet_005_selected.png`
+- actor 源图：`Assets/Art/Minebot/Generated/SourceSheets/minebot_actor_optimized_sheet_005.png`
+- 资源台账：`Assets/Art/Minebot/Generated/Selected/minebot-style-refresh-asset-manifest-005.md`
+
+| 资源族 | 本轮处理 |
+| --- | --- |
+| floor / wall base / boundary | 使用 `minebot_pixel_sheet_005_selected.png` 重新切片，统一到 `001_b` 风格且 wall base 改为连续材质读感 |
+| danger base / marker / scan | 使用 `minebot_pixel_sheet_005_selected.png` 重新切片 |
+| facilities | 使用 `minebot_pixel_sheet_005_selected.png` 重新切片，保持蓝色维修站 / 橙色工厂语言 |
+| actors | 使用 `minebot_actor_optimized_sheet_005.png` 重新切片，输出新的玩家与从属机器人 |
+| detail / build preview | 使用 `minebot_contour_family_sheet_005_selected.png` 重新切片 |
+| wall contour / danger contour | 为避免 dual-grid 索引回归，本轮不直接替换最终切片，继续沿用 Batch 004 |
 
 ## Unity 资产化结果
 

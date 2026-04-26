@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: 地形 Tile 必须区分基础语义与墙体轮廓职责
 Tilemap 表现 SHALL 将 world-aligned 的基础地形表达与 dual-grid 的墙体轮廓表达拆分为不同职责层。空地、不可破坏边界和硬度细节 MUST 保持 world-grid 对齐；可挖岩壁边缘 SHALL 由独立 contour layer 补充表达。相邻的同类型岩体在基础层 MUST 优先读成连续岩面，而不是每格都拥有同等强度的完整边框。
@@ -18,6 +18,17 @@ Tilemap 表现 SHALL 将 world-aligned 的基础地形表达与 dual-grid 的墙
 #### Scenario: 只有暴露外缘显示明显墙体边界
 - **WHEN** 一片同类型岩体与空地接壤，形成外缘、转角或洞口
 - **THEN** 明显的墙体边界只会出现在这些暴露边缘，而不会在整片岩体内部重复出现
+
+### Requirement: 可挖岩壁 base 资源必须从“每格自带边缘”迁移为可连续拼接的 dual-grid 配套底层
+`MineableWall` 的 world-grid base/detail 资源 MUST NOT 再在每个格子的四边都携带同等级别的完整边缘。base/detail SHALL 只表达连续纹理与硬度差异；所有显著边缘 MUST 由 `Wall Contour` 在暴露外缘统一表达。
+
+#### Scenario: 当前旧版带边缘的岩体 base 用于大片相邻岩体
+- **WHEN** 一组相邻岩体继续使用旧版“单格四边都有边框”的 base 资源
+- **THEN** 该方案不满足验收；资源必须改为可无缝拼接的 base/detail，并将边缘语义迁移到 dual-grid contour
+
+#### Scenario: 岩体内部不再出现按格切开的边框
+- **WHEN** 多个同类型 `MineableWall` 在画面中形成连续岩面
+- **THEN** 玩家看到的内部区域只保留连续纹理和硬度信息，不会再出现每格一圈的完整边缘
 
 ### Requirement: 不可破坏边界必须保持独立于可挖墙轮廓系统
 `TerrainKind.Indestructible` MUST 使用独立的 world-aligned 边界表现，而不是与 `MineableWall` 共用第一版 dual-grid 轮廓系统。
