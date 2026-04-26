@@ -7,7 +7,7 @@ description: Use this skill when a Unity project includes the embedded Unity MCP
 
 ## Use This Skill When
 
-- The repository includes `Packages/com.himimi.unity-mcp-bridge`
+- The repository includes the Unity MCP Bridge embedded package
 - Unity validation must run through MCP instead of `dotnet build`
 - The task needs editor state, play mode, console logs, scene hierarchy, assets, packages, or Multiplayer Play Mode control
 

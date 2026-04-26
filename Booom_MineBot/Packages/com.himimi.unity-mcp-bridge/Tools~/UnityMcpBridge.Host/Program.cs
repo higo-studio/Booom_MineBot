@@ -284,7 +284,8 @@ internal static class JsonRpcHandler
         }
 
         var timeout = toolName == CompileToolName ? TimeSpan.FromMinutes(5) : TimeSpan.FromMinutes(2);
-        var response = await ForwardAsync(unity, id, "tools/call", toolName, arguments, targetInstanceId, timeout);
+        var resilience = GetRequestResilience(toolName);
+        var response = await ForwardAsync(unity, id, "tools/call", toolName, arguments, targetInstanceId, timeout, resilience);
         return response;
     }
 
@@ -295,7 +296,8 @@ internal static class JsonRpcHandler
         string? toolName,
         JsonObject? arguments,
         string? targetInstanceId,
-        TimeSpan timeout)
+        TimeSpan timeout,
+        RequestResilience resilience = RequestResilience.None)
     {
         var envelope = new JsonObject
         {
@@ -306,7 +308,7 @@ internal static class JsonRpcHandler
         if (toolName != null) envelope["toolName"] = toolName;
         if (arguments != null) envelope["arguments"] = arguments;
 
-        var reply = await unity.SendRequestAsync(envelope, targetInstanceId, timeout);
+        var reply = await unity.SendRequestAsync(envelope, targetInstanceId, timeout, resilience);
         if (reply == null)
         {
             return Error(rpcId, -32001, "Unity bridge timed out.");
@@ -345,6 +347,17 @@ internal static class JsonRpcHandler
         }
 
         return Success(rpcId, reply["result"]?.DeepClone() ?? new JsonObject());
+    }
+
+    private static RequestResilience GetRequestResilience(string toolName)
+    {
+        return toolName switch
+        {
+            CompileToolName => RequestResilience.WaitForReconnect,
+            "unity.enter_play_mode" => RequestResilience.WaitForReconnectAndReplay,
+            "unity.exit_play_mode" => RequestResilience.WaitForReconnectAndReplay,
+            _ => RequestResilience.None
+        };
     }
 
     private static JsonObject BuildInstancesToolDescriptor()
@@ -476,6 +489,15 @@ internal static class JsonRpcHandler
     }
 }
 
+[Flags]
+internal enum RequestResilience
+{
+    None = 0,
+    WaitForReconnect = 1,
+    ReplayOnReconnect = 2,
+    WaitForReconnectAndReplay = WaitForReconnect | ReplayOnReconnect
+}
+
 internal sealed class SessionManager
 {
     private readonly ConcurrentDictionary<string, Session> _sessions = new();
@@ -567,6 +589,8 @@ internal sealed class UnityBridgeHub
     private readonly ConcurrentDictionary<string, PendingRequest> _pending = new();
     private readonly ConcurrentDictionary<string, UnityConnection> _connections = new();
     private readonly ConcurrentDictionary<TcpClient, string> _socketToInstance = new();
+    private readonly object _connectionSignalGate = new();
+    private TaskCompletionSource<bool> _connectionSignal = CreateConnectionSignal();
 
     public UnityBridgeHub(int port, string primaryProjectPath)
     {
@@ -597,7 +621,7 @@ internal sealed class UnityBridgeHub
             ["type"] = "request",
             ["id"] = Guid.NewGuid().ToString("N"),
             ["method"] = "tools/list"
-        }, null, timeout);
+        }, null, timeout, RequestResilience.WaitForReconnectAndReplay);
 
         if (reply?["success"]?.GetValue<bool>() != true)
         {
@@ -642,18 +666,19 @@ internal sealed class UnityBridgeHub
         };
     }
 
-    public async Task<JsonObject?> SendRequestAsync(JsonObject envelope, string? targetInstanceId, TimeSpan timeout)
+    public async Task<JsonObject?> SendRequestAsync(JsonObject envelope, string? targetInstanceId, TimeSpan timeout, RequestResilience resilience)
     {
-        var connection = ResolveTarget(targetInstanceId);
+        using var timeoutCts = new CancellationTokenSource(timeout);
+        var connection = await WaitForTargetAsync(targetInstanceId, resilience, timeoutCts.Token);
         if (connection == null)
         {
             throw new InvalidOperationException(targetInstanceId == null
-                ? "No Unity instance is connected to the MCP bridge."
-                : $"Unity instance '{targetInstanceId}' is not connected.");
+                ? "No Unity instance is connected to the MCP bridge before the request timeout."
+                : $"Unity instance '{targetInstanceId}' did not reconnect before the request timeout.");
         }
 
         var requestId = envelope["id"]!.GetValue<string>();
-        var pending = new PendingRequest(connection.InstanceId);
+        var pending = new PendingRequest(connection.InstanceId, envelope, targetInstanceId, resilience);
         _pending[requestId] = pending;
 
         if (!connection.TrySend(envelope))
@@ -662,8 +687,7 @@ internal sealed class UnityBridgeHub
             throw new InvalidOperationException($"Failed to send request to Unity instance '{connection.InstanceId}'.");
         }
 
-        using var cts = new CancellationTokenSource(timeout);
-        using (cts.Token.Register(() => pending.TrySetTimeout()))
+        using (timeoutCts.Token.Register(() => pending.TrySetTimeout()))
         {
             var result = await pending.Task;
             _pending.TryRemove(requestId, out _);
@@ -789,6 +813,8 @@ internal sealed class UnityBridgeHub
 
         _connections[instanceId] = connection;
         _socketToInstance[client] = instanceId;
+        SignalConnectionChanged();
+        RetryPendingRequests(instanceId);
 
         Console.WriteLine($"Unity connected: {instanceId} ({projectPath})");
     }
@@ -800,6 +826,7 @@ internal sealed class UnityBridgeHub
         {
             FailPendingRequests(instanceId);
             connection.Dispose();
+            SignalConnectionChanged();
             Console.WriteLine($"Unity disconnected: {instanceId}");
         }
     }
@@ -815,7 +842,35 @@ internal sealed class UnityBridgeHub
 
             if (_pending.TryRemove(pair.Key, out var pending))
             {
-                pending.TrySetDisconnected(instanceId);
+                if (!pending.TryHandleDisconnect(instanceId))
+                {
+                    continue;
+                }
+
+                _pending[pair.Key] = pending;
+            }
+        }
+    }
+
+    private void RetryPendingRequests(string instanceId)
+    {
+        foreach (var pair in _pending)
+        {
+            var pending = pair.Value;
+            if (!pending.ShouldReplayOnReconnect(instanceId))
+            {
+                continue;
+            }
+
+            var connection = ResolveTarget(pending.TargetInstanceId);
+            if (connection == null)
+            {
+                continue;
+            }
+
+            if (connection.TrySend((JsonObject)pending.Envelope.DeepClone()))
+            {
+                pending.MarkReplayed(connection.InstanceId);
             }
         }
     }
@@ -839,9 +894,63 @@ internal sealed class UnityBridgeHub
             .FirstOrDefault();
     }
 
+    private async Task<UnityConnection?> WaitForTargetAsync(string? targetInstanceId, RequestResilience resilience, CancellationToken cancellationToken)
+    {
+        var connection = ResolveTarget(targetInstanceId);
+        if (connection != null || resilience == RequestResilience.None)
+        {
+            return connection;
+        }
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            Task waitTask;
+            lock (_connectionSignalGate)
+            {
+                waitTask = _connectionSignal.Task;
+            }
+
+            var completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken));
+            cancellationToken.ThrowIfCancellationRequested();
+
+            connection = ResolveTarget(targetInstanceId);
+            if (connection != null)
+            {
+                return connection;
+            }
+
+            if (completed == waitTask)
+            {
+                lock (_connectionSignalGate)
+                {
+                    if (_connectionSignal.Task.IsCompleted)
+                    {
+                        _connectionSignal = CreateConnectionSignal();
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static string NormalizePath(string path)
     {
         return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private void SignalConnectionChanged()
+    {
+        lock (_connectionSignalGate)
+        {
+            _connectionSignal.TrySetResult(true);
+            _connectionSignal = CreateConnectionSignal();
+        }
+    }
+
+    private static TaskCompletionSource<bool> CreateConnectionSignal()
+    {
+        return new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private sealed class UnityConnection : IDisposable
@@ -904,13 +1013,21 @@ internal sealed class UnityBridgeHub
     {
         private readonly TaskCompletionSource<JsonObject?> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public PendingRequest(string instanceId)
+        public PendingRequest(string instanceId, JsonObject envelope, string? targetInstanceId, RequestResilience resilience)
         {
             InstanceId = instanceId;
+            Envelope = (JsonObject)envelope.DeepClone();
+            TargetInstanceId = targetInstanceId;
+            Resilience = resilience;
         }
 
-        public string InstanceId { get; }
+        public string InstanceId { get; private set; }
+        public string? TargetInstanceId { get; }
+        public JsonObject Envelope { get; }
+        public RequestResilience Resilience { get; }
         public Task<JsonObject?> Task => _tcs.Task;
+        private bool WaitingForReconnect => (Resilience & RequestResilience.WaitForReconnect) != 0;
+        private bool ReplayOnReconnect => (Resilience & RequestResilience.ReplayOnReconnect) != 0;
 
         public void TrySetResult(JsonObject result)
         {
@@ -922,14 +1039,32 @@ internal sealed class UnityBridgeHub
             _tcs.TrySetResult(null);
         }
 
-        public void TrySetDisconnected(string instanceId)
+        public bool TryHandleDisconnect(string instanceId)
         {
-            _tcs.TrySetResult(new JsonObject
+            if (!WaitingForReconnect)
             {
-                ["type"] = "response",
-                ["success"] = false,
-                ["error"] = $"Unity instance '{instanceId}' disconnected while handling the request. This usually happens during Play Mode transitions or domain reload. Retry after the editor reconnects."
-            });
+                _tcs.TrySetResult(new JsonObject
+                {
+                    ["type"] = "response",
+                    ["success"] = false,
+                    ["error"] = $"Unity instance '{instanceId}' disconnected while handling the request. This usually happens during Play Mode transitions or domain reload. Retry after the editor reconnects."
+                });
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool ShouldReplayOnReconnect(string instanceId)
+        {
+            return ReplayOnReconnect &&
+                   !_tcs.Task.IsCompleted &&
+                   string.Equals(InstanceId, instanceId, StringComparison.Ordinal);
+        }
+
+        public void MarkReplayed(string instanceId)
+        {
+            InstanceId = instanceId;
         }
     }
 }
