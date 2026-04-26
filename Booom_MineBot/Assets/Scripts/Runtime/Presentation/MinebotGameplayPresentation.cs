@@ -15,19 +15,23 @@ using UnityEngine.UI;
 
 namespace Minebot.Presentation
 {
-    [DefaultExecutionOrder(-50)]
-    public sealed class MinebotGameplayPresentation : MonoBehaviour
-    {
-        public const string PresentationRootName = "Presentation Root";
-        public const string TerrainTilemapName = "Terrain Tilemap";
-        public const string WallContourTilemapName = "Wall Contour Tilemap";
-        public const string FacilityTilemapName = "Facility Tilemap";
-        public const string MarkerTilemapName = "Marker Tilemap";
-        public const string DangerTilemapName = "Danger Tilemap";
-        public const string DangerContourTilemapName = "Danger Contour Tilemap";
-        public const string BuildPreviewTilemapName = "Build Preview Tilemap";
-        public const string ScanIndicatorRootName = "Scan Indicator Root";
-        public const string OverlayTilemapName = MarkerTilemapName;
+        [DefaultExecutionOrder(-50)]
+        public sealed class MinebotGameplayPresentation : MonoBehaviour
+        {
+            public const string PresentationRootName = "Presentation Root";
+            public static readonly string DgFloorTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Floor);
+            public static readonly string DgSoilTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil);
+            public static readonly string DgStoneTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Stone);
+            public static readonly string DgHardRockTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.HardRock);
+            public static readonly string DgUltraHardTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.UltraHard);
+            public static readonly string DgBoundaryTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Boundary);
+            public static readonly string TerrainTilemapName = DgFloorTilemapName;
+            public const string FacilityTilemapName = "Facility Tilemap";
+            public const string MarkerTilemapName = "Marker Tilemap";
+            public const string DangerTilemapName = "Danger Tilemap";
+            public const string BuildPreviewTilemapName = "Build Preview Tilemap";
+            public const string ScanIndicatorRootName = "Scan Indicator Root";
+            public const string OverlayTilemapName = MarkerTilemapName;
         public const string HintTilemapName = BuildPreviewTilemapName;
         public const string PlayerViewName = "Player View";
         public const string HudRootName = MinebotHudView.RootName;
@@ -434,13 +438,11 @@ namespace Minebot.Presentation
             unityGrid.cellSize = Vector3.one;
             unityGrid.cellGap = Vector3.zero;
 
-            Tilemap terrain = EnsureTilemapLayer(gridRoot, TerrainTilemapName, 0);
-            Tilemap wallContour = EnsureTilemapLayer(gridRoot, WallContourTilemapName, 2, new Vector3(-0.5f, -0.5f, 0f));
-            Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, 4);
-            Tilemap facility = EnsureTilemapLayer(gridRoot, FacilityTilemapName, 5);
-            Tilemap dangerContour = EnsureTilemapLayer(gridRoot, DangerContourTilemapName, 10, new Vector3(-0.5f, -0.5f, 0f));
-            Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, 15);
-            Tilemap buildPreview = EnsureTilemapLayer(gridRoot, BuildPreviewTilemapName, 20);
+            Tilemap[] terrainFamilies = EnsureTerrainFamilyLayers(gridRoot);
+            Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, 10);
+            Tilemap facility = EnsureTilemapLayer(gridRoot, FacilityTilemapName, 15);
+            Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, 20);
+            Tilemap buildPreview = EnsureTilemapLayer(gridRoot, BuildPreviewTilemapName, 25);
             scanIndicatorPresenter = EnsureScanIndicatorPresenter(EnsureChild(gridRoot, ScanIndicatorRootName));
             scanIndicatorPresenter.Configure(assets);
 
@@ -450,8 +452,8 @@ namespace Minebot.Presentation
                 gridPresentation = gridRoot.gameObject.AddComponent<TilemapGridPresentation>();
             }
 
-            gridPresentation.Configure(terrain, facility, marker, wallContour, danger, dangerContour, buildPreview, assets);
-            playerView = EnsureSpriteRenderer(actorRoot, PlayerViewName, assets.PlayerSprite, 30);
+            gridPresentation.Configure(terrainFamilies, facility, marker, danger, buildPreview, assets);
+            playerView = EnsureSpriteRenderer(actorRoot, PlayerViewName, assets.PlayerSprite, 40);
             playerFreeform = EnsureFreeformActor(playerView, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
             EnsureCircleCollider(playerView.gameObject, assets.PlayerColliderRadius);
             EnsureDefaultFacilityBuildings();
@@ -565,6 +567,19 @@ namespace Minebot.Presentation
 
             renderer.sortingOrder = sortingOrder;
             return tilemap;
+        }
+
+        private static Tilemap[] EnsureTerrainFamilyLayers(Transform gridRoot)
+        {
+            return new[]
+            {
+                EnsureTilemapLayer(gridRoot, DgFloorTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.Floor), DualGridTerrain.DisplayOffset),
+                EnsureTilemapLayer(gridRoot, DgSoilTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.Soil), DualGridTerrain.DisplayOffset),
+                EnsureTilemapLayer(gridRoot, DgStoneTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.Stone), DualGridTerrain.DisplayOffset),
+                EnsureTilemapLayer(gridRoot, DgHardRockTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.HardRock), DualGridTerrain.DisplayOffset),
+                EnsureTilemapLayer(gridRoot, DgUltraHardTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.UltraHard), DualGridTerrain.DisplayOffset),
+                EnsureTilemapLayer(gridRoot, DgBoundaryTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.Boundary), DualGridTerrain.DisplayOffset)
+            };
         }
 
         private static ScanIndicatorPresenter EnsureScanIndicatorPresenter(Transform root)
@@ -796,7 +811,7 @@ namespace Minebot.Presentation
             while (robotViews.Count <= index)
             {
                 int displayIndex = robotViews.Count + 1;
-                SpriteRenderer renderer = EnsureSpriteRenderer(actorRoot, $"Robot View {displayIndex}", assets.RobotSprite, 25);
+                SpriteRenderer renderer = EnsureSpriteRenderer(actorRoot, $"Robot View {displayIndex}", assets.RobotSprite, 40);
                 if (renderer.GetComponent<HelperRobotMotionController>() == null)
                 {
                     renderer.gameObject.AddComponent<HelperRobotMotionController>();

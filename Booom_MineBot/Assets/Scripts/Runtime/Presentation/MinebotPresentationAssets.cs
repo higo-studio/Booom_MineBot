@@ -3,7 +3,7 @@ using UnityEngine.Tilemaps;
 
 namespace Minebot.Presentation
 {
-    internal sealed class MinebotPresentationAssets
+    public sealed class MinebotPresentationAssets
     {
         public Tile EmptyTile { get; private set; }
         public Tile SoilWallTile { get; private set; }
@@ -11,6 +11,12 @@ namespace Minebot.Presentation
         public Tile HardRockWallTile { get; private set; }
         public Tile UltraHardWallTile { get; private set; }
         public Tile BoundaryTile { get; private set; }
+        public Tile[] FloorDualGridTiles { get; private set; }
+        public Tile[] SoilDualGridTiles { get; private set; }
+        public Tile[] StoneDualGridTiles { get; private set; }
+        public Tile[] HardRockDualGridTiles { get; private set; }
+        public Tile[] UltraHardDualGridTiles { get; private set; }
+        public Tile[] BoundaryDualGridTiles { get; private set; }
         public Tile DangerTile { get; private set; }
         public Tile MarkerTile { get; private set; }
         public Tile RepairStationTile { get; private set; }
@@ -49,6 +55,12 @@ namespace Minebot.Presentation
                 HardRockWallTile = artSet.HardRockWallTile != null ? artSet.HardRockWallTile : fallback.HardRockWallTile,
                 UltraHardWallTile = artSet.UltraHardWallTile != null ? artSet.UltraHardWallTile : fallback.UltraHardWallTile,
                 BoundaryTile = artSet.BoundaryTile != null ? artSet.BoundaryTile : fallback.BoundaryTile,
+                FloorDualGridTiles = NormalizeIndexedTiles(artSet.FloorDualGridTiles, fallback.FloorDualGridTiles),
+                SoilDualGridTiles = NormalizeIndexedTiles(artSet.SoilDualGridTiles, fallback.SoilDualGridTiles),
+                StoneDualGridTiles = NormalizeIndexedTiles(artSet.StoneDualGridTiles, fallback.StoneDualGridTiles),
+                HardRockDualGridTiles = NormalizeIndexedTiles(artSet.HardRockDualGridTiles, fallback.HardRockDualGridTiles),
+                UltraHardDualGridTiles = NormalizeIndexedTiles(artSet.UltraHardDualGridTiles, fallback.UltraHardDualGridTiles),
+                BoundaryDualGridTiles = NormalizeIndexedTiles(artSet.BoundaryDualGridTiles, fallback.BoundaryDualGridTiles),
                 DangerTile = artSet.DangerTile != null ? artSet.DangerTile : fallback.DangerTile,
                 MarkerTile = artSet.MarkerTile != null ? artSet.MarkerTile : fallback.MarkerTile,
                 RepairStationTile = artSet.RepairStationTile != null ? artSet.RepairStationTile : fallback.RepairStationTile,
@@ -56,8 +68,8 @@ namespace Minebot.Presentation
                 ScanHintTile = artSet.ScanHintTile != null ? artSet.ScanHintTile : fallback.ScanHintTile,
                 BuildPreviewValidTile = artSet.BuildPreviewValidTile != null ? artSet.BuildPreviewValidTile : fallback.BuildPreviewValidTile,
                 BuildPreviewInvalidTile = artSet.BuildPreviewInvalidTile != null ? artSet.BuildPreviewInvalidTile : fallback.BuildPreviewInvalidTile,
-                WallContourTiles = NormalizeContourTiles(artSet.WallContourTiles, fallback.WallContourTiles),
-                DangerContourTiles = NormalizeContourTiles(artSet.DangerContourTiles, fallback.DangerContourTiles),
+                WallContourTiles = NormalizeIndexedTiles(artSet.WallContourTiles, fallback.WallContourTiles),
+                DangerContourTiles = NormalizeIndexedTiles(artSet.DangerContourTiles, fallback.DangerContourTiles),
                 DangerOutlineTiles = NormalizeDangerOutlineTiles(artSet.DangerOutlineTiles, fallback.DangerOutlineTiles),
                 SoilDetailTile = artSet.SoilDetailTile != null ? artSet.SoilDetailTile : fallback.SoilDetailTile,
                 StoneDetailTile = artSet.StoneDetailTile != null ? artSet.StoneDetailTile : fallback.StoneDetailTile,
@@ -94,6 +106,25 @@ namespace Minebot.Presentation
             return TileForContourIndex(DangerContourTiles, index);
         }
 
+        public Tile DualGridTerrainTileFor(TerrainRenderLayerId layerId, int index)
+        {
+            switch (layerId)
+            {
+                case TerrainRenderLayerId.Soil:
+                    return TileForContourIndex(SoilDualGridTiles, index);
+                case TerrainRenderLayerId.Stone:
+                    return TileForContourIndex(StoneDualGridTiles, index);
+                case TerrainRenderLayerId.HardRock:
+                    return TileForContourIndex(HardRockDualGridTiles, index);
+                case TerrainRenderLayerId.UltraHard:
+                    return TileForContourIndex(UltraHardDualGridTiles, index);
+                case TerrainRenderLayerId.Boundary:
+                    return TileForContourIndex(BoundaryDualGridTiles, index);
+                default:
+                    return TileForContourIndex(FloorDualGridTiles, index);
+            }
+        }
+
         public Tile WallBaseTileForHardness(Minebot.GridMining.HardnessTier hardness)
         {
             switch (hardness)
@@ -119,6 +150,12 @@ namespace Minebot.Presentation
                 HardRockWallTile = CreateTile("Hard Rock Wall Tile", new Color(0.24f, 0.26f, 0.28f, 1f), new Color(0.1f, 0.11f, 0.13f, 1f)),
                 UltraHardWallTile = CreateTile("Ultra Hard Wall Tile", new Color(0.18f, 0.16f, 0.23f, 1f), new Color(0.08f, 0.07f, 0.11f, 1f)),
                 BoundaryTile = CreateTile("Boundary Tile", new Color(0.05f, 0.05f, 0.06f, 1f), new Color(0.17f, 0.17f, 0.18f, 1f)),
+                FloorDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.Floor),
+                SoilDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.Soil),
+                StoneDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.Stone),
+                HardRockDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.HardRock),
+                UltraHardDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.UltraHard),
+                BoundaryDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.Boundary),
                 DangerTile = CreateTile("Danger Tile", new Color(0.86f, 0.12f, 0.1f, 0.62f), new Color(1f, 0.36f, 0.22f, 0.82f)),
                 MarkerTile = CreateTile("Marker Tile", new Color(0.95f, 0.05f, 0.05f, 0.84f), new Color(1f, 0.85f, 0.25f, 0.92f)),
                 RepairStationTile = CreateTile("Repair Station Tile", new Color(0.1f, 0.38f, 0.85f, 1f), new Color(0.62f, 0.88f, 1f, 1f)),
@@ -147,9 +184,9 @@ namespace Minebot.Presentation
             };
         }
 
-        private static Tile[] NormalizeContourTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
+        private static Tile[] NormalizeIndexedTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
         {
-            var normalized = new Tile[DualGridContour.TileCount];
+            var normalized = new Tile[DualGridTerrain.TileCount];
             for (int i = 0; i < normalized.Length; i++)
             {
                 Tile configured = configuredTiles != null && i < configuredTiles.Length ? configuredTiles[i] : null;

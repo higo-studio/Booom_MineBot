@@ -410,27 +410,390 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void PixelArtPipelineBindsContourFamilyAssetsIntoDefaultArtSet()
+        public void LayeredBinaryTerrainResolverProducesStableOrderedCommandsForMixedSample()
+        {
+            var resolver = new LayeredBinaryTerrainResolver();
+            var sample = new CornerMaterialSample(
+                TerrainMaterialId.Soil,
+                TerrainMaterialId.Stone,
+                TerrainMaterialId.Floor,
+                TerrainMaterialId.Boundary);
+            var first = new RenderLayerCommand[DualGridTerrain.RenderLayerCount];
+            var second = new RenderLayerCommand[DualGridTerrain.RenderLayerCount];
+
+            resolver.Resolve(sample, first);
+            resolver.Resolve(sample, second);
+
+            Assert.That(first, Is.EqualTo(second));
+            for (int i = 0; i < first.Length; i++)
+            {
+                Assert.That(first[i].LayerId, Is.EqualTo(DualGridTerrain.OrderedLayers[i]));
+            }
+
+            Assert.That(first[(int)TerrainRenderLayerId.Floor], Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Floor, 2, true)));
+            Assert.That(first[(int)TerrainRenderLayerId.Soil], Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Soil, 8, true)));
+            Assert.That(first[(int)TerrainRenderLayerId.Stone], Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Stone, 4, true)));
+            Assert.That(first[(int)TerrainRenderLayerId.Boundary], Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Boundary, 1, true)));
+            Assert.That(first[(int)TerrainRenderLayerId.HardRock].HasContent, Is.False);
+            Assert.That(first[(int)TerrainRenderLayerId.UltraHard].HasContent, Is.False);
+        }
+
+        [Test]
+        public void LayeredBinaryTerrainResolverCoversPrimaryFloorRockAndBoundaryCases()
+        {
+            var resolver = new LayeredBinaryTerrainResolver();
+
+            AssertResolverScenario(
+                resolver,
+                new CornerMaterialSample(
+                    TerrainMaterialId.Floor,
+                    TerrainMaterialId.Floor,
+                    TerrainMaterialId.Floor,
+                    TerrainMaterialId.Floor),
+                new RenderLayerCommand(TerrainRenderLayerId.Floor, 15, true));
+
+            AssertResolverScenario(
+                resolver,
+                new CornerMaterialSample(
+                    TerrainMaterialId.HardRock,
+                    TerrainMaterialId.HardRock,
+                    TerrainMaterialId.HardRock,
+                    TerrainMaterialId.HardRock),
+                new RenderLayerCommand(TerrainRenderLayerId.HardRock, 15, true));
+
+            AssertResolverScenario(
+                resolver,
+                new CornerMaterialSample(
+                    TerrainMaterialId.Soil,
+                    TerrainMaterialId.Soil,
+                    TerrainMaterialId.Floor,
+                    TerrainMaterialId.Floor),
+                new RenderLayerCommand(TerrainRenderLayerId.Floor, 3, true),
+                new RenderLayerCommand(TerrainRenderLayerId.Soil, 12, true));
+
+            AssertResolverScenario(
+                resolver,
+                new CornerMaterialSample(
+                    TerrainMaterialId.Soil,
+                    TerrainMaterialId.Stone,
+                    TerrainMaterialId.Soil,
+                    TerrainMaterialId.Stone),
+                new RenderLayerCommand(TerrainRenderLayerId.Soil, 10, true),
+                new RenderLayerCommand(TerrainRenderLayerId.Stone, 5, true));
+
+            AssertResolverScenario(
+                resolver,
+                new CornerMaterialSample(
+                    TerrainMaterialId.Boundary,
+                    TerrainMaterialId.Boundary,
+                    TerrainMaterialId.Floor,
+                    TerrainMaterialId.Floor),
+                new RenderLayerCommand(TerrainRenderLayerId.Floor, 3, true),
+                new RenderLayerCommand(TerrainRenderLayerId.Boundary, 12, true));
+        }
+
+        [Test]
+        public void TilemapGridPresentationOnlyUpdatesFourDisplayCellsForSingleWorldCellChange()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition changedCell = new GridPosition(3, 4);
+            SetMineableWall(grid, changedCell, false);
+            RuntimeServiceRegistry services = CreatePresentationRegistry(grid);
+            var root = new GameObject("DualGridPresentationEditModeTest");
+            try
+            {
+                Tilemap[] terrainTilemaps = CreateTerrainTilemaps(root.transform);
+                TilemapGridPresentation presentation = root.AddComponent<TilemapGridPresentation>();
+                presentation.Configure(
+                    terrainTilemaps,
+                    CreateTilemap(root.transform, "Facility Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
+                    MinebotPresentationAssets.Create(null));
+
+                presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
+                Dictionary<Vector3Int, string> before = SnapshotTerrainDisplay(terrainTilemaps);
+
+                SetEmpty(grid, changedCell);
+                presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
+                Dictionary<Vector3Int, string> after = SnapshotTerrainDisplay(terrainTilemaps);
+
+                IReadOnlyCollection<Vector3Int> changedDisplayCells = CollectChangedDisplayCells(before, after);
+                Assert.That(changedDisplayCells, Is.EquivalentTo(DualGridTerrain.GetAffectedDisplayCells(changedCell)));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void PixelArtPipelineExposesDualGridTerrainFamiliesIntoDefaultArtSet()
         {
             AssetDatabase.Refresh();
             MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
 
             MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(
                 "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset");
+            var serializedArtSet = new SerializedObject(artSet);
 
             Assert.That(artSet, Is.Not.Null);
-            Assert.That(artSet.WallContourTiles.Length, Is.EqualTo(DualGridContour.TileCount));
+            Assert.That(artSet.FloorDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(artSet.SoilDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(artSet.StoneDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(artSet.HardRockDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(artSet.UltraHardDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(artSet.BoundaryDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(serializedArtSet.FindProperty("floorDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(serializedArtSet.FindProperty("soilDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(serializedArtSet.FindProperty("stoneDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(serializedArtSet.FindProperty("hardRockDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(serializedArtSet.FindProperty("ultraHardDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(serializedArtSet.FindProperty("boundaryDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(artSet.BuildPreviewValidTile, Is.Not.Null);
             Assert.That(artSet.BuildPreviewInvalidTile, Is.Not.Null);
             Assert.That(artSet.SoilDetailTile, Is.Not.Null);
             Assert.That(artSet.StoneDetailTile, Is.Not.Null);
             Assert.That(artSet.HardRockDetailTile, Is.Not.Null);
             Assert.That(artSet.UltraHardDetailTile, Is.Not.Null);
-            Assert.That(artSet.WallContourTiles[5], Is.Not.Null);
-
-            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_WallContour_05.asset"), Is.Not.Null);
+            Assert.That(artSet.FloorDualGridTiles[5], Is.Not.Null);
+            Assert.That(artSet.BoundaryDualGridTiles[15], Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_Floor_15.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_HardRock_15.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_Boundary_15.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_BuildPreviewValid.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_DetailUltraHard.asset"), Is.Not.Null);
+        }
+
+        [Test]
+        public void TerrainArtRefreshDoesNotChangeCollisionMiningDangerOrBuildingRules()
+        {
+            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
+            MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(
+                "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset");
+            Assert.That(artSet, Is.Not.Null);
+
+            RuleProbe baseline = CreateRuleProbe(useConfiguredArt: false, artSet);
+            RuleProbe configured = CreateRuleProbe(useConfiguredArt: true, artSet);
+
+            Assert.That(configured.MoveResult, Is.EqualTo(baseline.MoveResult));
+            Assert.That(configured.MineResult, Is.EqualTo(baseline.MineResult));
+            Assert.That(configured.CanBuild, Is.EqualTo(baseline.CanBuild));
+            Assert.That(configured.BuildFailure, Is.EqualTo(baseline.BuildFailure));
+            Assert.That(configured.DangerZoneAtProbe, Is.EqualTo(baseline.DangerZoneAtProbe));
+            Assert.That(configured.WallPassable, Is.EqualTo(baseline.WallPassable));
+        }
+
+        private static void AssertResolverScenario(
+            LayeredBinaryTerrainResolver resolver,
+            CornerMaterialSample sample,
+            params RenderLayerCommand[] expectedCommands)
+        {
+            var commands = new RenderLayerCommand[DualGridTerrain.RenderLayerCount];
+            resolver.Resolve(sample, commands);
+
+            for (int i = 0; i < commands.Length; i++)
+            {
+                Assert.That(commands[i].LayerId, Is.EqualTo(DualGridTerrain.OrderedLayers[i]));
+            }
+
+            foreach (TerrainRenderLayerId layerId in DualGridTerrain.OrderedLayers)
+            {
+                bool matched = false;
+                for (int i = 0; i < expectedCommands.Length; i++)
+                {
+                    if (expectedCommands[i].LayerId != layerId)
+                    {
+                        continue;
+                    }
+
+                    Assert.That(commands[(int)layerId], Is.EqualTo(expectedCommands[i]));
+                    matched = true;
+                    break;
+                }
+
+                if (!matched)
+                {
+                    Assert.That(commands[(int)layerId].HasContent, Is.False);
+                }
+            }
+        }
+
+        private static RuleProbe CreateRuleProbe(bool useConfiguredArt, MinebotPresentationArtSet artSet)
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), new GridPosition(4, 4));
+            GridPosition wallTarget = new GridPosition(6, 6);
+            GridPosition actorStart = new GridPosition(6, 5);
+            GridPosition buildOrigin = new GridPosition(2, 2);
+            SetMineableWall(grid, wallTarget, false);
+            var economy = new PlayerEconomy(new ResourceAmount(10, 0, 0));
+            var buildings = new BuildingPlacementService(grid, economy);
+            var waves = new WaveSurvivalService(grid, null);
+            waves.EvaluateDangerZones();
+
+            var root = new GameObject(useConfiguredArt ? "ConfiguredArtRuleProbe" : "FallbackArtRuleProbe");
+            try
+            {
+                Tilemap[] terrainTilemaps = CreateTerrainTilemaps(root.transform);
+                TilemapGridPresentation presentation = root.AddComponent<TilemapGridPresentation>();
+                presentation.Configure(
+                    terrainTilemaps,
+                    CreateTilemap(root.transform, "Facility Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
+                    useConfiguredArt ? MinebotPresentationAssets.Create(artSet) : MinebotPresentationAssets.Create(null));
+                presentation.Refresh(CreatePresentationRegistry(grid), new GridPosition(-1, -1), new GridPosition(-2, -2));
+
+                var moveMining = new MiningService(grid);
+                var movePlayer = new PlayerMiningState(actorStart, HardnessTier.Soil);
+                MineInteractionResult moveResult = moveMining.Move(movePlayer, GridPosition.Up);
+
+                var digMining = new MiningService(grid);
+                var digPlayer = new PlayerMiningState(actorStart, HardnessTier.Soil);
+                MineInteractionResult mineResult = digMining.TryMine(digPlayer, wallTarget, out _);
+
+                BuildingDefinition drill = BuildingDefinition.CreateRuntime(
+                    "probe-drill",
+                    "探针钻机",
+                    new ResourceAmount(2, 0, 0),
+                    new Vector2Int(2, 1));
+                bool canBuild = buildings.CanPlace(drill, buildOrigin, out BuildingPlacementFailure buildFailure);
+
+                return new RuleProbe(
+                    moveResult,
+                    mineResult,
+                    canBuild,
+                    buildFailure,
+                    grid.GetCell(actorStart).IsDangerZone,
+                    grid.GetCell(wallTarget).IsPassable);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static RuntimeServiceRegistry CreatePresentationRegistry(LogicalGridState grid)
+        {
+            return new RuntimeServiceRegistry(
+                grid,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new List<RobotState>(),
+                null);
+        }
+
+        private static Tilemap[] CreateTerrainTilemaps(Transform parent)
+        {
+            return new[]
+            {
+                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Floor), DualGridTerrain.DisplayOffset),
+                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil), DualGridTerrain.DisplayOffset),
+                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Stone), DualGridTerrain.DisplayOffset),
+                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.HardRock), DualGridTerrain.DisplayOffset),
+                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.UltraHard), DualGridTerrain.DisplayOffset),
+                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Boundary), DualGridTerrain.DisplayOffset)
+            };
+        }
+
+        private static Tilemap CreateTilemap(Transform parent, string name, Vector3 localPosition)
+        {
+            var child = new GameObject(name, typeof(Tilemap), typeof(TilemapRenderer));
+            child.transform.SetParent(parent, false);
+            child.transform.localPosition = localPosition;
+            return child.GetComponent<Tilemap>();
+        }
+
+        private static Dictionary<Vector3Int, string> SnapshotTerrainDisplay(IReadOnlyList<Tilemap> terrainTilemaps)
+        {
+            var positions = new HashSet<Vector3Int>();
+            for (int i = 0; i < terrainTilemaps.Count; i++)
+            {
+                foreach (Vector3Int position in terrainTilemaps[i].cellBounds.allPositionsWithin)
+                {
+                    positions.Add(position);
+                }
+            }
+
+            var snapshot = new Dictionary<Vector3Int, string>();
+            foreach (Vector3Int position in positions)
+            {
+                snapshot[position] = TerrainDisplaySignatureAt(terrainTilemaps, position);
+            }
+
+            return snapshot;
+        }
+
+        private static IReadOnlyCollection<Vector3Int> CollectChangedDisplayCells(
+            IReadOnlyDictionary<Vector3Int, string> before,
+            IReadOnlyDictionary<Vector3Int, string> after)
+        {
+            var positions = new HashSet<Vector3Int>(before.Keys);
+            positions.UnionWith(after.Keys);
+
+            var changed = new List<Vector3Int>();
+            foreach (Vector3Int position in positions)
+            {
+                before.TryGetValue(position, out string beforeSignature);
+                after.TryGetValue(position, out string afterSignature);
+                if (!string.Equals(beforeSignature, afterSignature))
+                {
+                    changed.Add(position);
+                }
+            }
+
+            return changed;
+        }
+
+        private static string TerrainDisplaySignatureAt(IReadOnlyList<Tilemap> terrainTilemaps, Vector3Int position)
+        {
+            var names = new List<string>(terrainTilemaps.Count);
+            for (int i = 0; i < terrainTilemaps.Count; i++)
+            {
+                TileBase tile = terrainTilemaps[i].GetTile(position);
+                names.Add(tile != null ? tile.name : "<null>");
+            }
+
+            return string.Join("|", names);
+        }
+
+        private readonly struct RuleProbe
+        {
+            public RuleProbe(
+                MineInteractionResult moveResult,
+                MineInteractionResult mineResult,
+                bool canBuild,
+                BuildingPlacementFailure buildFailure,
+                bool dangerZoneAtProbe,
+                bool wallPassable)
+            {
+                MoveResult = moveResult;
+                MineResult = mineResult;
+                CanBuild = canBuild;
+                BuildFailure = buildFailure;
+                DangerZoneAtProbe = dangerZoneAtProbe;
+                WallPassable = wallPassable;
+            }
+
+            public MineInteractionResult MoveResult { get; }
+            public MineInteractionResult MineResult { get; }
+            public bool CanBuild { get; }
+            public BuildingPlacementFailure BuildFailure { get; }
+            public bool DangerZoneAtProbe { get; }
+            public bool WallPassable { get; }
         }
 
         private static LogicalGridState CreateOpenGrid(Vector2Int size, GridPosition spawn)
