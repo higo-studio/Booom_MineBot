@@ -4,7 +4,7 @@
 TBD - created by archiving change complete-helper-robot-auto-mode. Update Purpose after archive.
 ## Requirements
 ### Requirement: 自动模式必须基于玩家可见信息选择目标
-从属机器人自动模式 SHALL 只使用玩家可见或玩家已表达的风险信息选择目标，MUST NOT 通过隐藏炸药状态获得超出玩家的避险能力。合格目标至少必须是可挖岩壁、未被玩家标记、未处于地震危险区、硬度不高于机器人当前允许钻头能力，并且存在可达的相邻落脚格。
+从属机器人自动模式 SHALL 只使用玩家可见或玩家已表达的风险信息选择目标，MUST NOT 通过隐藏炸药状态获得超出玩家的避险能力。合格目标至少必须是可挖岩壁、未被玩家标记、硬度不高于机器人当前允许钻头能力，并且存在可达的相邻落脚格；进入地震波结算预警窗口后，机器人 MUST 将危险区及其相邻落脚格视为不可进入区域。
 
 #### Scenario: 选择最近合格目标
 - **WHEN** 一个激活的从属机器人需要目标，且搜索范围内存在多个合格可挖岩壁
@@ -14,9 +14,13 @@ TBD - created by archiving change complete-helper-robot-auto-mode. Update Purpos
 - **WHEN** 最近的可挖岩壁已被玩家标记为疑似危险
 - **THEN** 从属机器人不会选择该岩壁，而是选择其它合格目标或进入待机
 
-#### Scenario: 避开当前危险区
-- **WHEN** 一个可挖岩壁或其相邻落脚格处于地震危险区
+#### Scenario: 避开即将结算的危险区
+- **WHEN** 地震波已经进入结算预警窗口，且一个可挖岩壁或其相邻落脚格处于危险区
 - **THEN** 从属机器人不会把该岩壁作为当前自动挖掘目标
+
+#### Scenario: 非预警时段继续清理前沿岩壁
+- **WHEN** 危险区只是下一次地震波的远期预览且尚未进入结算预警窗口
+- **THEN** 从属机器人仍可继续清理满足其它资格条件的前沿岩壁
 
 #### Scenario: 不读取隐藏炸药状态
 - **WHEN** 一个未标记岩壁暗含隐藏炸药，且该岩壁满足其它公开目标资格
@@ -93,4 +97,3 @@ TBD - created by archiving change complete-helper-robot-auto-mode. Update Purpos
 #### Scenario: 展示机器人损毁
 - **WHEN** 从属机器人因炸药或地震危险区损毁
 - **THEN** 场景会隐藏或移除该机器人表现，并显示损毁或回收反馈
-

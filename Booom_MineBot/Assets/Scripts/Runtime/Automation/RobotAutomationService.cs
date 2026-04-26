@@ -128,17 +128,17 @@ namespace Minebot.Automation
             this.actionInterval = Mathf.Max(0f, actionInterval);
         }
 
-        public bool TrySelectNearestSafeMineTarget(RobotState robot, out GridPosition target)
+        public bool TrySelectNearestSafeMineTarget(RobotState robot, out GridPosition target, bool avoidDangerZones = true)
         {
-            return TrySelectNearestSafeMineTarget(robot, HardnessTier.UltraHard, out target);
+            return TrySelectNearestSafeMineTarget(robot, HardnessTier.UltraHard, out target, avoidDangerZones);
         }
 
-        public bool TrySelectNearestSafeMineTarget(RobotState robot, HardnessTier drillTier, out GridPosition target)
+        public bool TrySelectNearestSafeMineTarget(RobotState robot, HardnessTier drillTier, out GridPosition target, bool avoidDangerZones = true)
         {
-            return TrySelectNearestSafeMineTarget(robot, drillTier, out target, out _, out _);
+            return TrySelectNearestSafeMineTarget(robot, drillTier, out target, out _, out _, avoidDangerZones);
         }
 
-        public RobotAutomationResult TickRobot(RobotState robot, HardnessTier drillTier, MiningService mining, float deltaTime)
+        public RobotAutomationResult TickRobot(RobotState robot, HardnessTier drillTier, MiningService mining, float deltaTime, bool avoidDangerZones = true)
         {
             if (robot == null)
             {
@@ -158,14 +158,14 @@ namespace Minebot.Automation
             }
 
             robot.ResetActionTimer();
-            if (robot.TargetPosition.HasValue && !IsEligibleTarget(robot.TargetPosition.Value, drillTier))
+            if (robot.TargetPosition.HasValue && !IsEligibleTarget(robot.TargetPosition.Value, drillTier, avoidDangerZones))
             {
                 robot.ClearTarget();
             }
 
             if (!robot.TargetPosition.HasValue)
             {
-                if (!TrySelectNearestSafeMineTarget(robot, drillTier, out GridPosition selectedTarget, out _, out _))
+                if (!TrySelectNearestSafeMineTarget(robot, drillTier, out GridPosition selectedTarget, out _, out _, avoidDangerZones))
                 {
                     robot.SetActivity(RobotActivity.Idle, "没有安全目标，待机");
                     return new RobotAutomationResult(RobotAutomationResultKind.Idle, robot, GridPosition.Zero, ResourceAmount.Zero, robot.StatusReason);
@@ -177,7 +177,7 @@ namespace Minebot.Automation
             }
 
             GridPosition target = robot.TargetPosition.Value;
-            if (robot.Position.ManhattanDistance(target) == 1 && IsSafeStagingCell(robot.Position))
+            if (robot.Position.ManhattanDistance(target) == 1 && IsSafeStagingCell(robot.Position, avoidDangerZones))
             {
                 robot.SetActivity(RobotActivity.Mining, $"挖掘 {target}");
                 MineInteractionResult mineResult = mining.TryMineFrom(robot.Position, drillTier, target, out ResourceAmount reward);
@@ -198,7 +198,7 @@ namespace Minebot.Automation
                 return new RobotAutomationResult(RobotAutomationResultKind.Blocked, robot, target, ResourceAmount.Zero, "机器人目标无法挖掘。");
             }
 
-            if (!TryFindPathToAdjacentTarget(robot.Position, target, out GridPosition nextStep, out _))
+            if (!TryFindPathToAdjacentTarget(robot.Position, target, out GridPosition nextStep, out _, avoidDangerZones))
             {
                 robot.ClearTarget();
                 robot.SetActivity(RobotActivity.Blocked, "路径受阻");
@@ -209,9 +209,9 @@ namespace Minebot.Automation
             return new RobotAutomationResult(RobotAutomationResultKind.Moved, robot, target, ResourceAmount.Zero, "机器人移动中。");
         }
 
-        public bool StepToward(RobotState robot, GridPosition target)
+        public bool StepToward(RobotState robot, GridPosition target, bool avoidDangerZones = true)
         {
-            if (!TryFindPathToAdjacentTarget(robot.Position, target, out GridPosition nextStep, out _))
+            if (!TryFindPathToAdjacentTarget(robot.Position, target, out GridPosition nextStep, out _, avoidDangerZones))
             {
                 return false;
             }
@@ -220,7 +220,7 @@ namespace Minebot.Automation
             return true;
         }
 
-        private bool TrySelectNearestSafeMineTarget(RobotState robot, HardnessTier drillTier, out GridPosition target, out GridPosition stagingCell, out int bestPathDistance)
+        private bool TrySelectNearestSafeMineTarget(RobotState robot, HardnessTier drillTier, out GridPosition target, out GridPosition stagingCell, out int bestPathDistance, bool avoidDangerZones)
         {
             target = default;
             stagingCell = default;
@@ -230,7 +230,7 @@ namespace Minebot.Automation
 
             foreach (GridPosition position in grid.Positions())
             {
-                if (!IsEligibleTarget(position, drillTier))
+                if (!IsEligibleTarget(position, drillTier, avoidDangerZones))
                 {
                     continue;
                 }
@@ -241,7 +241,7 @@ namespace Minebot.Automation
                     continue;
                 }
 
-                if (!TryFindPathToAdjacentTarget(robot.Position, position, out GridPosition candidateStaging, out int pathDistance))
+                if (!TryFindPathToAdjacentTarget(robot.Position, position, out GridPosition candidateStaging, out int pathDistance, avoidDangerZones))
                 {
                     continue;
                 }
@@ -264,7 +264,7 @@ namespace Minebot.Automation
             return found;
         }
 
-        private bool IsEligibleTarget(GridPosition position, HardnessTier drillTier)
+        private bool IsEligibleTarget(GridPosition position, HardnessTier drillTier, bool avoidDangerZones)
         {
             if (!grid.IsInside(position))
             {
@@ -274,11 +274,11 @@ namespace Minebot.Automation
             GridCellState cell = grid.GetCell(position);
             return cell.IsMineable
                 && !cell.IsMarked
-                && !cell.IsDangerZone
+                && (!avoidDangerZones || !cell.IsDangerZone)
                 && cell.HardnessTier <= drillTier;
         }
 
-        private bool TryFindPathToAdjacentTarget(GridPosition start, GridPosition target, out GridPosition nextStep, out int distance)
+        private bool TryFindPathToAdjacentTarget(GridPosition start, GridPosition target, out GridPosition nextStep, out int distance, bool avoidDangerZones)
         {
             nextStep = default;
             distance = int.MaxValue;
@@ -289,12 +289,12 @@ namespace Minebot.Automation
             foreach (GridPosition direction in GridDirections.Cardinal)
             {
                 GridPosition candidate = target + direction;
-                if (!grid.IsInside(candidate) || !IsSafeStagingCell(candidate))
+                if (!grid.IsInside(candidate) || !IsSafeStagingCell(candidate, avoidDangerZones))
                 {
                     continue;
                 }
 
-                if (!TryFindPath(start, candidate, out GridPosition candidateNextStep, out int candidateDistance))
+                if (!TryFindPath(start, candidate, out GridPosition candidateNextStep, out int candidateDistance, avoidDangerZones))
                 {
                     continue;
                 }
@@ -315,7 +315,7 @@ namespace Minebot.Automation
             return found;
         }
 
-        private bool TryFindPath(GridPosition start, GridPosition destination, out GridPosition nextStep, out int distance)
+        private bool TryFindPath(GridPosition start, GridPosition destination, out GridPosition nextStep, out int distance, bool avoidDangerZones)
         {
             nextStep = start;
             distance = 0;
@@ -335,7 +335,7 @@ namespace Minebot.Automation
                 foreach (GridPosition direction in GridDirections.Cardinal)
                 {
                     GridPosition candidate = current + direction;
-                    if (!grid.IsInside(candidate) || previous.ContainsKey(candidate) || !IsWalkable(candidate, start))
+                    if (!grid.IsInside(candidate) || previous.ContainsKey(candidate) || !IsWalkable(candidate, start, avoidDangerZones))
                     {
                         continue;
                     }
@@ -363,20 +363,20 @@ namespace Minebot.Automation
             return false;
         }
 
-        private bool IsWalkable(GridPosition position, GridPosition start)
+        private bool IsWalkable(GridPosition position, GridPosition start, bool avoidDangerZones)
         {
             if (position.Equals(start))
             {
                 return true;
             }
 
-            return IsSafeStagingCell(position);
+            return IsSafeStagingCell(position, avoidDangerZones);
         }
 
-        private bool IsSafeStagingCell(GridPosition position)
+        private bool IsSafeStagingCell(GridPosition position, bool avoidDangerZones)
         {
             GridCellState cell = grid.GetCell(position);
-            return cell.IsPassable && !cell.IsDangerZone;
+            return cell.IsPassable && (!avoidDangerZones || !cell.IsDangerZone);
         }
 
         private static bool IsEarlier(GridPosition left, GridPosition right)

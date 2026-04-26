@@ -306,6 +306,31 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void WaveResolutionCollapsesDangerCellsBackIntoMineableWalls()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition collapsedCell = new GridPosition(3, 2);
+            ref GridCellState cell = ref grid.GetCellRef(collapsedCell);
+            cell.TerrainKind = TerrainKind.Empty;
+            cell.IsDangerZone = true;
+            cell.IsMarked = true;
+            cell.StaticFlags |= CellStaticFlags.Bomb;
+
+            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+            WaveResolution resolution = waves.ResolveWave(grid.PlayerSpawn, new PlayerVitals(3), new List<RobotState>());
+            GridCellState collapsed = grid.GetCell(collapsedCell);
+
+            Assert.That(resolution.PlayerKilled, Is.False);
+            Assert.That(collapsed.TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+            Assert.That(collapsed.HardnessTier, Is.EqualTo(HardnessTier.Soil));
+            Assert.That(collapsed.Reward, Is.EqualTo(new ResourceAmount(1, 0, 1)));
+            Assert.That(collapsed.IsDangerZone, Is.False);
+            Assert.That(collapsed.IsMarked, Is.False);
+            Assert.That(collapsed.HasBomb, Is.False);
+            Assert.That(collapsed.IsRevealed, Is.False);
+        }
+
+        [Test]
         public void EvaluateDangerZonesMarksOnlyEdgeBandAtThicknessOne()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
@@ -1023,6 +1048,7 @@ namespace Minebot.Tests.EditMode
                 vitals,
                 robotAutomation,
                 robots,
+                null,
                 ResourceAmount.Zero,
                 true,
                 HardnessTier.Soil);
