@@ -872,12 +872,17 @@ namespace Minebot.Editor
 
         private static Texture2D CreateTransparentTexture(string name, int width, int height)
         {
-            return new Texture2D(width, height, TextureFormat.RGBA32, false)
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 name = name,
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp
             };
+
+            var transparentPixels = new Color32[width * height];
+            Array.Fill(transparentPixels, new Color32(0, 0, 0, 0));
+            texture.SetPixels32(transparentPixels);
+            return texture;
         }
 
         private static Texture2D LoadHudMockupSourceTexture()
