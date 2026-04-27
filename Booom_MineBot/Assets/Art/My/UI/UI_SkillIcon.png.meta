@@ -1,0 +1,310 @@
+fileFormatVersion: 2
+guid: 8a29be6bca9bde5498548b2822eaf89d
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -5333127203390088552
+    second: UI_SkillIcon_0
+  - first:
+      213: -3079380203716811724
+    second: UI_SkillIcon_1
+  - first:
+      213: -161664409228150189
+    second: UI_SkillIcon_2
+  - first:
+      213: -397532349658300408
+    second: UI_SkillIcon_3
+  - first:
+      213: 7320647706518684260
+    second: UI_SkillIcon_4
+  - first:
+      213: 297342571270682906
+    second: UI_SkillIcon_5
+  - first:
+      213: -552731955825098330
+    second: UI_SkillIcon_6
+  - first:
+      213: 2230091669116617855
+    second: UI_SkillIcon_7
+  - first:
+      213: -1637457413847262205
+    second: UI_SkillIcon_8
+  - first:
+      213: 6406505740340820154
+    second: UI_SkillIcon_9
+  - first:
+      213: -4931584729661522575
+    second: UI_SkillIcon_10
+  - first:
+      213: 1705701658093022885
+    second: UI_SkillIcon_11
+  - first:
+      213: 2850520571749563601
+    second: UI_SkillIcon_12
+  - first:
+      213: 8156470983585247434
+    second: UI_SkillIcon_13
+  - first:
+      213: -2028347075385540522
+    second: UI_SkillIcon_14
+  - first:
+      213: 3641378141701777252
+    second: UI_SkillIcon_15
+  - first:
+      213: -50359292128838240
+    second: UI_SkillIcon_16
+  - first:
+      213: -2581393132709865643
+    second: UI_SkillIcon_17
+  - first:
+      213: 4332922503483769666
+    second: UI_SkillIcon_18
+  - first:
+      213: 7122331450952765420
+    second: UI_SkillIcon_19
+  - first:
+      213: 1738125818122924202
+    second: UI_SkillIcon_20
+  - first:
+      213: 7112015720038401125
+    second: UI_SkillIcon_21
+  - first:
+      213: -5221092051413306687
+    second: UI_SkillIcon_22
+  - first:
+      213: -4255395012814896981
+    second: UI_SkillIcon_23
+  - first:
+      213: 658670654810002352
+    second: UI_SkillIcon_24
+  - first:
+      213: 6684408133233410614
+    second: UI_SkillIcon_25
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 32
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: 4
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: UI_SkillIcon_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 16
+        width: 32
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 89a16fb801decf5b0800000000000000
+      internalID: -5333127203390088552
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: UI_SkillIcon_1
+      rect:
+        serializedVersion: 2
+        x: 32
+        y: 16
+        width: 32
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: aee1167fb8d5c5d45afc9b7f736d2636
+      internalID: -3079380203716811724
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: UI_SkillIcon_2
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 16
+        width: 32
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5b09f5e86f4bc9e4cb53607bcff06f55
+      internalID: -161664409228150189
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: UI_SkillIcon_3
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 16
+        width: 32
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ec5562cabcca5c345a24990ac1247055
+      internalID: -397532349658300408
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: UI_SkillIcon_4
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 4
+        width: 32
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: cd464143750aaf046b55a4149d7c43a1
+      internalID: 7320647706518684260
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 8b01534bce0206343a8c69d18b0965bb
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      UI_SkillIcon_0: -5333127203390088552
+      UI_SkillIcon_1: -3079380203716811724
+      UI_SkillIcon_2: -161664409228150189
+      UI_SkillIcon_3: -397532349658300408
+      UI_SkillIcon_4: 7320647706518684260
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
