@@ -4,13 +4,11 @@ using System.IO;
 using System.Text;
 using Minebot.Presentation;
 using UnityEditor;
-using UnityEditor.Callbacks;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
 namespace Minebot.Editor
 {
-    [InitializeOnLoad]
     public static class MinebotPixelArtAssetPipeline
     {
         private const int TilePixelsPerUnit = 16;
@@ -70,17 +68,6 @@ namespace Minebot.Editor
             new("Assets/Art/Minebot/Sprites/Actors/actor_player_minebot.png", ActorPixelsPerUnit),
             new("Assets/Art/Minebot/Sprites/Actors/actor_helper_robot.png", ActorPixelsPerUnit)
         };
-
-        static MinebotPixelArtAssetPipeline()
-        {
-            EditorApplication.delayCall += EnsureDefaultAssets;
-        }
-
-        [DidReloadScripts]
-        private static void OnScriptsReloaded()
-        {
-            EditorApplication.delayCall += EnsureDefaultAssets;
-        }
 
         [MenuItem("Minebot/Art/Rebuild Pixel Art Assets")]
         public static void EnsureDefaultAssets()
