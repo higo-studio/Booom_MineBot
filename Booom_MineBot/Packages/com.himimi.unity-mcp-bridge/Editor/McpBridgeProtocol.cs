@@ -155,6 +155,50 @@ namespace McpBridge.Editor
         public int ProcessId;
     }
 
+    [Serializable]
+    internal sealed class TestRunState
+    {
+        public string RequestId;
+        public string Mode;
+        public bool Started;
+        public bool Finished;
+        public bool Succeeded;
+        public bool RunStarted;
+        public string Status;
+        public string Reason;
+        public string Message;
+        public string StackTrace;
+        public string ResultState;
+        public long DeadlineUtcTicks;
+        public long StartupDeadlineUtcTicks;
+        public int PassCount;
+        public int FailCount;
+        public int SkipCount;
+        public int InconclusiveCount;
+        public double Duration;
+        public List<TestFailureRecord> FailedTests = new();
+    }
+
+    [Serializable]
+    internal sealed class TestFailureRecord
+    {
+        public string Name;
+        public string FullName;
+        public string Message;
+        public string StackTrace;
+
+        public Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                ["name"] = Name,
+                ["fullName"] = FullName,
+                ["message"] = Message,
+                ["stackTrace"] = StackTrace
+            };
+        }
+    }
+
     public sealed class ToolCallResult
     {
         public object StructuredContent { get; set; }

@@ -18,6 +18,7 @@ MonoBehaviour:
   hardRockWallTile: {fileID: 11400000, guid: 8ef61307a32b14fd4ae047b89b16c836, type: 2}
   ultraHardWallTile: {fileID: 11400000, guid: af9a0264dab8b43039ac05c89e70c9d6, type: 2}
   boundaryTile: {fileID: 11400000, guid: 1a266e63bcdf14e66b0dbea5dfa060fe, type: 2}
+  dualGridTerrainProfile: {fileID: 11400000, guid: 65cf992adbb4f41b8b0f349aa9558a60, type: 2}
   floorDualGridTiles:
   - {fileID: 11400000, guid: 963616e63e03d4c07907602a874fd19b, type: 2}
   - {fileID: 11400000, guid: f10fc6b52c35b41a2b1fb8175d4725e9, type: 2}
@@ -210,7 +211,7 @@ MonoBehaviour:
     wallBreakSequence: {fileID: 11400000, guid: 1279dc01e9bac4657919c43780f68804, type: 2}
     explosionSequence: {fileID: 11400000, guid: 8415c791d88674c55bbd5709b37670d3, type: 2}
   hudResources:
-    hudPrefab: {fileID: 7025855593915096214, guid: 435da83a705474fdc93499e15b12f999, type: 3}
+    hudPrefab: {fileID: 631047171157477282, guid: 95c13d8ca39848e6b0d0ae66f4602f94, type: 3}
     panelBackground: {fileID: 21300000, guid: 6696ad01759e8463f901b7b1600aaba2, type: 3}
     statusIcon: {fileID: 21300000, guid: f297ad7ee167a46709b129c9e2675828, type: 3}
     interactionIcon: {fileID: 21300000, guid: 4131087ab01c84418905abb2be1dd7ab, type: 3}

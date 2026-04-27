@@ -32,7 +32,9 @@ namespace McpBridge.Editor
             var now = EditorApplication.timeSinceStartup;
             if (now - s_LastHeartbeat < 2.0) return;
             s_LastHeartbeat = now;
-            if (!McpBridgeSettings.instance.Enabled) return;
+            var settings = McpBridgeSettings.instance;
+            settings.EnsureProjectScopedDefaults();
+            if (!settings.Enabled) return;
             if (IsConnected) return;
             EnsureConnected();
         }
@@ -41,7 +43,9 @@ namespace McpBridge.Editor
 
         public static void EnsureConnected()
         {
-            if (!McpBridgeSettings.instance.Enabled) return;
+            var settings = McpBridgeSettings.instance;
+            settings.EnsureProjectScopedDefaults();
+            if (!settings.Enabled) return;
             if (IsConnected) return;
             if (Interlocked.Exchange(ref s_ConnectInFlight, 1) == 1) return;
             _ = ConnectLoopAsync();
@@ -65,7 +69,9 @@ namespace McpBridge.Editor
             List<ToolDescriptor> descriptorsSnapshot;
             try
             {
-                port = McpBridgeSettings.instance.IpcPort;
+                var settings = McpBridgeSettings.instance;
+                settings.EnsureProjectScopedDefaults();
+                port = settings.IpcPort;
                 descriptorsSnapshot = McpToolRegistry.GetEnabledDescriptors();
             }
             catch (Exception exception)
@@ -235,6 +241,31 @@ namespace McpBridge.Editor
                 return;
             }
 
+            if (envelope.ToolName == "unity.tests_run" &&
+                IncludesPlayMode(envelope.Arguments, out var mode))
+            {
+                var immediateResult = McpPlayModeTestTracker.Begin(
+                    envelope.Id,
+                    mode,
+                    GetStringArrayArgument(envelope.Arguments, "testNames"),
+                    GetStringArrayArgument(envelope.Arguments, "groupNames"),
+                    GetStringArrayArgument(envelope.Arguments, "assemblyNames"),
+                    GetBoolArgument(envelope.Arguments, "runSynchronously"));
+
+                if (immediateResult != null)
+                {
+                    SendEnvelope(new BridgeEnvelope
+                    {
+                        Type = "response",
+                        Id = envelope.Id,
+                        Success = true,
+                        Result = immediateResult.ToDictionary()
+                    });
+                }
+
+                return;
+            }
+
             var result = await McpToolRegistry.InvokeAsync(envelope.ToolName, envelope.Arguments ?? new());
             SendEnvelope(new BridgeEnvelope
             {
@@ -268,6 +299,70 @@ namespace McpBridge.Editor
             s_Cts?.Cancel();
             s_Cts?.Dispose();
             s_Cts = null;
+        }
+
+        private static bool IncludesPlayMode(Dictionary<string, object> arguments, out string mode)
+        {
+            mode = "edit";
+            if (arguments == null || !arguments.TryGetValue("mode", out var rawMode) || rawMode == null)
+            {
+                return false;
+            }
+
+            mode = rawMode as string ?? rawMode.ToString();
+            var normalized = string.IsNullOrWhiteSpace(mode) ? "edit" : mode.Trim().ToLowerInvariant();
+            return normalized is "play" or "playmode" or "all";
+        }
+
+        private static bool GetBoolArgument(Dictionary<string, object> arguments, string key)
+        {
+            if (arguments == null || !arguments.TryGetValue(key, out var value) || value == null)
+            {
+                return false;
+            }
+
+            return value switch
+            {
+                bool boolValue => boolValue,
+                _ when bool.TryParse(value.ToString(), out var parsed) => parsed,
+                _ => false
+            };
+        }
+
+        private static string[] GetStringArrayArgument(Dictionary<string, object> arguments, string key)
+        {
+            if (arguments == null || !arguments.TryGetValue(key, out var value) || value == null)
+            {
+                return null;
+            }
+
+            if (value is string[] stringArray)
+            {
+                return stringArray.Length == 0 ? null : stringArray;
+            }
+
+            if (value is IEnumerable<object> objectEnumerable)
+            {
+                var values = new List<string>();
+                foreach (var item in objectEnumerable)
+                {
+                    if (item == null)
+                    {
+                        continue;
+                    }
+
+                    values.Add(item.ToString());
+                }
+
+                return values.Count == 0 ? null : values.ToArray();
+            }
+
+            if (value is string singleValue)
+            {
+                return string.IsNullOrWhiteSpace(singleValue) ? null : new[] { singleValue };
+            }
+
+            return null;
         }
     }
 }

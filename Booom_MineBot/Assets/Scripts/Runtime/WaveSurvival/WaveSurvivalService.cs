@@ -40,6 +40,7 @@ namespace Minebot.WaveSurvival
         public int CurrentWave { get; private set; }
         public int BestSurvivedWave { get; private set; }
         public float TimeUntilNextWave => timeUntilNextWave;
+        public float WaveInterval => config != null ? config.FirstWaveDelay : WaveConfig.DefaultFirstWaveDelay;
         public bool IsWarningWindowActive => timeUntilNextWave <= DangerWarningLeadTime;
         public int NextDangerRadius => config != null
             ? config.DangerRadiusForWave(CurrentWave + 1)

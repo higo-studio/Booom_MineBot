@@ -150,26 +150,23 @@ namespace Minebot.Presentation
     public static class DualGridTerrain
     {
         public const int TileCount = 16;
-        public const int RenderLayerCount = 6;
-        public static readonly Vector3 DisplayOffset = new Vector3(-0.5f, -0.5f, 0f);
-        public static readonly TerrainRenderLayerId[] OrderedLayers =
-        {
-            TerrainRenderLayerId.Floor,
-            TerrainRenderLayerId.Soil,
-            TerrainRenderLayerId.Stone,
-            TerrainRenderLayerId.HardRock,
-            TerrainRenderLayerId.UltraHard,
-            TerrainRenderLayerId.Boundary
-        };
+        public const int RenderLayerCount = DualGridTerrainLayout.RenderLayerCount;
+        public static readonly Vector3 DisplayOffset = DualGridTerrainLayout.DefaultDisplayOffset;
+        public static readonly TerrainRenderLayerId[] OrderedLayers = DualGridTerrainLayout.OrderedLayers;
 
         public static TerrainMaterialId MaterialForCell(GridCellState cell)
         {
-            switch (cell.TerrainKind)
+            return MaterialForTerrain(cell.TerrainKind, cell.HardnessTier);
+        }
+
+        public static TerrainMaterialId MaterialForTerrain(TerrainKind terrainKind, HardnessTier hardnessTier)
+        {
+            switch (terrainKind)
             {
                 case TerrainKind.Empty:
                     return TerrainMaterialId.Floor;
                 case TerrainKind.MineableWall:
-                    switch (cell.HardnessTier)
+                    switch (hardnessTier)
                     {
                         case HardnessTier.Stone:
                             return TerrainMaterialId.Stone;
@@ -234,6 +231,15 @@ namespace Minebot.Presentation
                 SampleCell(grid, displayX, displayY - 1));
         }
 
+        public static CornerMaterialSample Sample(IDualGridMaterialSource source, int displayX, int displayY)
+        {
+            return new CornerMaterialSample(
+                SampleCell(source, displayX - 1, displayY),
+                SampleCell(source, displayX, displayY),
+                SampleCell(source, displayX - 1, displayY - 1),
+                SampleCell(source, displayX, displayY - 1));
+        }
+
         public static int ComputeIndex(bool topLeft, bool topRight, bool bottomLeft, bool bottomRight)
         {
             return DualGridContour.ComputeIndex(topLeft, topRight, bottomLeft, bottomRight);
@@ -246,32 +252,23 @@ namespace Minebot.Presentation
 
         public static string GetTilemapName(TerrainRenderLayerId layerId)
         {
-            switch (layerId)
-            {
-                case TerrainRenderLayerId.Soil:
-                    return "DG Soil Tilemap";
-                case TerrainRenderLayerId.Stone:
-                    return "DG Stone Tilemap";
-                case TerrainRenderLayerId.HardRock:
-                    return "DG HardRock Tilemap";
-                case TerrainRenderLayerId.UltraHard:
-                    return "DG UltraHard Tilemap";
-                case TerrainRenderLayerId.Boundary:
-                    return "DG Boundary Tilemap";
-                default:
-                    return "DG Floor Tilemap";
-            }
+            return DualGridTerrainLayout.GetTilemapName(layerId);
         }
 
         public static int GetSortingOrder(TerrainRenderLayerId layerId)
         {
-            return (int)layerId;
+            return DualGridTerrainLayout.GetSortingOrder(layerId, DualGridTerrainLayoutSettings.CreateDefault());
         }
 
         private static TerrainMaterialId SampleCell(LogicalGridState grid, int x, int y)
         {
             var position = new GridPosition(x, y);
             return grid.IsInside(position) ? MaterialForCell(grid.GetCell(position)) : TerrainMaterialId.None;
+        }
+
+        private static TerrainMaterialId SampleCell(IDualGridMaterialSource source, int x, int y)
+        {
+            return source != null && source.IsInside(x, y) ? source.GetMaterial(x, y) : TerrainMaterialId.None;
         }
     }
 }

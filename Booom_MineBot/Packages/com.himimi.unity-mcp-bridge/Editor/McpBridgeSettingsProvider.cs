@@ -22,6 +22,7 @@ namespace McpBridge.Editor
         private static void DrawGui()
         {
             var settings = McpBridgeSettings.instance;
+            settings.EnsureProjectScopedDefaults();
 
             EditorGUILayout.LabelField("Bridge", EditorStyles.boldLabel);
             EditorGUI.BeginChangeCheck();

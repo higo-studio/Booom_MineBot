@@ -59,6 +59,7 @@
 ### 2. Play Mode 检查
 
 - 使用 `unity.editor_state` 查看当前状态
+- 跑 `unity.tests_run(mode:"play")` 前，使用 `unity.scene_list_opened` 确认 open scenes 没有 `isDirty=true`
 - 使用 `unity.enter_play_mode` / `unity.exit_play_mode` 切换
 
 ### 3. Console 检查
@@ -81,8 +82,11 @@
 3. `dotnet` 是否可被 Unity Editor 调用
 4. Codex 配置中是否存在对应 MCP 服务条目
 5. Unity 当前是否正在 Play Mode 切换、编译或域重载
+6. 是否存在场景保存弹窗，或 Unity Test Framework 因 `SaveCurrentModifiedScenesIfUserWantsTo()` 卡住
 
 ## 参考来源
 
+- `references/unity-mcp-quick-guide.md`
+- `references/unity-mcp-practical-notes.md`
 - `Packages/com.himimi.unity-mcp-bridge/Codex~/unity-mcp-bridge/SKILL.md`
 - `Packages/com.himimi.unity-mcp-bridge/README.md`

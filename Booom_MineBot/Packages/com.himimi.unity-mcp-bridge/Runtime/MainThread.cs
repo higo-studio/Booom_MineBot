@@ -9,6 +9,7 @@ namespace McpBridge
 {
     public sealed class MainThread
     {
+        private static readonly TimeSpan DefaultQueueWaitTimeout = TimeSpan.FromSeconds(10);
         private readonly ConcurrentQueue<WorkItem> m_WorkItems = new();
         private int m_MainThreadId;
 
@@ -41,7 +42,14 @@ namespace McpBridge
 
             var workItem = new WorkItem(action);
             m_WorkItems.Enqueue(workItem);
-            workItem.Wait();
+            if (!workItem.Wait(DefaultQueueWaitTimeout))
+            {
+                workItem.Cancel();
+                throw new TimeoutException(
+                    $"Timed out after {DefaultQueueWaitTimeout.TotalSeconds:0} seconds waiting for the Unity main thread. " +
+                    "The editor is likely blocked by a modal dialog, a Play Mode transition, or another long-running request.");
+            }
+
             return workItem.GetResult<T>();
         }
 
@@ -56,10 +64,16 @@ namespace McpBridge
 
         private sealed class WorkItem
         {
+            private const int QueuedState = 0;
+            private const int ExecutingState = 1;
+            private const int CompletedState = 2;
+            private const int CanceledState = 3;
+
             private readonly Func<object> m_Action;
             private readonly ManualResetEventSlim m_Completed = new(false);
             private Exception m_Exception;
             private object m_Result;
+            private int m_State = QueuedState;
 
             public WorkItem(Delegate action)
             {
@@ -68,6 +82,11 @@ namespace McpBridge
 
             public void Execute()
             {
+                if (Interlocked.CompareExchange(ref m_State, ExecutingState, QueuedState) != QueuedState)
+                {
+                    return;
+                }
+
                 try
                 {
                     m_Result = m_Action();
@@ -81,13 +100,22 @@ namespace McpBridge
                 }
                 finally
                 {
+                    Interlocked.Exchange(ref m_State, CompletedState);
                     m_Completed.Set();
                 }
             }
 
-            public void Wait()
+            public bool Wait(TimeSpan timeout)
             {
-                m_Completed.Wait();
+                return m_Completed.Wait(timeout);
+            }
+
+            public void Cancel()
+            {
+                if (Interlocked.CompareExchange(ref m_State, CanceledState, QueuedState) == QueuedState)
+                {
+                    m_Completed.Set();
+                }
             }
 
             public T GetResult<T>()

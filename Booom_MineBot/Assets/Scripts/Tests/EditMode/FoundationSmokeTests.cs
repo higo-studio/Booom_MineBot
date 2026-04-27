@@ -8,11 +8,13 @@ using Minebot.Presentation;
 using Minebot.Progression;
 using Minebot.WaveSurvival;
 using NUnit.Framework;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using Object = UnityEngine.Object;
 
 namespace Minebot.Tests.EditMode
 {
@@ -596,8 +598,14 @@ namespace Minebot.Tests.EditMode
             MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(
                 "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset");
             var serializedArtSet = new SerializedObject(artSet);
+            DualGridTerrainProfile dualGridProfile = AssetDatabase.LoadAssetAtPath<DualGridTerrainProfile>(
+                "Assets/Resources/Minebot/MinebotDualGridTerrainProfile_Default.asset");
 
             Assert.That(artSet, Is.Not.Null);
+            Assert.That(dualGridProfile, Is.Not.Null);
+            Assert.That(artSet.DualGridTerrainProfile, Is.EqualTo(dualGridProfile));
+            Assert.That(dualGridProfile.Families.Length, Is.EqualTo(DualGridTerrain.RenderLayerCount));
+            Assert.That(dualGridProfile.LayoutSettings.DisplayOffset, Is.EqualTo(DualGridTerrain.DisplayOffset));
             Assert.That(artSet.FloorDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(artSet.SoilDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(artSet.StoneDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
@@ -660,6 +668,50 @@ namespace Minebot.Tests.EditMode
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Docs/prefab-gameplay-art-record-template.md"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Generated/Prompts/minebot-prefab-gameplay-art-batch-001.md"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Generated/Selected/minebot-prefab-gameplay-art-manifest-001.md"), Is.Not.Null);
+
+            foreach (DualGridTerrainFamilyProfile family in dualGridProfile.Families)
+            {
+                Assert.That(family, Is.Not.Null);
+                Assert.That(family.ResolveTiles(Array.Empty<Tile>()).Length, Is.EqualTo(DualGridTerrain.TileCount));
+            }
+        }
+
+        [Test]
+        public void DualGridPreviewHostRefreshBuildsPreviewWithoutInitializingRuntimeServices()
+        {
+            MinebotServices.ResetForTests();
+
+            var root = new GameObject("DualGridPreviewHostEditModeTest", typeof(Grid));
+            TilemapBakeProfile bakeProfile = ScriptableObject.CreateInstance<TilemapBakeProfile>();
+            DualGridTerrainProfile profile = ScriptableObject.CreateInstance<DualGridTerrainProfile>();
+            Tile sourceTile = CreateRuntimeTile("Preview Soil Source");
+            try
+            {
+                Tilemap sourceTerrainTilemap = CreateTilemap(root.transform, "Source Terrain Tilemap", Vector3.zero);
+                sourceTerrainTilemap.SetTile(Vector3Int.zero, sourceTile);
+                ConfigureBakeProfileForSingleTile(bakeProfile, sourceTile, TerrainKind.MineableWall, HardnessTier.Soil);
+                ConfigureProfileWithFallbackTiles(profile);
+
+                DualGridPreviewHost host = root.AddComponent<DualGridPreviewHost>();
+                host.Configure(sourceTerrainTilemap, bakeProfile, configuredProfileOverride: profile);
+
+                bool rebuilt = host.RebuildPreview();
+
+                Assert.That(rebuilt, Is.True);
+                Assert.That(MinebotServices.IsInitialized, Is.False);
+                Assert.That(sourceTerrainTilemap.GetTile(Vector3Int.zero), Is.EqualTo(sourceTile));
+                Assert.That(host.PreviewRoot, Is.Not.Null);
+
+                Tilemap[] previewTilemaps = CreateTerrainTilemaps(host.PreviewRoot);
+                Assert.That(previewTilemaps.Length, Is.EqualTo(DualGridTerrain.RenderLayerCount));
+                Assert.That(HasAnyTile(previewTilemaps[(int)TerrainRenderLayerId.Soil]), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(bakeProfile);
+                Object.DestroyImmediate(profile);
+                Object.DestroyImmediate(root);
+            }
         }
 
         [Test]
@@ -869,12 +921,12 @@ namespace Minebot.Tests.EditMode
         {
             return new[]
             {
-                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Floor), DualGridTerrain.DisplayOffset),
-                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil), DualGridTerrain.DisplayOffset),
-                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Stone), DualGridTerrain.DisplayOffset),
-                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.HardRock), DualGridTerrain.DisplayOffset),
-                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.UltraHard), DualGridTerrain.DisplayOffset),
-                CreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Boundary), DualGridTerrain.DisplayOffset)
+                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Floor), DualGridTerrain.DisplayOffset),
+                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil), DualGridTerrain.DisplayOffset),
+                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Stone), DualGridTerrain.DisplayOffset),
+                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.HardRock), DualGridTerrain.DisplayOffset),
+                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.UltraHard), DualGridTerrain.DisplayOffset),
+                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Boundary), DualGridTerrain.DisplayOffset)
             };
         }
 
@@ -884,6 +936,95 @@ namespace Minebot.Tests.EditMode
             child.transform.SetParent(parent, false);
             child.transform.localPosition = localPosition;
             return child.GetComponent<Tilemap>();
+        }
+
+        private static Tilemap FindOrCreateTilemap(Transform parent, string name, Vector3 localPosition)
+        {
+            Transform child = parent.Find(name);
+            if (child != null)
+            {
+                child.localPosition = localPosition;
+                Tilemap existingTilemap = child.GetComponent<Tilemap>();
+                if (existingTilemap != null)
+                {
+                    return existingTilemap;
+                }
+            }
+
+            return CreateTilemap(parent, name, localPosition);
+        }
+
+        private static bool HasAnyTile(Tilemap tilemap)
+        {
+            foreach (Vector3Int position in tilemap.cellBounds.allPositionsWithin)
+            {
+                if (tilemap.GetTile(position) != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void ConfigureProfileWithFallbackTiles(DualGridTerrainProfile profile)
+        {
+            profile.ConfigureLayout(DualGridTerrainLayoutSettings.CreateDefault());
+            MinebotPresentationAssets fallbackAssets = MinebotPresentationAssets.Create(null);
+            foreach (TerrainRenderLayerId layerId in DualGridTerrainLayout.OrderedLayers)
+            {
+                profile.ConfigureFamilyTiles(layerId, ResolveFallbackTiles(fallbackAssets, layerId));
+            }
+        }
+
+        private static void ConfigureBakeProfileForSingleTile(
+            TilemapBakeProfile profile,
+            TileBase tile,
+            TerrainKind terrainKind,
+            HardnessTier hardnessTier)
+        {
+            var terrainRules = new[]
+            {
+                new TerrainTileRule
+                {
+                    tile = tile,
+                    terrainKind = terrainKind,
+                    hardnessTier = hardnessTier,
+                    staticFlags = CellStaticFlags.None,
+                    reward = ResourceAmount.Zero
+                }
+            };
+
+            typeof(TilemapBakeProfile)
+                .GetField("terrainRules", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.SetValue(profile, terrainRules);
+        }
+
+        private static Tile CreateRuntimeTile(string name)
+        {
+            Tile tile = ScriptableObject.CreateInstance<Tile>();
+            tile.name = name;
+            tile.colliderType = Tile.ColliderType.None;
+            return tile;
+        }
+
+        private static Tile[] ResolveFallbackTiles(MinebotPresentationAssets assets, TerrainRenderLayerId layerId)
+        {
+            switch (layerId)
+            {
+                case TerrainRenderLayerId.Soil:
+                    return assets.SoilDualGridTiles;
+                case TerrainRenderLayerId.Stone:
+                    return assets.StoneDualGridTiles;
+                case TerrainRenderLayerId.HardRock:
+                    return assets.HardRockDualGridTiles;
+                case TerrainRenderLayerId.UltraHard:
+                    return assets.UltraHardDualGridTiles;
+                case TerrainRenderLayerId.Boundary:
+                    return assets.BoundaryDualGridTiles;
+                default:
+                    return assets.FloorDualGridTiles;
+            }
         }
 
         private static Dictionary<Vector3Int, string> SnapshotTerrainDisplay(IReadOnlyList<Tilemap> terrainTilemaps)
