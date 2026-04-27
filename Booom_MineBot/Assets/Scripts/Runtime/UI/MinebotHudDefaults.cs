@@ -4,8 +4,8 @@ namespace Minebot.UI
 {
     public static class MinebotHudDefaults
     {
-        public const string RootResourcePath = "Minebot/UI/MinebotHud";
-        public const string RootAssetPath = "Assets/Resources/Minebot/UI/MinebotHud.prefab";
+        public const string RootResourcePath = "Minebot/UI/MainUI";
+        public const string RootAssetPath = "Assets/Resources/Minebot/UI/MainUI.prefab";
         public const string PanelFolderResourcePath = "Minebot/UI/Panels";
         public const string PanelFolderAssetPath = "Assets/Resources/Minebot/UI/Panels";
 
@@ -44,7 +44,7 @@ namespace Minebot.UI
         public const string BuildingInteractionTitle = "建筑交互";
 
         public const int UpgradeButtonCount = 3;
-        public const int MinimumBuildButtonCount = 2;
+        public const int MinimumBuildButtonCount = 4;
         public const int BuildingInteractionButtonCount = 2;
         public const float HudPanelSliceBorder = 12f;
 
@@ -52,29 +52,29 @@ namespace Minebot.UI
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
             new Vector2(0f, 1f),
-            new Vector2(16f, -16f),
-            new Vector2(404f, 98f));
+            new Vector2(28f, -22f),
+            new Vector2(254f, 116f));
 
         public static readonly SlotLayout InteractionSlot = new SlotLayout(
-            new Vector2(0.5f, 1f),
-            new Vector2(0.5f, 1f),
-            new Vector2(0.5f, 1f),
-            new Vector2(0f, -16f),
-            new Vector2(560f, 52f));
+            new Vector2(0f, 0f),
+            new Vector2(0f, 0f),
+            new Vector2(0f, 0f),
+            new Vector2(28f, 150f),
+            new Vector2(168f, 104f));
 
         public static readonly SlotLayout FeedbackSlot = new SlotLayout(
             new Vector2(1f, 0f),
             new Vector2(1f, 0f),
             new Vector2(1f, 0f),
-            new Vector2(-16f, 16f),
-            new Vector2(320f, 60f));
+            new Vector2(-28f, 166f),
+            new Vector2(140f, 36f));
 
         public static readonly SlotLayout WarningSlot = new SlotLayout(
-            new Vector2(1f, 1f),
-            new Vector2(1f, 1f),
-            new Vector2(1f, 1f),
-            new Vector2(-16f, -16f),
-            new Vector2(344f, 84f));
+            new Vector2(0.5f, 1f),
+            new Vector2(0.5f, 1f),
+            new Vector2(0.5f, 1f),
+            new Vector2(0f, -18f),
+            new Vector2(528f, 86f));
 
         public static readonly SlotLayout GameOverSlot = new SlotLayout(
             new Vector2(0.5f, 0.5f),
@@ -87,29 +87,29 @@ namespace Minebot.UI
             new Vector2(0f, 0f),
             new Vector2(0f, 0f),
             new Vector2(0f, 0f),
-            new Vector2(16f, 16f),
-            new Vector2(188f, 188f));
+            new Vector2(28f, 24f),
+            new Vector2(392f, 170f));
 
         public static readonly SlotLayout UpgradeSlot = new SlotLayout(
             new Vector2(1f, 0f),
             new Vector2(1f, 0f),
             new Vector2(1f, 0f),
-            new Vector2(-24f, 24f),
-            new Vector2(396f, 220f));
+            new Vector2(-28f, 174f),
+            new Vector2(396f, 168f));
 
         public static readonly SlotLayout BuildingInteractionSlot = new SlotLayout(
-            new Vector2(1f, 0.5f),
-            new Vector2(1f, 0.5f),
-            new Vector2(1f, 0.5f),
-            new Vector2(-16f, -24f),
-            new Vector2(304f, 108f));
+            new Vector2(1f, 0f),
+            new Vector2(1f, 0f),
+            new Vector2(1f, 0f),
+            new Vector2(-28f, 142f),
+            new Vector2(332f, 120f));
 
-        public static readonly TextPanelLayout StatusText = new TextPanelLayout(19, TextAnchor.UpperLeft, Vector4.zero);
-        public static readonly TextPanelLayout InteractionText = new TextPanelLayout(15, TextAnchor.MiddleLeft, Vector4.zero);
-        public static readonly TextPanelLayout FeedbackText = new TextPanelLayout(16, TextAnchor.MiddleLeft, Vector4.zero);
-        public static readonly TextPanelLayout WarningText = new TextPanelLayout(18, TextAnchor.MiddleRight, Vector4.zero);
+        public static readonly TextPanelLayout StatusText = new TextPanelLayout(22, TextAnchor.UpperLeft, new Vector4(4f, 4f, 4f, 4f));
+        public static readonly TextPanelLayout InteractionText = new TextPanelLayout(20, TextAnchor.MiddleLeft, new Vector4(4f, 4f, 4f, 4f));
+        public static readonly TextPanelLayout FeedbackText = new TextPanelLayout(15, TextAnchor.MiddleRight, new Vector4(4f, 4f, 4f, 4f));
+        public static readonly TextPanelLayout WarningText = new TextPanelLayout(19, TextAnchor.MiddleCenter, new Vector4(8f, 4f, 8f, 4f));
         public static readonly TextPanelLayout GameOverText = new TextPanelLayout(42, TextAnchor.MiddleCenter, Vector4.zero);
-        public static readonly MinimapPanelLayout MinimapPanel = new MinimapPanelLayout(12f, 12f, 136f, 34f, 15);
+        public static readonly MinimapPanelLayout MinimapPanel = new MinimapPanelLayout(16f, 16f, 104f, 40f, 18);
 
         public static readonly OptionPanelLayout UpgradeOptions = new OptionPanelLayout(
             new Color(0.05f, 0.07f, 0.08f, 0.92f),
@@ -128,18 +128,18 @@ namespace Minebot.UI
             OptionPanelFlow.Vertical);
 
         public static readonly OptionPanelLayout BuildOptions = new OptionPanelLayout(
-            new Color(0.07f, 0.09f, 0.1f, 0.93f),
-            new Color(0.18f, 0.22f, 0.2f, 0.96f),
-            new Color(0.1f, 0.44f, 0.5f, 1f),
-            17,
-            14,
-            12f,
-            10f,
-            22f,
-            42f,
-            56f,
-            116f,
-            104f,
+            new Color(0.03f, 0.05f, 0.06f, 0.9f),
+            new Color(0.04f, 0.12f, 0.15f, 0.96f),
+            new Color(0.02f, 0.33f, 0.38f, 1f),
+            16,
+            13,
+            8f,
+            4f,
+            18f,
+            28f,
+            72f,
+            90f,
+            74f,
             TextAnchor.MiddleCenter,
             OptionPanelFlow.Horizontal);
 
@@ -162,13 +162,13 @@ namespace Minebot.UI
         public static SlotLayout BuildSlot(int buttonCount)
         {
             int safeCount = Mathf.Max(MinimumBuildButtonCount, buttonCount);
-            float width = 36f + safeCount * BuildOptions.ButtonSpacing;
+            float width = 24f + safeCount * BuildOptions.ButtonSpacing;
             return new SlotLayout(
-                new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f),
-                new Vector2(0f, 16f),
-                new Vector2(Mathf.Max(272f, width), 108f));
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(-28f, 24f),
+                new Vector2(Mathf.Max(336f, width), 112f));
         }
 
         public readonly struct SlotLayout

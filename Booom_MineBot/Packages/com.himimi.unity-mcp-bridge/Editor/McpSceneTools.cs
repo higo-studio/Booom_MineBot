@@ -206,7 +206,7 @@ namespace McpBridge.Editor
             string name = null,
             [Description("Optional exact tag.")]
             string tag = null,
-            [Description("Optional full component type name, such as UnityEngine.Camera.")]
+            [Description("Optional component type name. Supports both short names like Camera and full names like UnityEngine.Camera.")]
             string componentType = null,
             [Description("Optional scene path to limit the search.")]
             string scenePath = null,
@@ -228,7 +228,7 @@ namespace McpBridge.Editor
                         continue;
                     }
 
-                    if (!string.IsNullOrWhiteSpace(componentType) && gameObject.GetComponent(componentType) == null)
+                    if (!string.IsNullOrWhiteSpace(componentType) && !McpComponentLocator.HasComponent(gameObject, componentType))
                     {
                         continue;
                     }
@@ -539,11 +539,47 @@ namespace McpBridge.Editor
             });
         }
 
+        [McpPluginTool("unity.gameobject_get_components", Title = "List Unity GameObject Components")]
+        [Description("Lists components attached to a GameObject, with optional type filtering.")]
+        public ToolCallResult GetGameObjectComponents(
+            [Description("Target GameObject identifier.")]
+            string gameObjectId,
+            [Description("Optional component type name. Supports both short names like Camera and full names like UnityEngine.Camera.")]
+            string componentType = null)
+        {
+            return MainThread.Instance.Run(() =>
+            {
+                var gameObject = UnityObjectLocator.TryResolveObject(gameObjectId) as GameObject;
+                if (gameObject == null)
+                {
+                    return CreateStatus("not_found", $"[Failed] Could not resolve GameObject '{gameObjectId}'.", false);
+                }
+
+                var items = McpComponentLocator.SnapshotComponents(gameObject, componentType);
+                return new ToolCallResult
+                {
+                    Text = $"[Success] Found {items.Count} component(s) on '{gameObject.name}'.",
+                    StructuredContent = new Dictionary<string, object>
+                    {
+                        ["ok"] = true,
+                        ["item"] = UnityObjectSnapshot.FromObject(gameObject).ToDictionary(),
+                        ["components"] = items
+                    }
+                };
+            });
+        }
+
         [McpPluginTool("unity.component_destroy", Title = "Destroy Unity Component")]
-        [Description("Destroys a component by identifier.")]
+        [Description("Destroys a component by identifier, or by GameObject plus component type/index.")]
         public ToolCallResult DestroyComponent(
-            [Description("Component identifier.")]
-            string componentId)
+            [Description("Optional component identifier.")]
+            string componentId = null,
+            [Description("Optional GameObject identifier when resolving the component from its owner.")]
+            string gameObjectId = null,
+            [Description("Optional component type name when resolving the component from its owner.")]
+            string componentType = null,
+            [Description("Zero-based component index within the filtered matches on the GameObject.")]
+            int componentIndex = 0)
         {
             return MainThread.Instance.Run(() =>
             {
@@ -552,10 +588,10 @@ namespace McpBridge.Editor
                     return blocked;
                 }
 
-                var component = UnityObjectLocator.TryResolveObject(componentId) as UnityComponent;
+                var component = McpComponentLocator.ResolveComponent(componentId, gameObjectId, componentType, componentIndex, out var errorResult);
                 if (component == null)
                 {
-                    return CreateStatus("not_found", $"[Failed] Could not resolve component '{componentId}'.", false);
+                    return errorResult;
                 }
 
                 var scene = component.gameObject.scene;
@@ -566,23 +602,52 @@ namespace McpBridge.Editor
         }
 
         [McpPluginTool("unity.component_get", Title = "Get Unity Component Data")]
-        [Description("Returns serialized data for a component.")]
+        [Description("Returns serialized data for a component. Supports componentId or GameObject plus component type/index.")]
         public ToolCallResult GetComponentData(
-            [Description("Component identifier.")]
-            string componentId)
+            [Description("Optional component identifier.")]
+            string componentId = null,
+            [Description("Optional GameObject identifier when resolving the component from its owner.")]
+            string gameObjectId = null,
+            [Description("Optional component type name when resolving the component from its owner.")]
+            string componentType = null,
+            [Description("Zero-based component index within the filtered matches on the GameObject.")]
+            int componentIndex = 0)
         {
-            return MainThread.Instance.Run(() => GetObjectDataInternal(componentId, "component"));
+            return MainThread.Instance.Run(() =>
+            {
+                var component = McpComponentLocator.ResolveComponent(componentId, gameObjectId, componentType, componentIndex, out var errorResult);
+                return component != null
+                    ? McpObjectDataTools.GetObjectData(component, "component")
+                    : errorResult;
+            });
         }
 
         [McpPluginTool("unity.component_modify", Title = "Modify Unity Component")]
-        [Description("Updates serialized fields on a component. Property keys use SerializedProperty paths.")]
+        [Description("Updates serialized fields on a component. Supports componentId or GameObject plus component type/index. Property keys use SerializedProperty paths.")]
         public ToolCallResult ModifyComponent(
-            [Description("Component identifier.")]
-            string componentId,
+            [Description("Optional component identifier.")]
+            string componentId = null,
+            [Description("Optional GameObject identifier when resolving the component from its owner.")]
+            string gameObjectId = null,
+            [Description("Optional component type name when resolving the component from its owner.")]
+            string componentType = null,
+            [Description("Zero-based component index within the filtered matches on the GameObject.")]
+            int componentIndex = 0,
             [Description("Map of SerializedProperty paths to primitive values.")]
-            Dictionary<string, object> properties)
+            Dictionary<string, object> properties = null)
         {
-            return MainThread.Instance.Run(() => ModifyObjectInternal(componentId, properties, "component"));
+            return MainThread.Instance.Run(() =>
+            {
+                if (McpEditorToolGuards.TryBlockForTransition("modify a component", out var blocked))
+                {
+                    return blocked;
+                }
+
+                var component = McpComponentLocator.ResolveComponent(componentId, gameObjectId, componentType, componentIndex, out var errorResult);
+                return component != null
+                    ? McpObjectDataTools.ModifyObject(component, properties, "component")
+                    : errorResult;
+            });
         }
 
         [McpPluginTool("unity.component_list_all", Title = "List Unity Component Types")]
@@ -640,39 +705,9 @@ namespace McpBridge.Editor
         private static ToolCallResult GetObjectDataInternal(string objectId, string label)
         {
             var target = UnityObjectLocator.TryResolveObject(objectId);
-            if (target == null)
-            {
-                return CreateStatus("not_found", $"[Failed] Could not resolve {label} '{objectId}'.", false);
-            }
-
-            var serializedObject = new SerializedObject(target);
-            var iterator = serializedObject.GetIterator();
-            var properties = new List<object>();
-            if (iterator.NextVisible(true))
-            {
-                do
-                {
-                    properties.Add(new Dictionary<string, object>
-                    {
-                        ["path"] = iterator.propertyPath,
-                        ["displayName"] = iterator.displayName,
-                        ["type"] = iterator.propertyType.ToString(),
-                        ["value"] = SerializedPropertyValueReader.Read(iterator)
-                    });
-                }
-                while (iterator.NextVisible(false));
-            }
-
-            return new ToolCallResult
-            {
-                Text = $"[Success] Read {properties.Count} serialized field(s) from {label}.",
-                StructuredContent = new Dictionary<string, object>
-                {
-                    ["ok"] = true,
-                    ["item"] = UnityObjectSnapshot.FromObject(target).ToDictionary(),
-                    ["properties"] = properties
-                }
-            };
+            return target != null
+                ? McpObjectDataTools.GetObjectData(target, label)
+                : CreateStatus("not_found", $"[Failed] Could not resolve {label} '{objectId}'.", false);
         }
 
         private static ToolCallResult ModifyObjectInternal(string objectId, Dictionary<string, object> properties, string label)
@@ -687,51 +722,7 @@ namespace McpBridge.Editor
             {
                 return CreateStatus("not_found", $"[Failed] Could not resolve {label} '{objectId}'.", false);
             }
-
-            if (properties == null || properties.Count == 0)
-            {
-                return CreateStatus("noop", $"[Success] No property changes requested for {label}.", true);
-            }
-
-            Undo.RecordObject(target, $"MCP Modify {label}");
-            var serializedObject = new SerializedObject(target);
-            var changed = 0;
-            foreach (var pair in properties)
-            {
-                var property = serializedObject.FindProperty(pair.Key);
-                if (property == null)
-                {
-                    continue;
-                }
-
-                if (SerializedPropertyValueReader.TryWrite(property, pair.Value))
-                {
-                    changed++;
-                }
-            }
-
-            serializedObject.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(target);
-
-            if (target is UnityComponent component)
-            {
-                EditorSceneManager.MarkSceneDirty(component.gameObject.scene);
-            }
-            else if (target is GameObject gameObject)
-            {
-                EditorSceneManager.MarkSceneDirty(gameObject.scene);
-            }
-
-            return new ToolCallResult
-            {
-                Text = $"[Success] Updated {changed} serialized field(s) on {label}.",
-                StructuredContent = new Dictionary<string, object>
-                {
-                    ["ok"] = true,
-                    ["changedCount"] = changed,
-                    ["item"] = UnityObjectSnapshot.FromObject(target).ToDictionary()
-                }
-            };
+            return McpObjectDataTools.ModifyObject(target, properties, label);
         }
 
         private static IEnumerable<GameObject> EnumerateGameObjects(string scenePath, bool includeInactive)
@@ -812,15 +803,7 @@ namespace McpBridge.Editor
 
         private static ToolCallResult CreateStatus(string status, string text, bool ok)
         {
-            return new ToolCallResult
-            {
-                Text = text,
-                StructuredContent = new Dictionary<string, object>
-                {
-                    ["ok"] = ok,
-                    ["status"] = status
-                }
-            };
+            return McpToolResultFactory.CreateStatus(status, text, ok);
         }
     }
 
@@ -984,9 +967,8 @@ namespace McpBridge.Editor
 
                         return false;
                     case SerializedPropertyType.ObjectReference:
-                        var referenceId = rawValue?.ToString();
-                        property.objectReferenceValue = UnityObjectLocator.TryResolveObject(referenceId);
-                        return true;
+                        property.objectReferenceValue = ResolveObjectReference(rawValue);
+                        return property.objectReferenceValue != null || rawValue == null;
                     default:
                         return false;
                 }
@@ -1038,6 +1020,51 @@ namespace McpBridge.Editor
             }
 
             return true;
+        }
+
+        private static UnityEngine.Object ResolveObjectReference(object rawValue)
+        {
+            if (rawValue == null)
+            {
+                return null;
+            }
+
+            if (rawValue is Dictionary<string, object> dictionary)
+            {
+                if (dictionary.TryGetValue("globalId", out var globalId) && TryResolveObjectId(globalId?.ToString(), out var resolvedByGlobalId))
+                {
+                    return resolvedByGlobalId;
+                }
+
+                if (dictionary.TryGetValue("localId", out var localId) && TryResolveObjectId(localId?.ToString(), out var resolvedByLocalId))
+                {
+                    return resolvedByLocalId;
+                }
+
+                if (dictionary.TryGetValue("assetPath", out var assetPath) && assetPath is string assetPathString && !string.IsNullOrWhiteSpace(assetPathString))
+                {
+                    var mainAsset = AssetDatabase.LoadMainAssetAtPath(assetPathString);
+                    if (mainAsset != null)
+                    {
+                        return mainAsset;
+                    }
+                }
+            }
+
+            if (TryResolveObjectId(rawValue.ToString(), out var resolved))
+            {
+                return resolved;
+            }
+
+            return rawValue is string path && path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
+                ? AssetDatabase.LoadMainAssetAtPath(path)
+                : null;
+        }
+
+        private static bool TryResolveObjectId(string objectId, out UnityEngine.Object resolved)
+        {
+            resolved = UnityObjectLocator.TryResolveObject(objectId);
+            return resolved != null;
         }
     }
 }

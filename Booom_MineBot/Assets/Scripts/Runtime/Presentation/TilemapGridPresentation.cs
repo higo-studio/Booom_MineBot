@@ -12,8 +12,7 @@ namespace Minebot.Presentation
     public sealed class TilemapGridPresentation : MonoBehaviour
     {
         private MinebotPresentationAssets assets;
-        private readonly IDualGridTerrainResolver terrainResolver = new LayeredBinaryTerrainResolver();
-        private readonly RenderLayerCommand[] terrainCommandBuffer = new RenderLayerCommand[DualGridTerrain.RenderLayerCount];
+        private readonly DualGridRenderer terrainRenderer = new DualGridRenderer(new LayeredBinaryTerrainResolver());
         private BuildingDefinition buildPreviewDefinition;
         private GridPosition? buildPreviewOrigin;
         private bool buildPreviewIsValid;
@@ -145,58 +144,16 @@ namespace Minebot.Presentation
 
             if (fullRebuild)
             {
-                ClearTerrainTiles();
-                for (int y = 0; y <= grid.Size.y; y++)
-                {
-                    for (int x = 0; x <= grid.Size.x; x++)
-                    {
-                        UpdateTerrainAt(grid, new Vector3Int(x, y, 0));
-                    }
-                }
-
+                var source = new LogicalGridMaterialSource(grid);
+                var target = new TilemapDualGridRenderTarget(TerrainTilemaps, assets);
+                terrainRenderer.RebuildAll(source, target);
                 return;
             }
 
-            var affectedDisplayCells = new HashSet<Vector3Int>();
-            foreach (GridPosition changed in changedTerrainCells)
-            {
-                Vector3Int[] affected = DualGridTerrain.GetAffectedDisplayCells(changed);
-                for (int i = 0; i < affected.Length; i++)
-                {
-                    affectedDisplayCells.Add(affected[i]);
-                }
-            }
-
-            foreach (Vector3Int position in affectedDisplayCells)
-            {
-                UpdateTerrainAt(grid, position);
-            }
-        }
-
-        private void UpdateTerrainAt(LogicalGridState grid, Vector3Int displayPosition)
-        {
-            CornerMaterialSample sample = DualGridTerrain.Sample(grid, displayPosition.x, displayPosition.y);
-            terrainResolver.Resolve(sample, terrainCommandBuffer);
-            for (int i = 0; i < TerrainTilemaps.Count && i < terrainCommandBuffer.Length; i++)
-            {
-                Tilemap terrainTilemap = TerrainTilemaps[i];
-                if (terrainTilemap == null)
-                {
-                    continue;
-                }
-
-                RenderLayerCommand command = terrainCommandBuffer[i];
-                Tile tile = command.HasContent ? assets.DualGridTerrainTileFor(command.LayerId, command.AtlasIndex) : null;
-                terrainTilemap.SetTile(displayPosition, tile);
-            }
-        }
-
-        private void ClearTerrainTiles()
-        {
-            for (int i = 0; i < TerrainTilemaps.Count; i++)
-            {
-                TerrainTilemaps[i]?.ClearAllTiles();
-            }
+            terrainRenderer.RefreshChanged(
+                new LogicalGridMaterialSource(grid),
+                new TilemapDualGridRenderTarget(TerrainTilemaps, assets),
+                changedTerrainCells);
         }
 
         private static System.Collections.Generic.IEnumerable<GridPosition> FootprintCells(BuildingDefinition definition, GridPosition origin)

@@ -58,16 +58,25 @@ namespace Minebot.Tests.PlayMode
             Assert.That(Resources.Load<GameObject>("Minebot/Presentation/CellFx/ExplosionFx"), Is.Not.Null);
             MinebotHudView hudView = hud.GetComponent<MinebotHudView>();
             Assert.That(hudView, Is.Not.Null);
-            Assert.That(hudView.StatusPanel, Is.Not.Null);
-            Assert.That(hudView.WarningPanel, Is.Not.Null);
-            Assert.That(hudView.MinimapPanel, Is.Not.Null);
+            Assert.That(hudView.UsesTemplateHud, Is.True);
+            Assert.That(hudView.StatusPanel, Is.Null);
+            Assert.That(hudView.WarningPanel, Is.Null);
+            Assert.That(hudView.MinimapPanel, Is.Null);
             Assert.That(hudView.UpgradePanel, Is.Not.Null);
-            Assert.That(hudView.BuildPanel, Is.Not.Null);
+            Assert.That(hudView.BuildPanel, Is.Null);
             Assert.That(hudView.BuildingInteractionPanel, Is.Not.Null);
+            Assert.That(hud.transform.Find("Upper Left"), Is.Not.Null);
+            Assert.That(hud.transform.Find("Upper Center"), Is.Not.Null);
+            Assert.That(hud.transform.Find("Lower Left"), Is.Not.Null);
+            Assert.That(hud.transform.Find("Lower Right"), Is.Not.Null);
+            Assert.That(hud.transform.Find("Upper Left/BotState/BotOnWorking/Count"), Is.Not.Null);
+            Assert.That(hud.transform.Find("Upper Center/WaveText"), Is.Not.Null);
+            Assert.That(hud.transform.Find("Lower Left/Resources/Metal/Count"), Is.Not.Null);
+            Assert.That(hud.transform.Find("Lower Right/Layout/Building"), Is.Not.Null);
             TMP_Text hudText = hud.GetComponentInChildren<TMP_Text>();
             Assert.That(hudText, Is.Not.Null);
             Assert.That(hudText.font, Is.Not.Null);
-            Assert.That(hudText.font.name, Does.Contain("NotoSansSC"));
+            Assert.That(hudText.font.name, Is.Not.Empty);
             Assert.That(hudText.font.HasCharacter('生'), Is.True);
             Assert.That(hudText.font.HasCharacter('探'), Is.True);
             Assert.That(hudText.font.HasCharacter('震'), Is.True);
@@ -109,11 +118,11 @@ namespace Minebot.Tests.PlayMode
             Assert.That(playerCollider.radius, Is.EqualTo(freeform.CollisionRadius).Within(0.001f));
             Assert.That(presentation.HudSummary, Does.Contain("HP"));
             Assert.That(presentation.HudSummary, Does.Contain("波次"));
-            Assert.That(hudView.MinimapPanel.MapTexture, Is.Not.Null);
-            Assert.That(hudView.MinimapPanel.Summary, Does.Contain("已标记"));
-            Assert.That(hud.transform.Find(MinebotHudView.BuildSlotName), Is.Not.Null);
-            Assert.That(hud.transform.Find(MinebotHudView.MinimapSlotName), Is.Not.Null);
+            Assert.That(hud.transform.Find(MinebotHudView.BuildSlotName), Is.Null);
+            Assert.That(hud.transform.Find(MinebotHudView.MinimapSlotName), Is.Null);
             Assert.That(hud.transform.Find(MinebotHudView.BuildingInteractionSlotName), Is.Not.Null);
+            Assert.That(hudView.BuildingInteractionPanel.GetButton(0), Is.Not.Null);
+            Assert.That(hudView.BuildingInteractionPanel.GetButton(1), Is.Not.Null);
             Assert.That(services.Buildings.Buildings.Count, Is.GreaterThanOrEqualTo(2));
         }
 
@@ -135,9 +144,15 @@ namespace Minebot.Tests.PlayMode
 
             MinebotHudView hudView = Object.FindAnyObjectByType<MinebotHudView>();
             Assert.That(hudView, Is.Not.Null);
-            Assert.That(hudView.StatusPanel, Is.Not.Null);
-            Assert.That(hudView.MinimapPanel, Is.Not.Null);
-            Assert.That(hudView.BuildPanel, Is.Not.Null);
+            Assert.That(hudView.UsesTemplateHud, Is.True);
+            Assert.That(hudView.StatusPanel, Is.Null);
+            Assert.That(hudView.MinimapPanel, Is.Null);
+            Assert.That(hudView.BuildPanel, Is.Null);
+            Assert.That(hudView.UpgradePanel, Is.Not.Null);
+            Assert.That(hudView.BuildingInteractionPanel, Is.Not.Null);
+            Assert.That(hudView.transform.Find("Upper Left"), Is.Not.Null);
+            Assert.That(hudView.transform.Find("Lower Right/Layout/Radar"), Is.Not.Null);
+            Assert.That(hudView.transform.Find(MinebotHudView.BuildingInteractionSlotName), Is.Not.Null);
             Assert.That(CountImagesWithAssignedSprite(hudView.GetComponentsInChildren<Image>(true)), Is.GreaterThanOrEqualTo(8));
         }
 

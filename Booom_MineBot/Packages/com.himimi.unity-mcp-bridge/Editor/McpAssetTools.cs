@@ -11,6 +11,7 @@ using UnityEditor.PackageManager.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityComponent = UnityEngine.Component;
 
 namespace McpBridge.Editor
 {
@@ -300,6 +301,346 @@ namespace McpBridge.Editor
             });
         }
 
+        [McpPluginTool("unity.prefab_get_data", Title = "Get Unity Prefab Data")]
+        [Description("Loads a prefab asset through LoadPrefabContents and returns its hierarchy and components.")]
+        public ToolCallResult GetPrefabData(
+            [Description("Prefab asset path.")]
+            string assetPath)
+        {
+            return MainThread.Instance.Run(() =>
+                WithPrefabContents(assetPath, "inspect prefabs", (path, root) => new ToolCallResult
+                {
+                    Text = $"[Success] Read prefab '{path}'.",
+                    StructuredContent = new Dictionary<string, object>
+                    {
+                        ["ok"] = true,
+                        ["prefabPath"] = path,
+                        ["asset"] = AssetSnapshot.FromPath(path).ToDictionary(),
+                        ["root"] = McpHierarchyTools.CreateGameObjectTreeSnapshot(root)
+                    }
+                }));
+        }
+
+        [McpPluginTool("unity.prefab_gameobject_modify", Title = "Modify Unity Prefab GameObject")]
+        [Description("Loads a prefab asset and updates a GameObject inside it by hierarchy path.")]
+        public ToolCallResult ModifyPrefabGameObject(
+            [Description("Prefab asset path.")]
+            string assetPath,
+            [Description("Optional hierarchy path inside the prefab. Omit to target the prefab root.")]
+            string gameObjectPath = null,
+            [Description("Optional new name.")]
+            string name = null,
+            [Description("Optional active state.")]
+            bool? activeSelf = null,
+            [Description("Optional tag.")]
+            string tag = null,
+            [Description("Optional layer. Use -1 to leave unchanged.")]
+            int layer = -1,
+            [Description("Optional local position as [x,y,z].")]
+            double[] localPosition = null,
+            [Description("Optional local rotation Euler angles as [x,y,z].")]
+            double[] localEulerAngles = null,
+            [Description("Optional local scale as [x,y,z].")]
+            double[] localScale = null)
+        {
+            return MainThread.Instance.Run(() =>
+                EditPrefabContents(assetPath, "modify prefabs", (path, root) =>
+                {
+                    var gameObject = ResolvePrefabGameObject(root, gameObjectPath, out var errorResult);
+                    if (gameObject == null)
+                    {
+                        return errorResult;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        gameObject.name = name;
+                    }
+
+                    if (activeSelf.HasValue)
+                    {
+                        gameObject.SetActive(activeSelf.Value);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(tag))
+                    {
+                        gameObject.tag = tag;
+                    }
+
+                    if (layer >= 0)
+                    {
+                        gameObject.layer = layer;
+                    }
+
+                    ApplyVector(localPosition, vector => gameObject.transform.localPosition = vector);
+                    ApplyVector(localEulerAngles, vector => gameObject.transform.localEulerAngles = vector);
+                    ApplyVector(localScale, vector => gameObject.transform.localScale = vector);
+
+                    EditorUtility.SetDirty(gameObject);
+                    EditorUtility.SetDirty(gameObject.transform);
+                    return new ToolCallResult
+                    {
+                        Text = $"[Success] Updated prefab GameObject '{gameObject.name}'.",
+                        StructuredContent = new Dictionary<string, object>
+                        {
+                            ["ok"] = true,
+                            ["item"] = UnityObjectSnapshot.FromObject(gameObject).ToDictionary()
+                        }
+                    };
+                }));
+        }
+
+        [McpPluginTool("unity.prefab_gameobject_create", Title = "Create Unity Prefab GameObject")]
+        [Description("Loads a prefab asset and creates a child GameObject inside it.")]
+        public ToolCallResult CreatePrefabGameObject(
+            [Description("Prefab asset path.")]
+            string assetPath,
+            [Description("Name for the new object.")]
+            string name = "GameObject",
+            [Description("Optional primitive type: empty, cube, sphere, capsule, cylinder, plane, quad.")]
+            string primitiveType = "empty",
+            [Description("Optional parent hierarchy path inside the prefab. Omit to parent under the prefab root.")]
+            string parentPath = null)
+        {
+            return MainThread.Instance.Run(() =>
+                EditPrefabContents(assetPath, "modify prefabs", (path, root) =>
+                {
+                    ToolCallResult errorResult = null;
+                    var parent = string.IsNullOrWhiteSpace(parentPath)
+                        ? root
+                        : ResolvePrefabGameObject(root, parentPath, out errorResult);
+                    if (parent == null)
+                    {
+                        return errorResult;
+                    }
+
+                    var gameObject = CreateGameObject(name, primitiveType);
+                    gameObject.transform.SetParent(parent.transform, false);
+                    EditorUtility.SetDirty(gameObject);
+                    return new ToolCallResult
+                    {
+                        Text = $"[Success] Created prefab GameObject '{gameObject.name}'.",
+                        StructuredContent = new Dictionary<string, object>
+                        {
+                            ["ok"] = true,
+                            ["item"] = UnityObjectSnapshot.FromObject(gameObject).ToDictionary(),
+                            ["parent"] = UnityObjectSnapshot.FromObject(parent).ToDictionary()
+                        }
+                    };
+                }));
+        }
+
+        [McpPluginTool("unity.prefab_gameobject_destroy", Title = "Destroy Unity Prefab GameObject")]
+        [Description("Loads a prefab asset and destroys a child GameObject inside it.")]
+        public ToolCallResult DestroyPrefabGameObject(
+            [Description("Prefab asset path.")]
+            string assetPath,
+            [Description("Hierarchy path inside the prefab.")]
+            string gameObjectPath)
+        {
+            return MainThread.Instance.Run(() =>
+                EditPrefabContents(assetPath, "modify prefabs", (path, root) =>
+                {
+                    var gameObject = ResolvePrefabGameObject(root, gameObjectPath, out var errorResult);
+                    if (gameObject == null)
+                    {
+                        return errorResult;
+                    }
+
+                    if (gameObject == root)
+                    {
+                        return CreateStatus("blocked", "[Blocked] Destroying the prefab root is not supported.", false);
+                    }
+
+                    UnityEngine.Object.DestroyImmediate(gameObject);
+                    return CreateStatus("destroyed", "[Success] Prefab GameObject destroyed.", true);
+                }));
+        }
+
+        [McpPluginTool("unity.prefab_gameobject_set_parent", Title = "Set Unity Prefab GameObject Parent")]
+        [Description("Loads a prefab asset and reparents a GameObject inside it.")]
+        public ToolCallResult SetPrefabGameObjectParent(
+            [Description("Prefab asset path.")]
+            string assetPath,
+            [Description("Hierarchy path for the target GameObject.")]
+            string gameObjectPath,
+            [Description("Optional hierarchy path for the new parent. Omit to parent under the prefab root.")]
+            string parentPath = null,
+            [Description("When true, keeps world transform while reparenting.")]
+            bool worldPositionStays = true)
+        {
+            return MainThread.Instance.Run(() =>
+                EditPrefabContents(assetPath, "modify prefabs", (path, root) =>
+                {
+                    var gameObject = ResolvePrefabGameObject(root, gameObjectPath, out var targetError);
+                    if (gameObject == null)
+                    {
+                        return targetError;
+                    }
+
+                    if (gameObject == root)
+                    {
+                        return CreateStatus("blocked", "[Blocked] Reparenting the prefab root is not supported.", false);
+                    }
+
+                    ToolCallResult parentError = null;
+                    var parent = string.IsNullOrWhiteSpace(parentPath)
+                        ? root
+                        : ResolvePrefabGameObject(root, parentPath, out parentError);
+                    if (parent == null)
+                    {
+                        return parentError;
+                    }
+
+                    if (parent == gameObject)
+                    {
+                        return CreateStatus("invalid_argument", "[Failed] A GameObject cannot become its own parent.", false);
+                    }
+
+                    gameObject.transform.SetParent(parent.transform, worldPositionStays);
+                    EditorUtility.SetDirty(gameObject.transform);
+                    return new ToolCallResult
+                    {
+                        Text = $"[Success] Updated parent for prefab GameObject '{gameObject.name}'.",
+                        StructuredContent = new Dictionary<string, object>
+                        {
+                            ["ok"] = true,
+                            ["item"] = UnityObjectSnapshot.FromObject(gameObject).ToDictionary(),
+                            ["parent"] = UnityObjectSnapshot.FromObject(parent).ToDictionary()
+                        }
+                    };
+                }));
+        }
+
+        [McpPluginTool("unity.prefab_component_add", Title = "Add Unity Prefab Component")]
+        [Description("Loads a prefab asset and adds a component to a GameObject inside it.")]
+        public ToolCallResult AddPrefabComponent(
+            [Description("Prefab asset path.")]
+            string assetPath,
+            [Description("Optional hierarchy path inside the prefab. Omit to target the prefab root.")]
+            string gameObjectPath = null,
+            [Description("Component type name. Supports both short names like Camera and full names like UnityEngine.Camera.")]
+            string componentType = null)
+        {
+            return MainThread.Instance.Run(() =>
+                EditPrefabContents(assetPath, "modify prefabs", (path, root) =>
+                {
+                    var gameObject = ResolvePrefabGameObject(root, gameObjectPath, out var errorResult);
+                    if (gameObject == null)
+                    {
+                        return errorResult;
+                    }
+
+                    var type = UnityTypeLocator.FindType(componentType, typeof(UnityComponent));
+                    if (type == null)
+                    {
+                        return CreateStatus("not_found", $"[Failed] Could not find component type '{componentType}'.", false);
+                    }
+
+                    var component = gameObject.AddComponent(type);
+                    EditorUtility.SetDirty(component);
+                    return new ToolCallResult
+                    {
+                        Text = $"[Success] Added prefab component '{type.FullName}' to '{gameObject.name}'.",
+                        StructuredContent = new Dictionary<string, object>
+                        {
+                            ["ok"] = true,
+                            ["item"] = UnityObjectSnapshot.FromObject(component).ToDictionary()
+                        }
+                    };
+                }));
+        }
+
+        [McpPluginTool("unity.prefab_component_destroy", Title = "Destroy Unity Prefab Component")]
+        [Description("Loads a prefab asset and destroys a component inside it by GameObject plus component type/index.")]
+        public ToolCallResult DestroyPrefabComponent(
+            [Description("Prefab asset path.")]
+            string assetPath,
+            [Description("Optional hierarchy path inside the prefab. Omit to target the prefab root.")]
+            string gameObjectPath = null,
+            [Description("Optional component type name when resolving the component from its owner.")]
+            string componentType = null,
+            [Description("Zero-based component index within the filtered matches on the GameObject.")]
+            int componentIndex = 0)
+        {
+            return MainThread.Instance.Run(() =>
+                EditPrefabContents(assetPath, "modify prefabs", (path, root) =>
+                {
+                    var gameObject = ResolvePrefabGameObject(root, gameObjectPath, out var errorResult);
+                    if (gameObject == null)
+                    {
+                        return errorResult;
+                    }
+
+                    var component = McpComponentLocator.ResolveComponent(gameObject, componentType, componentIndex, out var componentError);
+                    if (component == null)
+                    {
+                        return componentError;
+                    }
+
+                    UnityEngine.Object.DestroyImmediate(component);
+                    return CreateStatus("destroyed", "[Success] Prefab component destroyed.", true);
+                }));
+        }
+
+        [McpPluginTool("unity.prefab_component_get", Title = "Get Unity Prefab Component Data")]
+        [Description("Loads a prefab asset and returns serialized data for a component inside it.")]
+        public ToolCallResult GetPrefabComponentData(
+            [Description("Prefab asset path.")]
+            string assetPath,
+            [Description("Optional hierarchy path inside the prefab. Omit to target the prefab root.")]
+            string gameObjectPath = null,
+            [Description("Optional component type name when resolving the component from its owner.")]
+            string componentType = null,
+            [Description("Zero-based component index within the filtered matches on the GameObject.")]
+            int componentIndex = 0)
+        {
+            return MainThread.Instance.Run(() =>
+                WithPrefabContents(assetPath, "inspect prefabs", (path, root) =>
+                {
+                    var gameObject = ResolvePrefabGameObject(root, gameObjectPath, out var errorResult);
+                    if (gameObject == null)
+                    {
+                        return errorResult;
+                    }
+
+                    var component = McpComponentLocator.ResolveComponent(gameObject, componentType, componentIndex, out var componentError);
+                    return component != null
+                        ? McpObjectDataTools.GetObjectData(component, "prefab component")
+                        : componentError;
+                }));
+        }
+
+        [McpPluginTool("unity.prefab_component_modify", Title = "Modify Unity Prefab Component")]
+        [Description("Loads a prefab asset and updates serialized fields on a component inside it.")]
+        public ToolCallResult ModifyPrefabComponent(
+            [Description("Prefab asset path.")]
+            string assetPath,
+            [Description("Optional hierarchy path inside the prefab. Omit to target the prefab root.")]
+            string gameObjectPath = null,
+            [Description("Optional component type name when resolving the component from its owner.")]
+            string componentType = null,
+            [Description("Zero-based component index within the filtered matches on the GameObject.")]
+            int componentIndex = 0,
+            [Description("Map of SerializedProperty paths to primitive values.")]
+            Dictionary<string, object> properties = null)
+        {
+            return MainThread.Instance.Run(() =>
+                EditPrefabContents(assetPath, "modify prefabs", (path, root) =>
+                {
+                    var gameObject = ResolvePrefabGameObject(root, gameObjectPath, out var errorResult);
+                    if (gameObject == null)
+                    {
+                        return errorResult;
+                    }
+
+                    var component = McpComponentLocator.ResolveComponent(gameObject, componentType, componentIndex, out var componentError);
+                    return component != null
+                        ? McpObjectDataTools.ModifyObject(component, properties, "prefab component", markSceneDirty: false, recordUndo: false)
+                        : componentError;
+                }));
+        }
+
         [McpPluginTool("unity.script_read", Title = "Read Script File")]
         [Description("Reads a project script or text-based source file.")]
         public ToolCallResult ReadScript(
@@ -411,17 +752,142 @@ namespace McpBridge.Editor
             return McpPackageRunner.RunRemoveAsync(packageName);
         }
 
+        private static ToolCallResult WithPrefabContents(string assetPath, string operation, Func<string, GameObject, ToolCallResult> action)
+        {
+            if (McpEditorToolGuards.TryBlockForTransition(operation, out var blocked))
+            {
+                return blocked;
+            }
+
+            var path = ProjectPathGuards.RequireProjectAssetPath(assetPath, out var errorResult);
+            if (path == null)
+            {
+                return errorResult;
+            }
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null)
+            {
+                return CreateStatus("not_found", $"[Failed] Could not load prefab '{path}'.", false);
+            }
+
+            GameObject root = null;
+            try
+            {
+                root = PrefabUtility.LoadPrefabContents(path);
+                if (root == null)
+                {
+                    return CreateStatus("failed", $"[Failed] Could not open prefab contents for '{path}'.", false);
+                }
+
+                return action(path, root);
+            }
+            catch (Exception exception)
+            {
+                return CreateStatus("failed", $"[Failed] Prefab operation failed: {exception.Message}", false);
+            }
+            finally
+            {
+                if (root != null)
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+            }
+        }
+
+        private static ToolCallResult EditPrefabContents(string assetPath, string operation, Func<string, GameObject, ToolCallResult> action)
+        {
+            if (McpPrimaryInstanceGuards.TryBlock(operation, out var blocked))
+            {
+                return blocked;
+            }
+
+            return WithPrefabContents(assetPath, operation, (path, root) =>
+            {
+                var result = action(path, root);
+                if (!IsOk(result))
+                {
+                    return result;
+                }
+
+                var prefab = PrefabUtility.SaveAsPrefabAsset(root, path, out var success);
+                if (!success || prefab == null)
+                {
+                    return CreateStatus("failed", $"[Failed] Could not save prefab '{path}'.", false);
+                }
+
+                return AttachPrefabMetadata(result, path);
+            });
+        }
+
+        private static GameObject ResolvePrefabGameObject(GameObject root, string gameObjectPath, out ToolCallResult errorResult)
+        {
+            errorResult = null;
+            if (string.IsNullOrWhiteSpace(gameObjectPath))
+            {
+                return root;
+            }
+
+            var gameObject = McpHierarchyTools.ResolveGameObjectByHierarchyPath(root, gameObjectPath);
+            if (gameObject != null)
+            {
+                return gameObject;
+            }
+
+            errorResult = CreateStatus("not_found", $"[Failed] Could not find prefab GameObject '{gameObjectPath}'.", false);
+            return null;
+        }
+
+        private static bool IsOk(ToolCallResult result)
+        {
+            return result?.StructuredContent is Dictionary<string, object> dictionary &&
+                   dictionary.TryGetValue("ok", out var okValue) &&
+                   okValue is bool ok &&
+                   ok;
+        }
+
+        private static ToolCallResult AttachPrefabMetadata(ToolCallResult result, string path)
+        {
+            if (result?.StructuredContent is Dictionary<string, object> dictionary)
+            {
+                dictionary["prefabPath"] = path;
+                dictionary["asset"] = AssetSnapshot.FromPath(path).ToDictionary();
+            }
+
+            return result;
+        }
+
+        private static void ApplyVector(double[] values, Action<Vector3> apply)
+        {
+            if (values == null || values.Length < 3)
+            {
+                return;
+            }
+
+            apply(new Vector3((float)values[0], (float)values[1], (float)values[2]));
+        }
+
+        private static GameObject CreateGameObject(string name, string primitiveType)
+        {
+            primitiveType = string.IsNullOrWhiteSpace(primitiveType) ? "empty" : primitiveType.Trim().ToLowerInvariant();
+            if (primitiveType == "empty")
+            {
+                return new GameObject(name);
+            }
+
+            if (Enum.TryParse<PrimitiveType>(primitiveType, true, out var parsed))
+            {
+                var created = GameObject.CreatePrimitive(parsed);
+                created.name = name;
+                return created;
+            }
+
+            return new GameObject(name);
+        }
+
         private static ToolCallResult CreateStatus(string status, string text, bool ok)
         {
-            return new ToolCallResult
-            {
-                Text = text,
-                StructuredContent = new Dictionary<string, object>
-                {
-                    ["ok"] = ok,
-                    ["status"] = status
-                }
-            };
+            return McpToolResultFactory.CreateStatus(status, text, ok);
         }
     }
 

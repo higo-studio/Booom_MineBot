@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a273dc3c3e2264a55821a8bf493b4c10, type: 3}
+  m_Name: GameBlance
+  m_EditorClassIdentifier: 
+  playerMaxHealth: 3
+  firstUpgradeThreshold: 4
+  startingResources:
+    metal: 1
+    energy: 4
+    experience: 0
+  repairCost:
+    metal: 2
+    energy: 0
+    experience: 0
+  robotCost:
+    metal: 4
+    energy: 0
+    experience: 0
+  robotMaxTargetDistance: 7
+  robotActionInterval: 0.35
+  robotUsesPlayerDrillTier: 1
+  robotFixedDrillTier: 0

@@ -96,9 +96,9 @@ namespace Minebot.Presentation
         public TilemapGridPresentation GridPresentation => gridPresentation;
         public GridPosition RepairStationPosition => repairStationPosition;
         public GridPosition RobotFactoryPosition => robotFactoryPosition;
-        public string HudSummary => hudView != null && hudView.StatusPanel != null ? hudView.StatusPanel.Content : string.Empty;
+        public string HudSummary => services != null ? BuildLegacyHudSummary() : string.Empty;
         public string FeedbackMessage => feedbackMessage;
-        public string WarningSummary => hudView != null && hudView.WarningPanel != null ? hudView.WarningPanel.Content : string.Empty;
+        public string WarningSummary => services != null ? BuildWarningText() : string.Empty;
         public int ActiveRobotViewCount
         {
             get
@@ -627,17 +627,24 @@ namespace Minebot.Presentation
             return tilemap;
         }
 
-        private static Tilemap[] EnsureTerrainFamilyLayers(Transform gridRoot)
+        private Tilemap[] EnsureTerrainFamilyLayers(Transform gridRoot)
         {
-            return new[]
+            DualGridTerrainLayoutSettings layoutSettings = assets != null
+                ? assets.TerrainLayoutSettings
+                : DualGridTerrainLayoutSettings.CreateDefault();
+            TerrainRenderLayerId[] orderedLayers = DualGridTerrainLayout.OrderedLayers;
+            var terrainTilemaps = new Tilemap[orderedLayers.Length];
+            for (int i = 0; i < orderedLayers.Length; i++)
             {
-                EnsureTilemapLayer(gridRoot, DgFloorTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.Floor), DualGridTerrain.DisplayOffset),
-                EnsureTilemapLayer(gridRoot, DgSoilTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.Soil), DualGridTerrain.DisplayOffset),
-                EnsureTilemapLayer(gridRoot, DgStoneTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.Stone), DualGridTerrain.DisplayOffset),
-                EnsureTilemapLayer(gridRoot, DgHardRockTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.HardRock), DualGridTerrain.DisplayOffset),
-                EnsureTilemapLayer(gridRoot, DgUltraHardTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.UltraHard), DualGridTerrain.DisplayOffset),
-                EnsureTilemapLayer(gridRoot, DgBoundaryTilemapName, DualGridTerrain.GetSortingOrder(TerrainRenderLayerId.Boundary), DualGridTerrain.DisplayOffset)
-            };
+                TerrainRenderLayerId layerId = orderedLayers[i];
+                terrainTilemaps[i] = EnsureTilemapLayer(
+                    gridRoot,
+                    DualGridTerrainLayout.GetTilemapName(layerId),
+                    DualGridTerrainLayout.GetSortingOrder(layerId, layoutSettings),
+                    layoutSettings.DisplayOffset);
+            }
+
+            return terrainTilemaps;
         }
 
         private static ScanIndicatorPresenter EnsureScanIndicatorPresenter(Transform root)
@@ -779,7 +786,26 @@ namespace Minebot.Presentation
                 return;
             }
 
-            if (index < 0 || index >= availableBuildingDefinitions.Length)
+            if (index < 0)
+            {
+                return;
+            }
+
+            if (index == 2)
+            {
+                GameplayInputController input = ResolveGameplayInputController();
+                input?.ToggleMarkerMode();
+                return;
+            }
+
+            if (index == 3)
+            {
+                GameplayInputController input = ResolveGameplayInputController();
+                input?.ScanCurrentCell();
+                return;
+            }
+
+            if (index >= availableBuildingDefinitions.Length)
             {
                 return;
             }
@@ -791,6 +817,12 @@ namespace Minebot.Presentation
             }
 
             ShowFeedback($"已选择建筑：{availableBuildingDefinitions[index].DisplayName}，点击空地建造。");
+        }
+
+        private GameplayInputController ResolveGameplayInputController()
+        {
+            GameplayInputController controller = GetComponent<GameplayInputController>();
+            return controller != null ? controller : FindAnyObjectByType<GameplayInputController>();
         }
 
         private static TMP_FontAsset GetDefaultTmpFontAsset()
@@ -1239,34 +1271,48 @@ namespace Minebot.Presentation
 
         private void RefreshHud()
         {
-            if (services == null || hudView == null || hudView.StatusPanel == null)
+            if (services == null || hudView == null)
             {
                 return;
             }
 
             ResourceAmount resources = services.Economy.Resources;
-            hudView.StatusPanel.SetText(
-                $"HP {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy} | 波次 {services.Waves.CurrentWave}\n" +
-                $"Lv {services.Experience.Level} | XP {services.Experience.Experience}/{services.Experience.NextThreshold} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}\n" +
-                $"坐标 {services.PlayerMiningState.Position} | {BuildRobotStatusText()}");
+            CountRobotStates(out _, out int working, out int waiting, out _);
+            if (hudView.StatusPanel != null)
+            {
+                hudView.StatusPanel.SetText(BuildRobotStatusPanelText());
+            }
+            hudView.UpdateTemplateRobotStatus(working, waiting);
+            hudView.UpdateTemplateResources(
+                resources.Metal,
+                resources.Energy,
+                services.Vitals.CurrentHealth,
+                services.Vitals.MaxHealth,
+                services.Experience.Experience,
+                services.Experience.NextThreshold);
 
             if (hudView.InteractionPanel != null)
             {
-                hudView.InteractionPanel.SetText(BuildInteractionText());
+                hudView.InteractionPanel.SetText(BuildResourcePanelText(resources));
             }
 
             if (hudView.FeedbackPanel != null)
             {
-                hudView.FeedbackPanel.SetText(feedbackMessage);
+                hudView.FeedbackPanel.SetText(BuildActionTagText());
+                hudView.FeedbackPanel.SetColor(BuildActionTagColor());
             }
 
             if (hudView.WarningPanel != null)
             {
-                hudView.WarningPanel.SetText(BuildWarningText());
-                hudView.WarningPanel.SetColor(PlayerIsInDangerZone() || services.Waves.TimeUntilNextWave <= WaveSurvivalService.DangerWarningLeadTime
-                ? new Color(1f, 0.36f, 0.24f, 1f)
-                : new Color(1f, 0.91f, 0.58f, 1f));
+                hudView.WarningPanel.SetText(BuildWaveHeaderText());
+                hudView.WarningPanel.SetColor(services.Waves.TimeUntilNextWave <= WaveSurvivalService.DangerWarningLeadTime
+                    ? new Color(1f, 0.2f, 0.58f, 1f)
+                    : new Color(1f, 0.96f, 0.22f, 1f));
             }
+            hudView.UpdateTemplateWaveStatus(
+                Mathf.Max(1, services.Waves.CurrentWave + 1),
+                services.Waves.TimeUntilNextWave,
+                services.Waves.WaveInterval);
 
             if (hudView.GameOverPanel != null)
             {
@@ -1318,6 +1364,84 @@ namespace Minebot.Presentation
             }
 
             return baseHint;
+        }
+
+        private string BuildLegacyHudSummary()
+        {
+            ResourceAmount resources = services.Economy.Resources;
+            return
+                $"HP {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy} | 波次 {services.Waves.CurrentWave}\n" +
+                $"Lv {services.Experience.Level} | XP {services.Experience.Experience}/{services.Experience.NextThreshold} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}\n" +
+                $"坐标 {services.PlayerMiningState.Position} | {BuildRobotStatusText()}";
+        }
+
+        private string BuildRobotStatusPanelText()
+        {
+            CountRobotStates(out int active, out int working, out int waiting, out _);
+            return
+                $"<color=#D9FF1A>工作中 x{working}</color>\n" +
+                $"<color=#FF1787>待机中 x{waiting}</color>\n" +
+                $"<color=#FFFFFF>在线 {active}</color>";
+        }
+
+        private static string BuildResourcePanelText(ResourceAmount resources)
+        {
+            return
+                $"<color=#18F0FF>金属 {resources.Metal}</color>\n" +
+                $"<color=#18F0FF>能量 {resources.Energy}</color>";
+        }
+
+        private string BuildWaveHeaderText()
+        {
+            int displayWave = Mathf.Max(1, services.Waves.CurrentWave + 1);
+            return
+                $"WAVE {displayWave}\n" +
+                $"{Mathf.Max(0f, services.Waves.TimeUntilNextWave):00.0}s | 厚度 {services.Waves.NextDangerRadius}";
+        }
+
+        private string BuildActionTagText()
+        {
+            if (services.Experience.HasPendingUpgrade)
+            {
+                return "升级待选";
+            }
+
+            if (interactionMode == GameplayInteractionMode.Build)
+            {
+                return "建造";
+            }
+
+            if (interactionMode == GameplayInteractionMode.Marker)
+            {
+                return "标记";
+            }
+
+            if (PlayerIsInDangerZone())
+            {
+                return "撤离";
+            }
+
+            if (string.IsNullOrEmpty(feedbackMessage))
+            {
+                return "Q / E / R";
+            }
+
+            return feedbackMessage.Length <= 10 ? feedbackMessage : feedbackMessage.Substring(0, 10);
+        }
+
+        private Color BuildActionTagColor()
+        {
+            if (services.Experience.HasPendingUpgrade)
+            {
+                return new Color(1f, 0.2f, 0.58f, 1f);
+            }
+
+            if (PlayerIsInDangerZone())
+            {
+                return new Color(1f, 0.76f, 0.16f, 1f);
+            }
+
+            return new Color(0.16f, 0.94f, 1f, 1f);
         }
 
         private string BuildWarningText()
@@ -1395,10 +1519,16 @@ namespace Minebot.Presentation
 
         private string BuildRobotStatusText()
         {
-            int active = 0;
-            int working = 0;
-            int idle = 0;
-            int blocked = 0;
+            CountRobotStates(out int active, out int working, out int waiting, out int blocked);
+            return $"从属机器人 {active} | 工作 {working} 待命 {waiting} 阻塞 {blocked}";
+        }
+
+        private void CountRobotStates(out int active, out int working, out int waiting, out int blocked)
+        {
+            active = 0;
+            working = 0;
+            waiting = 0;
+            blocked = 0;
             foreach (RobotState robot in services.Robots)
             {
                 if (!robot.IsActive)
@@ -1414,14 +1544,13 @@ namespace Minebot.Presentation
                 else if (robot.Activity == RobotActivity.Blocked)
                 {
                     blocked++;
+                    waiting++;
                 }
                 else
                 {
-                    idle++;
+                    waiting++;
                 }
             }
-
-            return $"机器人 {active} | 工 {working} 待 {idle} 阻 {blocked}";
         }
 
         private static Color ColorForRobotActivity(RobotActivity activity)
@@ -1557,40 +1686,65 @@ namespace Minebot.Presentation
 
         private void RefreshBuildPanel()
         {
-            if (hudView == null || hudView.BuildPanel == null)
+            if (hudView == null)
             {
                 return;
             }
 
             bool show = services != null
                 && !services.Vitals.IsDead
-                && !services.Experience.HasPendingUpgrade
-                && availableBuildingDefinitions.Length > 0;
-            hudView.BuildPanel.SetVisible(show);
+                && !services.Experience.HasPendingUpgrade;
+            if (hudView.BuildPanel != null)
+            {
+                hudView.BuildPanel.SetVisible(show);
+            }
             if (!show)
             {
+                for (int i = 0; i < MinebotHudDefaults.MinimumBuildButtonCount; i++)
+                {
+                    hudView.SetTemplateBuildButton(i, false, string.Empty, false);
+                }
                 return;
             }
 
-            hudView.BuildPanel.SetTitle(interactionMode == GameplayInteractionMode.Build ? "R 退出建造" : "R 建造");
-            BuildingDefinition selectedDefinition = GetSelectedBuildingOrDefault();
-            for (int i = 0; i < Mathf.Max(MinebotHudDefaults.MinimumBuildButtonCount, availableBuildingDefinitions.Length); i++)
+            if (hudView.BuildPanel != null)
             {
-                bool hasDefinition = i < availableBuildingDefinitions.Length;
-                string label = string.Empty;
-                bool selected = false;
-                if (hasDefinition)
+                hudView.BuildPanel.SetTitle("主操作");
+            }
+            BuildingDefinition selectedDefinition = GetSelectedBuildingOrDefault();
+            for (int i = 0; i < MinebotHudDefaults.MinimumBuildButtonCount; i++)
+            {
+                bool visible = true;
+                string label;
+                bool selected;
+                if (i < availableBuildingDefinitions.Length)
                 {
                     BuildingDefinition definition = availableBuildingDefinitions[i];
                     selected = definition == selectedDefinition;
-                    label = $"{i + 1}\n{definition.DisplayName}\n{definition.Cost.Metal}金 {definition.FootprintSize.x}x{definition.FootprintSize.y}";
+                    label = $"{i + 1}\n{definition.DisplayName}\n{definition.Cost.Metal}金";
+                }
+                else if (i == 2)
+                {
+                    selected = interactionMode == GameplayInteractionMode.Marker;
+                    label = selected ? "E\n退出\n标记" : "E\n标记\n风险";
+                }
+                else if (i == 3)
+                {
+                    selected = false;
+                    label = "Q\n探测\n前沿";
+                }
+                else
+                {
+                    visible = false;
+                    selected = false;
+                    label = string.Empty;
                 }
 
-                hudView.BuildPanel.SetButton(i, hasDefinition, label, selected);
-                if (!hasDefinition)
+                if (hudView.BuildPanel != null)
                 {
-                    continue;
+                    hudView.BuildPanel.SetButton(i, visible, label, selected);
                 }
+                hudView.SetTemplateBuildButton(i, visible, label, selected);
             }
         }
 

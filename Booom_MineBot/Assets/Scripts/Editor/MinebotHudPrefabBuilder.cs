@@ -1,27 +1,25 @@
 using System.IO;
+using Minebot.Presentation;
 using Minebot.UI;
 using UnityEditor;
-using UnityEditor.Callbacks;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Minebot.Editor
 {
-    [InitializeOnLoad]
     public static class MinebotHudPrefabBuilder
     {
         private const string MenuPath = "Minebot/UI/Rebuild HUD Prefabs";
-
-        static MinebotHudPrefabBuilder()
-        {
-            QueueEnsurePrefabs();
-        }
-
-        [DidReloadScripts]
-        private static void EnsurePrefabsAfterScriptsReload()
-        {
-            QueueEnsurePrefabs();
-        }
+        private const string DefaultArtSetPath = "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset";
+        private const string HudTemplateAssetPath = "Assets/Resources/Minebot/UI/HUD.prefab";
+        private const string HudBackgroundPath = "Assets/Art/Minebot/Sprites/UI/HUD/hud_panel_background.png";
+        private const string HudStatusIconPath = "Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_status.png";
+        private const string HudInteractionIconPath = "Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_interaction.png";
+        private const string HudFeedbackIconPath = "Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_feedback.png";
+        private const string HudWarningIconPath = "Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_warning.png";
+        private const string HudUpgradeIconPath = "Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_upgrade.png";
+        private const string HudBuildIconPath = "Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_build.png";
+        private const string HudBuildingInteractionIconPath = "Assets/Art/Minebot/Sprites/UI/HUD/hud_icon_building_interaction.png";
 
         [MenuItem(MenuPath)]
         public static void CreateOrUpdatePrefabs()
@@ -42,34 +40,10 @@ namespace Minebot.Editor
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildPanelAssetPath, MinebotHudDefaults.BuildPanelObjectName, MinebotHudDefaults.BuildOptions, MinebotHudDefaults.MinimumBuildButtonCount, MinebotHudDefaults.BuildTitle);
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildingInteractionPanelAssetPath, MinebotHudDefaults.BuildingInteractionPanelObjectName, MinebotHudDefaults.BuildingInteractionOptions, MinebotHudDefaults.BuildingInteractionButtonCount, MinebotHudDefaults.BuildingInteractionTitle);
 
-            CreateHudShellPrefab();
+            CreateMainUiPrefab();
+            UpdateDefaultHudReference();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-        }
-
-        private static void QueueEnsurePrefabs()
-        {
-            EditorApplication.delayCall -= EnsurePrefabsExist;
-            EditorApplication.delayCall += EnsurePrefabsExist;
-        }
-
-        private static void EnsurePrefabsExist()
-        {
-            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
-            {
-                QueueEnsurePrefabs();
-                return;
-            }
-
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudView.PrefabAssetPath) != null
-                && AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.StatusPanelAssetPath) != null
-                && AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.MinimapPanelAssetPath) != null
-                && AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.UpgradePanelAssetPath) != null)
-            {
-                return;
-            }
-
-            CreateOrUpdatePrefabs();
         }
 
         private static void CreateTextPanelPrefab(string assetPath, string objectName, MinebotHudDefaults.TextPanelLayout layout)
@@ -118,16 +92,34 @@ namespace Minebot.Editor
             }
         }
 
-        private static void CreateHudShellPrefab()
+        private static void CreateMainUiPrefab()
         {
-            GameObject root = new GameObject(MinebotHudView.RootName, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(MinebotHudView));
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(HudTemplateAssetPath) != null)
+            {
+                GameObject templateRoot = PrefabUtility.LoadPrefabContents(HudTemplateAssetPath);
+                try
+                {
+                    templateRoot.name = MinebotHudView.RootName;
+                    GetOrAdd<MinebotHudView>(templateRoot);
+                    ConfigureCanvasRoot(templateRoot);
+                    ApplyRootRect(templateRoot.GetComponent<RectTransform>());
+                    PrefabUtility.SaveAsPrefabAsset(templateRoot, MinebotHudView.PrefabAssetPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(templateRoot);
+                }
+
+                return;
+            }
+
+            GameObject root = new GameObject(MinebotHudView.RootName, typeof(RectTransform));
             try
             {
-                MinebotHudView view = root.GetComponent<MinebotHudView>();
-                view.EnsureShell(MinebotHudDefaults.MinimumBuildButtonCount);
+                GetOrAdd<MinebotHudView>(root);
+                ConfigureCanvasRoot(root);
                 ApplyRootRect(root.GetComponent<RectTransform>());
                 PrefabUtility.SaveAsPrefabAsset(root, MinebotHudView.PrefabAssetPath);
-                NormalizeSavedPrefabRoot();
             }
             finally
             {
@@ -135,18 +127,25 @@ namespace Minebot.Editor
             }
         }
 
-        private static void NormalizeSavedPrefabRoot()
+        private static void UpdateDefaultHudReference()
         {
-            GameObject prefabRoot = PrefabUtility.LoadPrefabContents(MinebotHudView.PrefabAssetPath);
-            try
+            MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(DefaultArtSetPath);
+            if (artSet == null)
             {
-                ApplyRootRect(prefabRoot.GetComponent<RectTransform>());
-                PrefabUtility.SaveAsPrefabAsset(prefabRoot, MinebotHudView.PrefabAssetPath);
+                return;
             }
-            finally
-            {
-                PrefabUtility.UnloadPrefabContents(prefabRoot);
-            }
+
+            artSet.ConfigureHudPresentation(
+                AssetDatabase.LoadAssetAtPath<MinebotHudView>(MinebotHudView.PrefabAssetPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(HudBackgroundPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(HudStatusIconPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(HudInteractionIconPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(HudFeedbackIconPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(HudWarningIconPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(HudUpgradeIconPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(HudBuildIconPath),
+                AssetDatabase.LoadAssetAtPath<Sprite>(HudBuildingInteractionIconPath));
+            EditorUtility.SetDirty(artSet);
         }
 
         private static void ApplyRootRect(RectTransform rect)
@@ -163,6 +162,27 @@ namespace Minebot.Editor
             rect.sizeDelta = Vector2.zero;
             rect.localScale = Vector3.one;
             EditorUtility.SetDirty(rect);
+        }
+
+        private static void ConfigureCanvasRoot(GameObject root)
+        {
+            Canvas canvas = GetOrAdd<Canvas>(root);
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 200;
+            canvas.pixelPerfect = true;
+
+            CanvasScaler scaler = GetOrAdd<CanvasScaler>(root);
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1280f, 720f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            GetOrAdd<GraphicRaycaster>(root);
+        }
+
+        private static T GetOrAdd<T>(GameObject target) where T : Component
+        {
+            T component = target.GetComponent<T>();
+            return component != null ? component : target.AddComponent<T>();
         }
 
         private static void EnsureFolder(string assetFolder)

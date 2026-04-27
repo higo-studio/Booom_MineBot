@@ -16,6 +16,7 @@ namespace Minebot.Editor
         private const int GlyphPixelsPerUnit = 32;
         private const float DefaultScanLabelFontSize = 4f;
         private const string ArtSetPath = "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset";
+        private const string DualGridTerrainProfilePath = "Assets/Resources/Minebot/MinebotDualGridTerrainProfile_Default.asset";
         private const string BitmapGlyphFontAssetPath = "Assets/Resources/Minebot/MinebotBitmapGlyphFont_Default.asset";
         private const string PalettePrefabPath = "Assets/Art/Minebot/Palettes/MinebotTilePalette.prefab";
         private const string DualGridSpriteDirectory = "Assets/Art/Minebot/Sprites/Tiles/DualGridTerrain";
@@ -84,6 +85,7 @@ namespace Minebot.Editor
             EnsureTileAssets();
             EnsureBitmapGlyphFontAsset();
             MinebotPrefabGameplayArtSupport.EnsureGeneratedAssets();
+            EnsureDualGridTerrainProfile();
             EnsureArtSet();
             EnsurePalettePrefab();
             AssetDatabase.SaveAssets();
@@ -280,6 +282,7 @@ namespace Minebot.Editor
             Sprite player = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/Actors/actor_player_minebot.png");
             Sprite robot = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/Actors/actor_helper_robot.png");
             BitmapGlyphFontDefinition bitmapGlyphFont = EnsureBitmapGlyphFontAsset();
+            DualGridTerrainProfile dualGridTerrainProfile = EnsureDualGridTerrainProfile();
             artSet.Configure(
                 LoadTile(FloorTilePath),
                 LoadTile(SoilWallTilePath),
@@ -309,6 +312,7 @@ namespace Minebot.Editor
                 LoadDualGridTiles(TerrainRenderLayerId.HardRock),
                 LoadDualGridTiles(TerrainRenderLayerId.UltraHard),
                 LoadDualGridTiles(TerrainRenderLayerId.Boundary),
+                dualGridTerrainProfile,
                 bitmapGlyphFont,
                 AssetDatabase.LoadAssetAtPath<Texture2D>(BitmapGlyphAtlasPath),
                 AssetDatabase.LoadAssetAtPath<TextAsset>(BitmapGlyphDescriptorPath),
@@ -319,6 +323,36 @@ namespace Minebot.Editor
                 35);
             MinebotPrefabGameplayArtSupport.ConfigureArtSet(artSet);
             EditorUtility.SetDirty(artSet);
+        }
+
+        internal static MinebotPresentationArtSet EnsureDefaultDualGridConfiguration()
+        {
+            EnsureDualGridTerrainProfile();
+            EnsureArtSet();
+            AssetDatabase.SaveAssets();
+            return AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(ArtSetPath);
+        }
+
+        internal static DualGridTerrainProfile EnsureDualGridTerrainProfile()
+        {
+            DualGridTerrainProfile profile = AssetDatabase.LoadAssetAtPath<DualGridTerrainProfile>(DualGridTerrainProfilePath);
+            if (profile == null)
+            {
+                profile = ScriptableObject.CreateInstance<DualGridTerrainProfile>();
+                AssetDatabase.CreateAsset(profile, DualGridTerrainProfilePath);
+            }
+
+            profile.ConfigureLayout(DualGridTerrainLayoutSettings.CreateDefault());
+            foreach (TerrainRenderLayerId layerId in DualGridTerrainLayout.OrderedLayers)
+            {
+                profile.ConfigureFamilyTiles(layerId, LoadDualGridTiles(layerId));
+            }
+
+            profile.ConfigureLegacyTopology(
+                LoadIndexedTiles("Assets/Art/Minebot/Tiles/Tile_WallContour_{0:00}.asset"),
+                LoadIndexedTiles("Assets/Art/Minebot/Tiles/Tile_DangerContour_{0:00}.asset"));
+            EditorUtility.SetDirty(profile);
+            return profile;
         }
 
         private static void EnsurePalettePrefab()

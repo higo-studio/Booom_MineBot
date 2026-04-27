@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e60e83a20729243a496b90be995c9ca1, type: 3}
+  m_Name: Bootstrap
+  m_EditorClassIdentifier: 
+  gameplaySceneName: Gameplay
+  inputActions: {fileID: 0}
+  defaultMap: {fileID: 0}
+  balanceConfig: {fileID: 11400000, guid: 1b5ac709426f347e18613d7f9f9c57fc, type: 2}
+  upgradePool: {fileID: 11400000, guid: a22e3788f295e4492bedc76a25cee888, type: 2}
+  hazardRules: {fileID: 11400000, guid: 4374aa0be2dcf436ba2ddef58c0add63, type: 2}
+  waveConfig: {fileID: 11400000, guid: 0f2f019a573db47c2a20e35181caa922, type: 2}
+  buildingDefinitions:
+  - {fileID: 11400000, guid: a93c75db922424d8fada0e194913f8b9, type: 2}

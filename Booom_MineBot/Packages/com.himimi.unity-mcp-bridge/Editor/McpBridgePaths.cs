@@ -8,6 +8,7 @@ namespace McpBridge.Editor
     {
         private const string k_CompileStateFileName = "compile-state.json";
         private const string k_HostStateFileName = "host-state.json";
+        private const string k_TestRunStateFileName = "test-run-state.json";
 
         public static string StateDirectory
         {
@@ -21,6 +22,7 @@ namespace McpBridge.Editor
 
         public static string CompileStatePath => Path.Combine(StateDirectory, k_CompileStateFileName);
         public static string HostStatePath => Path.Combine(StateDirectory, k_HostStateFileName);
+        public static string TestRunStatePath => Path.Combine(StateDirectory, k_TestRunStateFileName);
 
         public static string PackageRoot
         {

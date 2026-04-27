@@ -81,15 +81,15 @@ namespace Minebot.Tests.PlayMode
 
             Assert.That(services.Session.Move(GridPosition.Up), Is.EqualTo(MineInteractionResult.Moved));
 
-            MineAndEnter(services, new GridPosition(6, 8), GridPosition.Up);
-            MineAndEnter(services, new GridPosition(6, 9), GridPosition.Up);
-            MineAndEnter(services, new GridPosition(6, 10), GridPosition.Up);
-            MineAndEnter(services, new GridPosition(7, 10), GridPosition.Right);
-            Assert.That(services.Session.Mine(new GridPosition(7, 9)), Is.EqualTo(MineInteractionResult.Mined));
+            MineCollectAndEnter(services, new GridPosition(6, 8), GridPosition.Up);
+            MineCollectAndEnter(services, new GridPosition(6, 9), GridPosition.Up);
+            MineCollectAndEnter(services, new GridPosition(6, 10), GridPosition.Up);
+            MineCollectAndEnter(services, new GridPosition(7, 10), GridPosition.Right);
+            MineAndCollect(services, new GridPosition(7, 9));
             Assert.That(services.Session.Move(GridPosition.Left), Is.EqualTo(MineInteractionResult.Moved));
-            Assert.That(services.Session.Mine(new GridPosition(5, 10)), Is.EqualTo(MineInteractionResult.Mined));
+            MineAndCollect(services, new GridPosition(5, 10));
             Assert.That(services.Session.Move(GridPosition.Left), Is.EqualTo(MineInteractionResult.Moved));
-            Assert.That(services.Session.Mine(new GridPosition(5, 9)), Is.EqualTo(MineInteractionResult.Mined));
+            MineAndCollect(services, new GridPosition(5, 9));
 
             Assert.That(services.Economy.Resources.Metal, Is.GreaterThanOrEqualTo(7));
             Assert.That(services.Experience.Experience, Is.GreaterThanOrEqualTo(5));
@@ -106,10 +106,22 @@ namespace Minebot.Tests.PlayMode
             }
         }
 
-        private static void MineAndEnter(RuntimeServiceRegistry services, GridPosition target, GridPosition direction)
+        private static void MineCollectAndEnter(RuntimeServiceRegistry services, GridPosition target, GridPosition direction)
+        {
+            MineAndCollect(services, target);
+            Assert.That(services.Session.Move(direction), Is.EqualTo(MineInteractionResult.Moved));
+        }
+
+        private static void MineAndCollect(RuntimeServiceRegistry services, GridPosition target)
         {
             Assert.That(services.Session.Mine(target), Is.EqualTo(MineInteractionResult.Mined));
-            Assert.That(services.Session.Move(direction), Is.EqualTo(MineInteractionResult.Moved));
+            bool collected = services.Session.TickWorldPickups(1f, ToWorldCenter(target));
+            Assert.That(collected, Is.True);
+        }
+
+        private static Vector2 ToWorldCenter(GridPosition position)
+        {
+            return new Vector2(position.X + 0.5f, position.Y + 0.5f);
         }
     }
 }

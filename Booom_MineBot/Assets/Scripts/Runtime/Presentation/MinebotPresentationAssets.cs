@@ -69,81 +69,104 @@ namespace Minebot.Presentation
         public float ScanLabelFontSize { get; private set; }
         public int ScanLabelSortingOrder { get; private set; }
         public float PlayerColliderRadius { get; private set; }
+        public DualGridTerrainLayoutSettings TerrainLayoutSettings { get; private set; }
         public bool IsUsingConfiguredArtSet { get; private set; }
 
         public static MinebotPresentationAssets Create(MinebotPresentationArtSet artSet)
         {
+            return Create(artSet, null);
+        }
+
+        public static MinebotPresentationAssets Create(MinebotPresentationArtSet artSet, DualGridTerrainProfile dualGridProfileOverride)
+        {
             MinebotPresentationAssets fallback = CreateFallback();
-            if (artSet == null)
+            if (artSet == null && dualGridProfileOverride == null)
             {
                 return fallback;
             }
 
+            Tile[] floorTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Floor, fallback.FloorDualGridTiles);
+            Tile[] soilTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Soil, fallback.SoilDualGridTiles);
+            Tile[] stoneTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Stone, fallback.StoneDualGridTiles);
+            Tile[] hardRockTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.HardRock, fallback.HardRockDualGridTiles);
+            Tile[] ultraHardTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.UltraHard, fallback.UltraHardDualGridTiles);
+            Tile[] boundaryTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Boundary, fallback.BoundaryDualGridTiles);
+            Tile[] wallContours = ResolveLegacyContourTiles(
+                dualGridProfileOverride != null ? dualGridProfileOverride.ResolveWallContourTiles(artSet != null ? artSet.WallContourTiles : null) : artSet != null ? artSet.WallContourTiles : null,
+                fallback.WallContourTiles);
+            Tile[] dangerContours = ResolveLegacyContourTiles(
+                dualGridProfileOverride != null ? dualGridProfileOverride.ResolveDangerContourTiles(artSet != null ? artSet.DangerContourTiles : null) : artSet != null ? artSet.DangerContourTiles : null,
+                fallback.DangerContourTiles);
+            DualGridTerrainLayoutSettings layoutSettings = dualGridProfileOverride != null
+                ? dualGridProfileOverride.LayoutSettings
+                : artSet != null ? artSet.TerrainLayoutSettings : DualGridTerrainLayoutSettings.CreateDefault();
+
             return new MinebotPresentationAssets
             {
-                EmptyTile = artSet.EmptyTile != null ? artSet.EmptyTile : fallback.EmptyTile,
-                SoilWallTile = artSet.SoilWallTile != null ? artSet.SoilWallTile : fallback.SoilWallTile,
-                StoneWallTile = artSet.StoneWallTile != null ? artSet.StoneWallTile : fallback.StoneWallTile,
-                HardRockWallTile = artSet.HardRockWallTile != null ? artSet.HardRockWallTile : fallback.HardRockWallTile,
-                UltraHardWallTile = artSet.UltraHardWallTile != null ? artSet.UltraHardWallTile : fallback.UltraHardWallTile,
-                BoundaryTile = artSet.BoundaryTile != null ? artSet.BoundaryTile : fallback.BoundaryTile,
-                FloorDualGridTiles = NormalizeIndexedTiles(artSet.FloorDualGridTiles, fallback.FloorDualGridTiles),
-                SoilDualGridTiles = NormalizeIndexedTiles(artSet.SoilDualGridTiles, fallback.SoilDualGridTiles),
-                StoneDualGridTiles = NormalizeIndexedTiles(artSet.StoneDualGridTiles, fallback.StoneDualGridTiles),
-                HardRockDualGridTiles = NormalizeIndexedTiles(artSet.HardRockDualGridTiles, fallback.HardRockDualGridTiles),
-                UltraHardDualGridTiles = NormalizeIndexedTiles(artSet.UltraHardDualGridTiles, fallback.UltraHardDualGridTiles),
-                BoundaryDualGridTiles = NormalizeIndexedTiles(artSet.BoundaryDualGridTiles, fallback.BoundaryDualGridTiles),
-                DangerTile = artSet.DangerTile != null ? artSet.DangerTile : fallback.DangerTile,
-                MarkerTile = artSet.MarkerTile != null ? artSet.MarkerTile : fallback.MarkerTile,
-                RepairStationTile = artSet.RepairStationTile != null ? artSet.RepairStationTile : fallback.RepairStationTile,
-                RobotFactoryTile = artSet.RobotFactoryTile != null ? artSet.RobotFactoryTile : fallback.RobotFactoryTile,
-                ScanHintTile = artSet.ScanHintTile != null ? artSet.ScanHintTile : fallback.ScanHintTile,
-                BuildPreviewValidTile = artSet.BuildPreviewValidTile != null ? artSet.BuildPreviewValidTile : fallback.BuildPreviewValidTile,
-                BuildPreviewInvalidTile = artSet.BuildPreviewInvalidTile != null ? artSet.BuildPreviewInvalidTile : fallback.BuildPreviewInvalidTile,
-                WallContourTiles = NormalizeIndexedTiles(artSet.WallContourTiles, fallback.WallContourTiles),
-                DangerContourTiles = NormalizeIndexedTiles(artSet.DangerContourTiles, fallback.DangerContourTiles),
-                DangerOutlineTiles = NormalizeDangerOutlineTiles(artSet.DangerOutlineTiles, fallback.DangerOutlineTiles),
-                HologramOverlayAtlas = artSet.HologramOverlayAtlas != null ? artSet.HologramOverlayAtlas : fallback.HologramOverlayAtlas,
-                BitmapGlyphAtlas = artSet.BitmapGlyphAtlas != null ? artSet.BitmapGlyphAtlas : fallback.BitmapGlyphAtlas,
-                BitmapGlyphDescriptor = artSet.BitmapGlyphDescriptor != null ? artSet.BitmapGlyphDescriptor : fallback.BitmapGlyphDescriptor,
-                BitmapGlyphFont = artSet.BitmapGlyphFont != null ? artSet.BitmapGlyphFont : fallback.BitmapGlyphFont,
-                SoilDetailTile = artSet.SoilDetailTile != null ? artSet.SoilDetailTile : fallback.SoilDetailTile,
-                StoneDetailTile = artSet.StoneDetailTile != null ? artSet.StoneDetailTile : fallback.StoneDetailTile,
-                HardRockDetailTile = artSet.HardRockDetailTile != null ? artSet.HardRockDetailTile : fallback.HardRockDetailTile,
-                UltraHardDetailTile = artSet.UltraHardDetailTile != null ? artSet.UltraHardDetailTile : fallback.UltraHardDetailTile,
-                PlayerSprite = artSet.PlayerSprite != null ? artSet.PlayerSprite : fallback.PlayerSprite,
-                RobotSprite = artSet.RobotSprite != null ? artSet.RobotSprite : fallback.RobotSprite,
-                PlayerActorPrefab = artSet.ActorResources.PlayerPrefab != null ? artSet.ActorResources.PlayerPrefab : fallback.PlayerActorPrefab,
-                HelperRobotPrefab = artSet.ActorResources.HelperRobotPrefab != null ? artSet.ActorResources.HelperRobotPrefab : fallback.HelperRobotPrefab,
-                PlayerActorStates = artSet.ActorResources.PlayerStates ?? fallback.PlayerActorStates,
-                HelperRobotStates = artSet.ActorResources.HelperRobotStates ?? fallback.HelperRobotStates,
-                MetalPickupPrefab = artSet.PickupResources.MetalPickupPrefab != null ? artSet.PickupResources.MetalPickupPrefab : fallback.MetalPickupPrefab,
-                EnergyPickupPrefab = artSet.PickupResources.EnergyPickupPrefab != null ? artSet.PickupResources.EnergyPickupPrefab : fallback.EnergyPickupPrefab,
-                ExperiencePickupPrefab = artSet.PickupResources.ExperiencePickupPrefab != null ? artSet.PickupResources.ExperiencePickupPrefab : fallback.ExperiencePickupPrefab,
-                MetalPickupIcon = artSet.PickupResources.MetalIcon != null ? artSet.PickupResources.MetalIcon : fallback.MetalPickupIcon,
-                EnergyPickupIcon = artSet.PickupResources.EnergyIcon != null ? artSet.PickupResources.EnergyIcon : fallback.EnergyPickupIcon,
-                ExperiencePickupIcon = artSet.PickupResources.ExperienceIcon != null ? artSet.PickupResources.ExperienceIcon : fallback.ExperiencePickupIcon,
-                MiningCrackPrefab = artSet.CellFxResources.MiningCrackPrefab != null ? artSet.CellFxResources.MiningCrackPrefab : fallback.MiningCrackPrefab,
-                WallBreakPrefab = artSet.CellFxResources.WallBreakPrefab != null ? artSet.CellFxResources.WallBreakPrefab : fallback.WallBreakPrefab,
-                ExplosionPrefab = artSet.CellFxResources.ExplosionPrefab != null ? artSet.CellFxResources.ExplosionPrefab : fallback.ExplosionPrefab,
-                MiningCrackSequence = artSet.CellFxResources.MiningCrackSequence != null ? artSet.CellFxResources.MiningCrackSequence : fallback.MiningCrackSequence,
-                WallBreakSequence = artSet.CellFxResources.WallBreakSequence != null ? artSet.CellFxResources.WallBreakSequence : fallback.WallBreakSequence,
-                ExplosionSequence = artSet.CellFxResources.ExplosionSequence != null ? artSet.CellFxResources.ExplosionSequence : fallback.ExplosionSequence,
-                HudPrefab = artSet.HudResources.HudPrefab != null ? artSet.HudResources.HudPrefab : fallback.HudPrefab,
-                HudPanelBackground = artSet.HudResources.PanelBackground != null ? artSet.HudResources.PanelBackground : fallback.HudPanelBackground,
-                HudStatusIcon = artSet.HudResources.StatusIcon != null ? artSet.HudResources.StatusIcon : fallback.HudStatusIcon,
-                HudInteractionIcon = artSet.HudResources.InteractionIcon != null ? artSet.HudResources.InteractionIcon : fallback.HudInteractionIcon,
-                HudFeedbackIcon = artSet.HudResources.FeedbackIcon != null ? artSet.HudResources.FeedbackIcon : fallback.HudFeedbackIcon,
-                HudWarningIcon = artSet.HudResources.WarningIcon != null ? artSet.HudResources.WarningIcon : fallback.HudWarningIcon,
-                HudUpgradeIcon = artSet.HudResources.UpgradeIcon != null ? artSet.HudResources.UpgradeIcon : fallback.HudUpgradeIcon,
-                HudBuildIcon = artSet.HudResources.BuildIcon != null ? artSet.HudResources.BuildIcon : fallback.HudBuildIcon,
-                HudBuildingInteractionIcon = artSet.HudResources.BuildingInteractionIcon != null ? artSet.HudResources.BuildingInteractionIcon : fallback.HudBuildingInteractionIcon,
-                ScanLabelOffset = artSet.ScanLabelOffset,
-                ScanLabelColor = artSet.ScanLabelColor,
-                ScanLabelFontSize = artSet.ScanLabelFontSize,
-                ScanLabelSortingOrder = artSet.ScanLabelSortingOrder,
-                PlayerColliderRadius = artSet.PlayerColliderRadius,
-                IsUsingConfiguredArtSet = true
+                EmptyTile = artSet != null && artSet.EmptyTile != null ? artSet.EmptyTile : fallback.EmptyTile,
+                SoilWallTile = artSet != null && artSet.SoilWallTile != null ? artSet.SoilWallTile : fallback.SoilWallTile,
+                StoneWallTile = artSet != null && artSet.StoneWallTile != null ? artSet.StoneWallTile : fallback.StoneWallTile,
+                HardRockWallTile = artSet != null && artSet.HardRockWallTile != null ? artSet.HardRockWallTile : fallback.HardRockWallTile,
+                UltraHardWallTile = artSet != null && artSet.UltraHardWallTile != null ? artSet.UltraHardWallTile : fallback.UltraHardWallTile,
+                BoundaryTile = artSet != null && artSet.BoundaryTile != null ? artSet.BoundaryTile : fallback.BoundaryTile,
+                FloorDualGridTiles = NormalizeIndexedTiles(floorTiles, fallback.FloorDualGridTiles),
+                SoilDualGridTiles = NormalizeIndexedTiles(soilTiles, fallback.SoilDualGridTiles),
+                StoneDualGridTiles = NormalizeIndexedTiles(stoneTiles, fallback.StoneDualGridTiles),
+                HardRockDualGridTiles = NormalizeIndexedTiles(hardRockTiles, fallback.HardRockDualGridTiles),
+                UltraHardDualGridTiles = NormalizeIndexedTiles(ultraHardTiles, fallback.UltraHardDualGridTiles),
+                BoundaryDualGridTiles = NormalizeIndexedTiles(boundaryTiles, fallback.BoundaryDualGridTiles),
+                DangerTile = artSet != null && artSet.DangerTile != null ? artSet.DangerTile : fallback.DangerTile,
+                MarkerTile = artSet != null && artSet.MarkerTile != null ? artSet.MarkerTile : fallback.MarkerTile,
+                RepairStationTile = artSet != null && artSet.RepairStationTile != null ? artSet.RepairStationTile : fallback.RepairStationTile,
+                RobotFactoryTile = artSet != null && artSet.RobotFactoryTile != null ? artSet.RobotFactoryTile : fallback.RobotFactoryTile,
+                ScanHintTile = artSet != null && artSet.ScanHintTile != null ? artSet.ScanHintTile : fallback.ScanHintTile,
+                BuildPreviewValidTile = artSet != null && artSet.BuildPreviewValidTile != null ? artSet.BuildPreviewValidTile : fallback.BuildPreviewValidTile,
+                BuildPreviewInvalidTile = artSet != null && artSet.BuildPreviewInvalidTile != null ? artSet.BuildPreviewInvalidTile : fallback.BuildPreviewInvalidTile,
+                WallContourTiles = wallContours,
+                DangerContourTiles = dangerContours,
+                DangerOutlineTiles = NormalizeDangerOutlineTiles(artSet != null ? artSet.DangerOutlineTiles : null, fallback.DangerOutlineTiles),
+                HologramOverlayAtlas = artSet != null && artSet.HologramOverlayAtlas != null ? artSet.HologramOverlayAtlas : fallback.HologramOverlayAtlas,
+                BitmapGlyphAtlas = artSet != null && artSet.BitmapGlyphAtlas != null ? artSet.BitmapGlyphAtlas : fallback.BitmapGlyphAtlas,
+                BitmapGlyphDescriptor = artSet != null && artSet.BitmapGlyphDescriptor != null ? artSet.BitmapGlyphDescriptor : fallback.BitmapGlyphDescriptor,
+                BitmapGlyphFont = artSet != null && artSet.BitmapGlyphFont != null ? artSet.BitmapGlyphFont : fallback.BitmapGlyphFont,
+                SoilDetailTile = artSet != null && artSet.SoilDetailTile != null ? artSet.SoilDetailTile : fallback.SoilDetailTile,
+                StoneDetailTile = artSet != null && artSet.StoneDetailTile != null ? artSet.StoneDetailTile : fallback.StoneDetailTile,
+                HardRockDetailTile = artSet != null && artSet.HardRockDetailTile != null ? artSet.HardRockDetailTile : fallback.HardRockDetailTile,
+                UltraHardDetailTile = artSet != null && artSet.UltraHardDetailTile != null ? artSet.UltraHardDetailTile : fallback.UltraHardDetailTile,
+                PlayerSprite = artSet != null && artSet.PlayerSprite != null ? artSet.PlayerSprite : fallback.PlayerSprite,
+                RobotSprite = artSet != null && artSet.RobotSprite != null ? artSet.RobotSprite : fallback.RobotSprite,
+                PlayerActorPrefab = artSet != null && artSet.ActorResources.PlayerPrefab != null ? artSet.ActorResources.PlayerPrefab : fallback.PlayerActorPrefab,
+                HelperRobotPrefab = artSet != null && artSet.ActorResources.HelperRobotPrefab != null ? artSet.ActorResources.HelperRobotPrefab : fallback.HelperRobotPrefab,
+                PlayerActorStates = artSet != null ? artSet.ActorResources.PlayerStates ?? fallback.PlayerActorStates : fallback.PlayerActorStates,
+                HelperRobotStates = artSet != null ? artSet.ActorResources.HelperRobotStates ?? fallback.HelperRobotStates : fallback.HelperRobotStates,
+                MetalPickupPrefab = artSet != null && artSet.PickupResources.MetalPickupPrefab != null ? artSet.PickupResources.MetalPickupPrefab : fallback.MetalPickupPrefab,
+                EnergyPickupPrefab = artSet != null && artSet.PickupResources.EnergyPickupPrefab != null ? artSet.PickupResources.EnergyPickupPrefab : fallback.EnergyPickupPrefab,
+                ExperiencePickupPrefab = artSet != null && artSet.PickupResources.ExperiencePickupPrefab != null ? artSet.PickupResources.ExperiencePickupPrefab : fallback.ExperiencePickupPrefab,
+                MetalPickupIcon = artSet != null && artSet.PickupResources.MetalIcon != null ? artSet.PickupResources.MetalIcon : fallback.MetalPickupIcon,
+                EnergyPickupIcon = artSet != null && artSet.PickupResources.EnergyIcon != null ? artSet.PickupResources.EnergyIcon : fallback.EnergyPickupIcon,
+                ExperiencePickupIcon = artSet != null && artSet.PickupResources.ExperienceIcon != null ? artSet.PickupResources.ExperienceIcon : fallback.ExperiencePickupIcon,
+                MiningCrackPrefab = artSet != null && artSet.CellFxResources.MiningCrackPrefab != null ? artSet.CellFxResources.MiningCrackPrefab : fallback.MiningCrackPrefab,
+                WallBreakPrefab = artSet != null && artSet.CellFxResources.WallBreakPrefab != null ? artSet.CellFxResources.WallBreakPrefab : fallback.WallBreakPrefab,
+                ExplosionPrefab = artSet != null && artSet.CellFxResources.ExplosionPrefab != null ? artSet.CellFxResources.ExplosionPrefab : fallback.ExplosionPrefab,
+                MiningCrackSequence = artSet != null && artSet.CellFxResources.MiningCrackSequence != null ? artSet.CellFxResources.MiningCrackSequence : fallback.MiningCrackSequence,
+                WallBreakSequence = artSet != null && artSet.CellFxResources.WallBreakSequence != null ? artSet.CellFxResources.WallBreakSequence : fallback.WallBreakSequence,
+                ExplosionSequence = artSet != null && artSet.CellFxResources.ExplosionSequence != null ? artSet.CellFxResources.ExplosionSequence : fallback.ExplosionSequence,
+                HudPrefab = artSet != null && artSet.HudResources.HudPrefab != null ? artSet.HudResources.HudPrefab : fallback.HudPrefab,
+                HudPanelBackground = artSet != null && artSet.HudResources.PanelBackground != null ? artSet.HudResources.PanelBackground : fallback.HudPanelBackground,
+                HudStatusIcon = artSet != null && artSet.HudResources.StatusIcon != null ? artSet.HudResources.StatusIcon : fallback.HudStatusIcon,
+                HudInteractionIcon = artSet != null && artSet.HudResources.InteractionIcon != null ? artSet.HudResources.InteractionIcon : fallback.HudInteractionIcon,
+                HudFeedbackIcon = artSet != null && artSet.HudResources.FeedbackIcon != null ? artSet.HudResources.FeedbackIcon : fallback.HudFeedbackIcon,
+                HudWarningIcon = artSet != null && artSet.HudResources.WarningIcon != null ? artSet.HudResources.WarningIcon : fallback.HudWarningIcon,
+                HudUpgradeIcon = artSet != null && artSet.HudResources.UpgradeIcon != null ? artSet.HudResources.UpgradeIcon : fallback.HudUpgradeIcon,
+                HudBuildIcon = artSet != null && artSet.HudResources.BuildIcon != null ? artSet.HudResources.BuildIcon : fallback.HudBuildIcon,
+                HudBuildingInteractionIcon = artSet != null && artSet.HudResources.BuildingInteractionIcon != null ? artSet.HudResources.BuildingInteractionIcon : fallback.HudBuildingInteractionIcon,
+                ScanLabelOffset = artSet != null ? artSet.ScanLabelOffset : fallback.ScanLabelOffset,
+                ScanLabelColor = artSet != null ? artSet.ScanLabelColor : fallback.ScanLabelColor,
+                ScanLabelFontSize = artSet != null ? artSet.ScanLabelFontSize : fallback.ScanLabelFontSize,
+                ScanLabelSortingOrder = artSet != null ? artSet.ScanLabelSortingOrder : fallback.ScanLabelSortingOrder,
+                PlayerColliderRadius = artSet != null ? artSet.PlayerColliderRadius : fallback.PlayerColliderRadius,
+                TerrainLayoutSettings = layoutSettings,
+                IsUsingConfiguredArtSet = artSet != null || dualGridProfileOverride != null
             };
         }
 
@@ -306,6 +329,57 @@ namespace Minebot.Presentation
         private static Tile[] NormalizeIndexedTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
         {
             var normalized = new Tile[DualGridTerrain.TileCount];
+            for (int i = 0; i < normalized.Length; i++)
+            {
+                Tile configured = configuredTiles != null && i < configuredTiles.Length ? configuredTiles[i] : null;
+                Tile fallback = fallbackTiles != null && i < fallbackTiles.Length ? fallbackTiles[i] : null;
+                normalized[i] = configured != null ? configured : fallback;
+            }
+
+            return normalized;
+        }
+
+        private static Tile[] ResolveDualGridTiles(
+            MinebotPresentationArtSet artSet,
+            DualGridTerrainProfile overrideProfile,
+            TerrainRenderLayerId layerId,
+            Tile[] fallbackTiles)
+        {
+            if (overrideProfile != null)
+            {
+                return overrideProfile.ResolveFamilyTiles(layerId, artSet != null ? ArtSetTilesForLayer(artSet, layerId) : null);
+            }
+
+            if (artSet != null)
+            {
+                return ArtSetTilesForLayer(artSet, layerId);
+            }
+
+            return fallbackTiles;
+        }
+
+        private static Tile[] ArtSetTilesForLayer(MinebotPresentationArtSet artSet, TerrainRenderLayerId layerId)
+        {
+            switch (layerId)
+            {
+                case TerrainRenderLayerId.Soil:
+                    return artSet.SoilDualGridTiles;
+                case TerrainRenderLayerId.Stone:
+                    return artSet.StoneDualGridTiles;
+                case TerrainRenderLayerId.HardRock:
+                    return artSet.HardRockDualGridTiles;
+                case TerrainRenderLayerId.UltraHard:
+                    return artSet.UltraHardDualGridTiles;
+                case TerrainRenderLayerId.Boundary:
+                    return artSet.BoundaryDualGridTiles;
+                default:
+                    return artSet.FloorDualGridTiles;
+            }
+        }
+
+        private static Tile[] ResolveLegacyContourTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
+        {
+            var normalized = new Tile[DualGridContour.TileCount];
             for (int i = 0; i < normalized.Length; i++)
             {
                 Tile configured = configuredTiles != null && i < configuredTiles.Length ? configuredTiles[i] : null;

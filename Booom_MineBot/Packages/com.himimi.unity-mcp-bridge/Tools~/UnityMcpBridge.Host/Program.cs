@@ -283,7 +283,12 @@ internal static class JsonRpcHandler
             }
         }
 
-        var timeout = toolName == CompileToolName ? TimeSpan.FromMinutes(5) : TimeSpan.FromMinutes(2);
+        var timeout = toolName switch
+        {
+            CompileToolName => TimeSpan.FromMinutes(5),
+            TestsRunToolName => TimeSpan.FromMinutes(15),
+            _ => TimeSpan.FromSeconds(30)
+        };
         var resilience = GetRequestResilience(toolName);
         var response = await ForwardAsync(unity, id, "tools/call", toolName, arguments, targetInstanceId, timeout, resilience);
         return response;
@@ -308,10 +313,32 @@ internal static class JsonRpcHandler
         if (toolName != null) envelope["toolName"] = toolName;
         if (arguments != null) envelope["arguments"] = arguments;
 
-        var reply = await unity.SendRequestAsync(envelope, targetInstanceId, timeout, resilience);
-        if (reply == null)
+        var deadlineUtc = DateTime.UtcNow + timeout;
+        JsonObject? reply;
+        while (true)
         {
-            return Error(rpcId, -32001, "Unity bridge timed out.");
+            var remaining = deadlineUtc - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero)
+            {
+                return Error(rpcId, -32001, "Unity bridge timed out.");
+            }
+
+            reply = await unity.SendRequestAsync(envelope, targetInstanceId, remaining, resilience);
+            if (reply == null)
+            {
+                return Error(rpcId, -32001, "Unity bridge timed out.");
+            }
+
+            if (!ShouldRetryToolCall(toolName, reply, out var retryDelay))
+            {
+                break;
+            }
+
+            var boundedDelay = retryDelay < remaining ? retryDelay : remaining;
+            if (boundedDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(boundedDelay);
+            }
         }
 
         var success = reply["success"]?.GetValue<bool>() ?? false;
@@ -349,6 +376,35 @@ internal static class JsonRpcHandler
         return Success(rpcId, reply["result"]?.DeepClone() ?? new JsonObject());
     }
 
+    private static bool ShouldRetryToolCall(string? toolName, JsonObject reply, out TimeSpan retryDelay)
+    {
+        retryDelay = TimeSpan.FromMilliseconds(750);
+        if (!string.Equals(toolName, TestsRunToolName, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (reply["success"]?.GetValue<bool>() != true)
+        {
+            return false;
+        }
+
+        if (reply["result"] is not JsonObject result ||
+            result["structuredContent"] is not JsonObject structuredContent)
+        {
+            return false;
+        }
+
+        if (structuredContent["ok"]?.GetValue<bool>() != false)
+        {
+            return false;
+        }
+
+        var status = structuredContent["status"]?.GetValue<string>() ?? string.Empty;
+        return string.Equals(status, "retry", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(status, "busy", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static RequestResilience GetRequestResilience(string toolName)
     {
         return toolName switch
@@ -356,6 +412,7 @@ internal static class JsonRpcHandler
             CompileToolName => RequestResilience.WaitForReconnect,
             "unity.enter_play_mode" => RequestResilience.WaitForReconnectAndReplay,
             "unity.exit_play_mode" => RequestResilience.WaitForReconnectAndReplay,
+            TestsRunToolName => RequestResilience.WaitForReconnect,
             _ => RequestResilience.None
         };
     }
@@ -584,6 +641,8 @@ internal sealed class SessionManager
 
 internal sealed class UnityBridgeHub
 {
+    private static readonly TimeSpan ReconnectGracePeriod = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ReconnectTimeout = TimeSpan.FromSeconds(30);
     private readonly int _port;
     private readonly string _primaryProjectPath;
     private readonly ConcurrentDictionary<string, PendingRequest> _pending = new();
@@ -669,7 +728,9 @@ internal sealed class UnityBridgeHub
     public async Task<JsonObject?> SendRequestAsync(JsonObject envelope, string? targetInstanceId, TimeSpan timeout, RequestResilience resilience)
     {
         using var timeoutCts = new CancellationTokenSource(timeout);
-        var connection = await WaitForTargetAsync(targetInstanceId, resilience, timeoutCts.Token);
+        using var reconnectCts = CreateReconnectWaitCancellationSource(timeoutCts.Token, resilience, timeout);
+        var waitToken = reconnectCts?.Token ?? timeoutCts.Token;
+        var connection = await WaitForTargetAsync(targetInstanceId, resilience, waitToken);
         if (connection == null)
         {
             throw new InvalidOperationException(targetInstanceId == null
@@ -678,6 +739,14 @@ internal sealed class UnityBridgeHub
         }
 
         var requestId = envelope["id"]!.GetValue<string>();
+        if (TryGetInFlightRequest(connection.InstanceId, out var inFlight))
+        {
+            throw new InvalidOperationException(
+                $"Unity instance '{connection.InstanceId}' is already handling '{inFlight.ToolName}' " +
+                $"for {inFlight.Elapsed.TotalSeconds:0.0}s. The editor may be blocked by a modal dialog, " +
+                "a Play Mode transition, or a previous stalled request.");
+        }
+
         var pending = new PendingRequest(connection.InstanceId, envelope, targetInstanceId, resilience);
         _pending[requestId] = pending;
 
@@ -693,6 +762,22 @@ internal sealed class UnityBridgeHub
             _pending.TryRemove(requestId, out _);
             return result;
         }
+    }
+
+    private static CancellationTokenSource? CreateReconnectWaitCancellationSource(
+        CancellationToken parentToken,
+        RequestResilience resilience,
+        TimeSpan requestTimeout)
+    {
+        if ((resilience & RequestResilience.WaitForReconnect) == 0 ||
+            requestTimeout <= ReconnectTimeout)
+        {
+            return null;
+        }
+
+        var reconnectCts = CancellationTokenSource.CreateLinkedTokenSource(parentToken);
+        reconnectCts.CancelAfter(ReconnectTimeout);
+        return reconnectCts;
     }
 
     private async Task ReadLoopAsync(TcpClient client)
@@ -762,6 +847,7 @@ internal sealed class UnityBridgeHub
         string instanceId;
         int processId;
         string projectPath;
+        string primaryProjectPath;
         string projectName;
         string productName;
 
@@ -770,6 +856,7 @@ internal sealed class UnityBridgeHub
             instanceId = instance["instanceId"]?.GetValue<string>() ?? string.Empty;
             processId = instance["processId"]?.GetValue<int>() ?? 0;
             projectPath = instance["projectPath"]?.GetValue<string>() ?? string.Empty;
+            primaryProjectPath = instance["primaryProjectPath"]?.GetValue<string>() ?? string.Empty;
             projectName = instance["projectName"]?.GetValue<string>() ?? string.Empty;
             productName = instance["productName"]?.GetValue<string>() ?? string.Empty;
         }
@@ -778,6 +865,7 @@ internal sealed class UnityBridgeHub
             instanceId = $"legacy:{client.Client.RemoteEndPoint}";
             processId = 0;
             projectPath = $"[legacy] {client.Client.RemoteEndPoint}";
+            primaryProjectPath = string.Empty;
             projectName = "Legacy Unity Instance";
             productName = string.Empty;
         }
@@ -797,10 +885,32 @@ internal sealed class UnityBridgeHub
             projectName = Path.GetFileName(projectPath);
         }
 
+        if (instanceId.StartsWith("legacy:", StringComparison.Ordinal))
+        {
+            Console.WriteLine($"Ignoring legacy Unity connection '{instanceId}' because it does not declare a primary project path.");
+            try { client.Dispose(); } catch { }
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(primaryProjectPath))
+        {
+            primaryProjectPath = projectPath;
+        }
+
+        var normalizedPrimaryProjectPath = NormalizePath(primaryProjectPath);
+        if (!PathsEqual(normalizedPrimaryProjectPath, _primaryProjectPath))
+        {
+            Console.WriteLine(
+                $"Ignoring Unity instance '{instanceId}' from unrelated project family '{normalizedPrimaryProjectPath}'. Expected '{_primaryProjectPath}'.");
+            try { client.Dispose(); } catch { }
+            return;
+        }
+
         var connection = new UnityConnection(
             instanceId,
             processId,
             projectPath,
+            normalizedPrimaryProjectPath,
             projectName,
             productName,
             client,
@@ -814,6 +924,7 @@ internal sealed class UnityBridgeHub
         _connections[instanceId] = connection;
         _socketToInstance[client] = instanceId;
         SignalConnectionChanged();
+        ResumePendingRequests(instanceId);
         RetryPendingRequests(instanceId);
 
         Console.WriteLine($"Unity connected: {instanceId} ({projectPath})");
@@ -840,15 +951,15 @@ internal sealed class UnityBridgeHub
                 continue;
             }
 
-            if (_pending.TryRemove(pair.Key, out var pending))
-            {
-                if (!pending.TryHandleDisconnect(instanceId))
-                {
-                    continue;
-                }
+            pair.Value.TryHandleDisconnect(instanceId, ReconnectGracePeriod, ReconnectTimeout);
+        }
+    }
 
-                _pending[pair.Key] = pending;
-            }
+    private void ResumePendingRequests(string instanceId)
+    {
+        foreach (var pair in _pending)
+        {
+            pair.Value.TryHandleReconnect(instanceId);
         }
     }
 
@@ -883,7 +994,7 @@ internal sealed class UnityBridgeHub
         }
 
         var primary = _connections.Values.FirstOrDefault(connection =>
-            NormalizePath(connection.ProjectPath) == _primaryProjectPath);
+            PathsEqual(connection.ProjectPath, _primaryProjectPath));
         if (primary != null)
         {
             return primary;
@@ -934,9 +1045,32 @@ internal sealed class UnityBridgeHub
         return null;
     }
 
+    private bool TryGetInFlightRequest(string instanceId, out PendingRequest pendingRequest)
+    {
+        foreach (var pair in _pending)
+        {
+            var pending = pair.Value;
+            if (pending.Task.IsCompleted || !string.Equals(pending.InstanceId, instanceId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            pendingRequest = pending;
+            return true;
+        }
+
+        pendingRequest = null!;
+        return false;
+    }
+
     private static string NormalizePath(string path)
     {
         return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private static bool PathsEqual(string left, string right)
+    {
+        return string.Equals(NormalizePath(left), NormalizePath(right), StringComparison.OrdinalIgnoreCase);
     }
 
     private void SignalConnectionChanged()
@@ -959,11 +1093,12 @@ internal sealed class UnityBridgeHub
         private readonly TcpClient _client;
         private readonly StreamWriter _writer;
 
-        public UnityConnection(string instanceId, int processId, string projectPath, string projectName, string productName, TcpClient client, StreamWriter writer)
+        public UnityConnection(string instanceId, int processId, string projectPath, string primaryProjectPath, string projectName, string productName, TcpClient client, StreamWriter writer)
         {
             InstanceId = instanceId;
             ProcessId = processId;
-            ProjectPath = projectPath;
+            ProjectPath = NormalizePath(projectPath);
+            PrimaryProjectPath = NormalizePath(primaryProjectPath);
             ProjectName = projectName;
             ProductName = productName;
             _client = client;
@@ -973,6 +1108,7 @@ internal sealed class UnityBridgeHub
         public string InstanceId { get; }
         public int ProcessId { get; }
         public string ProjectPath { get; }
+        public string PrimaryProjectPath { get; }
         public string ProjectName { get; }
         public string ProductName { get; }
 
@@ -983,7 +1119,7 @@ internal sealed class UnityBridgeHub
                 return false;
             }
 
-            return NormalizePath(ProjectPath) == primaryProjectPath;
+            return PathsEqual(ProjectPath, primaryProjectPath);
         }
 
         public bool TrySend(JsonObject envelope)
@@ -1011,7 +1147,9 @@ internal sealed class UnityBridgeHub
 
     private sealed class PendingRequest
     {
+        private readonly object _gate = new();
         private readonly TaskCompletionSource<JsonObject?> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private CancellationTokenSource? _disconnectTimeoutCts;
 
         public PendingRequest(string instanceId, JsonObject envelope, string? targetInstanceId, RequestResilience resilience)
         {
@@ -1019,40 +1157,74 @@ internal sealed class UnityBridgeHub
             Envelope = (JsonObject)envelope.DeepClone();
             TargetInstanceId = targetInstanceId;
             Resilience = resilience;
+            ToolName = envelope["toolName"]?.GetValue<string>() ?? envelope["method"]?.GetValue<string>() ?? "unknown";
+            StartedAtUtc = DateTime.UtcNow;
         }
 
         public string InstanceId { get; private set; }
         public string? TargetInstanceId { get; }
         public JsonObject Envelope { get; }
         public RequestResilience Resilience { get; }
+        public string ToolName { get; }
+        public DateTime StartedAtUtc { get; }
+        public TimeSpan Elapsed => DateTime.UtcNow - StartedAtUtc;
         public Task<JsonObject?> Task => _tcs.Task;
         private bool WaitingForReconnect => (Resilience & RequestResilience.WaitForReconnect) != 0;
         private bool ReplayOnReconnect => (Resilience & RequestResilience.ReplayOnReconnect) != 0;
 
         public void TrySetResult(JsonObject result)
         {
+            ClearDisconnectWait();
             _tcs.TrySetResult(result);
         }
 
         public void TrySetTimeout()
         {
+            ClearDisconnectWait();
             _tcs.TrySetResult(null);
         }
 
-        public bool TryHandleDisconnect(string instanceId)
+        public bool TryHandleDisconnect(string instanceId, TimeSpan reconnectGracePeriod, TimeSpan reconnectTimeout)
         {
             if (!WaitingForReconnect)
             {
+                ClearDisconnectWait();
                 _tcs.TrySetResult(new JsonObject
                 {
                     ["type"] = "response",
                     ["success"] = false,
-                    ["error"] = $"Unity instance '{instanceId}' disconnected while handling the request. This usually happens during Play Mode transitions or domain reload. Retry after the editor reconnects."
+                    ["error"] = BuildDisconnectError(instanceId)
                 });
                 return false;
             }
 
+            lock (_gate)
+            {
+                if (_tcs.Task.IsCompleted)
+                {
+                    return false;
+                }
+
+                if (_disconnectTimeoutCts != null)
+                {
+                    return true;
+                }
+
+                _disconnectTimeoutCts = new CancellationTokenSource();
+                _ = MonitorReconnectAsync(instanceId, reconnectGracePeriod, reconnectTimeout, _disconnectTimeoutCts.Token);
+            }
+
             return true;
+        }
+
+        public void TryHandleReconnect(string instanceId)
+        {
+            if (!string.Equals(InstanceId, instanceId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            ClearDisconnectWait();
         }
 
         public bool ShouldReplayOnReconnect(string instanceId)
@@ -1065,6 +1237,82 @@ internal sealed class UnityBridgeHub
         public void MarkReplayed(string instanceId)
         {
             InstanceId = instanceId;
+        }
+
+        private async Task MonitorReconnectAsync(
+            string instanceId,
+            TimeSpan reconnectGracePeriod,
+            TimeSpan reconnectTimeout,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (reconnectGracePeriod > TimeSpan.Zero)
+                {
+                    await global::System.Threading.Tasks.Task.Delay(reconnectGracePeriod, cancellationToken);
+                }
+
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    Console.WriteLine(
+                        $"Unity instance '{instanceId}' disconnected while handling '{ToolName}'. Waiting up to {reconnectTimeout.TotalSeconds:0}s for reconnect.");
+                }
+
+                var remainingTimeout = reconnectTimeout - reconnectGracePeriod;
+                if (remainingTimeout > TimeSpan.Zero)
+                {
+                    await global::System.Threading.Tasks.Task.Delay(remainingTimeout, cancellationToken);
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                lock (_gate)
+                {
+                    if (_disconnectTimeoutCts == null || _disconnectTimeoutCts.Token != cancellationToken)
+                    {
+                        return;
+                    }
+
+                    _disconnectTimeoutCts.Dispose();
+                    _disconnectTimeoutCts = null;
+                }
+
+                _tcs.TrySetResult(new JsonObject
+                {
+                    ["type"] = "response",
+                    ["success"] = false,
+                    ["error"] = BuildDisconnectError(instanceId)
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        private void ClearDisconnectWait()
+        {
+            CancellationTokenSource? toDispose = null;
+            lock (_gate)
+            {
+                toDispose = _disconnectTimeoutCts;
+                _disconnectTimeoutCts = null;
+            }
+
+            if (toDispose == null)
+            {
+                return;
+            }
+
+            try { toDispose.Cancel(); } catch { }
+            toDispose.Dispose();
+        }
+
+        private static string BuildDisconnectError(string instanceId)
+        {
+            return $"Unity instance '{instanceId}' disconnected while handling the request. This usually happens during Play Mode transitions or domain reload. Retry after the editor reconnects.";
         }
     }
 }

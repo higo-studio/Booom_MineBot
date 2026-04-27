@@ -26,6 +26,7 @@ namespace McpBridge.Editor
         public static void EnsureDesiredState()
         {
             var settings = McpBridgeSettings.instance;
+            settings.EnsureProjectScopedDefaults();
             if (!settings.Enabled) { StopHost(); return; }
             if (!settings.AutoStartHost || IsHostRunning())
             {
@@ -42,6 +43,8 @@ namespace McpBridge.Editor
                 UnityEngine.Debug.LogWarning($"MCP host project missing: '{McpBridgePaths.HostProjectPath}'.");
                 return;
             }
+
+            McpBridgeSettings.instance.EnsureProjectScopedDefaults();
 
             if (IsHostRunning())
             {

@@ -29,6 +29,9 @@ namespace Minebot.Presentation
         private Tile boundaryTile;
 
         [SerializeField]
+        private DualGridTerrainProfile dualGridTerrainProfile;
+
+        [SerializeField]
         private Tile[] floorDualGridTiles = Array.Empty<Tile>();
 
         [SerializeField]
@@ -162,18 +165,24 @@ namespace Minebot.Presentation
         public Tile HardRockWallTile => hardRockWallTile;
         public Tile UltraHardWallTile => ultraHardWallTile;
         public Tile BoundaryTile => boundaryTile;
-        public Tile[] FloorDualGridTiles => ResolveDualGridTiles(floorDualGridTiles, ref generatedFloorDualGridTiles, TerrainRenderLayerId.Floor);
-        public Tile[] SoilDualGridTiles => ResolveDualGridTiles(soilDualGridTiles, ref generatedSoilDualGridTiles, TerrainRenderLayerId.Soil);
-        public Tile[] StoneDualGridTiles => ResolveDualGridTiles(stoneDualGridTiles, ref generatedStoneDualGridTiles, TerrainRenderLayerId.Stone);
-        public Tile[] HardRockDualGridTiles => ResolveDualGridTiles(hardRockDualGridTiles, ref generatedHardRockDualGridTiles, TerrainRenderLayerId.HardRock);
-        public Tile[] UltraHardDualGridTiles => ResolveDualGridTiles(ultraHardDualGridTiles, ref generatedUltraHardDualGridTiles, TerrainRenderLayerId.UltraHard);
-        public Tile[] BoundaryDualGridTiles => ResolveDualGridTiles(boundaryDualGridTiles, ref generatedBoundaryDualGridTiles, TerrainRenderLayerId.Boundary);
+        public DualGridTerrainProfile DualGridTerrainProfile => dualGridTerrainProfile;
+        public DualGridTerrainLayoutSettings TerrainLayoutSettings => dualGridTerrainProfile != null ? dualGridTerrainProfile.LayoutSettings : DualGridTerrainLayoutSettings.CreateDefault();
+        public Tile[] FloorDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Floor, floorDualGridTiles, ref generatedFloorDualGridTiles);
+        public Tile[] SoilDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Soil, soilDualGridTiles, ref generatedSoilDualGridTiles);
+        public Tile[] StoneDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Stone, stoneDualGridTiles, ref generatedStoneDualGridTiles);
+        public Tile[] HardRockDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.HardRock, hardRockDualGridTiles, ref generatedHardRockDualGridTiles);
+        public Tile[] UltraHardDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.UltraHard, ultraHardDualGridTiles, ref generatedUltraHardDualGridTiles);
+        public Tile[] BoundaryDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Boundary, boundaryDualGridTiles, ref generatedBoundaryDualGridTiles);
         public Tile DangerTile => dangerTile;
         public Tile MarkerTile => markerTile;
         public Tile ScanHintTile => scanHintTile;
         public Tile[] DangerOutlineTiles => dangerOutlineTiles ?? Array.Empty<Tile>();
-        public Tile[] WallContourTiles => wallContourTiles ?? Array.Empty<Tile>();
-        public Tile[] DangerContourTiles => dangerContourTiles ?? Array.Empty<Tile>();
+        public Tile[] WallContourTiles => dualGridTerrainProfile != null
+            ? dualGridTerrainProfile.ResolveWallContourTiles(wallContourTiles)
+            : wallContourTiles ?? Array.Empty<Tile>();
+        public Tile[] DangerContourTiles => dualGridTerrainProfile != null
+            ? dualGridTerrainProfile.ResolveDangerContourTiles(dangerContourTiles)
+            : dangerContourTiles ?? Array.Empty<Tile>();
         public Tile SoilDetailTile => soilDetailTile;
         public Tile StoneDetailTile => stoneDetailTile;
         public Tile HardRockDetailTile => hardRockDetailTile;
@@ -198,8 +207,13 @@ namespace Minebot.Presentation
         public MinebotPresentationCellFxResources CellFxResources => cellFxResources ?? new MinebotPresentationCellFxResources();
         public MinebotPresentationHudResources HudResources => hudResources ?? new MinebotPresentationHudResources();
 
-        private static Tile[] ResolveDualGridTiles(Tile[] configuredTiles, ref Tile[] generatedTiles, TerrainRenderLayerId layerId)
+        private Tile[] ResolveDualGridTiles(TerrainRenderLayerId layerId, Tile[] configuredTiles, ref Tile[] generatedTiles)
         {
+            if (dualGridTerrainProfile != null)
+            {
+                return dualGridTerrainProfile.ResolveFamilyTiles(layerId, configuredTiles);
+            }
+
             if (configuredTiles != null && configuredTiles.Length > 0)
             {
                 return configuredTiles;
@@ -207,6 +221,42 @@ namespace Minebot.Presentation
 
             return generatedTiles ??= DualGridTerrainFallbackTiles.CreateTileSet(layerId);
         }
+
+#if UNITY_EDITOR
+        public Tile[] GetLegacyConfiguredDualGridTiles(TerrainRenderLayerId layerId)
+        {
+            switch (layerId)
+            {
+                case TerrainRenderLayerId.Soil:
+                    return soilDualGridTiles ?? Array.Empty<Tile>();
+                case TerrainRenderLayerId.Stone:
+                    return stoneDualGridTiles ?? Array.Empty<Tile>();
+                case TerrainRenderLayerId.HardRock:
+                    return hardRockDualGridTiles ?? Array.Empty<Tile>();
+                case TerrainRenderLayerId.UltraHard:
+                    return ultraHardDualGridTiles ?? Array.Empty<Tile>();
+                case TerrainRenderLayerId.Boundary:
+                    return boundaryDualGridTiles ?? Array.Empty<Tile>();
+                default:
+                    return floorDualGridTiles ?? Array.Empty<Tile>();
+            }
+        }
+
+        public Tile[] GetLegacyConfiguredWallContourTiles()
+        {
+            return wallContourTiles ?? Array.Empty<Tile>();
+        }
+
+        public Tile[] GetLegacyConfiguredDangerContourTiles()
+        {
+            return dangerContourTiles ?? Array.Empty<Tile>();
+        }
+
+        public void AssignDualGridTerrainProfile(DualGridTerrainProfile profile)
+        {
+            dualGridTerrainProfile = profile;
+        }
+#endif
 
         public Tile TileForHardness(HardnessTier hardness)
         {
@@ -253,6 +303,7 @@ namespace Minebot.Presentation
             Tile[] hardRockDualGrid = null,
             Tile[] ultraHardDualGrid = null,
             Tile[] boundaryDualGrid = null,
+            DualGridTerrainProfile configuredDualGridTerrainProfile = null,
             BitmapGlyphFontDefinition configuredBitmapGlyphFont = null,
             Texture2D configuredBitmapGlyphAtlas = null,
             TextAsset configuredBitmapGlyphDescriptor = null,
@@ -290,6 +341,7 @@ namespace Minebot.Presentation
             hardRockDualGridTiles = hardRockDualGrid ?? Array.Empty<Tile>();
             ultraHardDualGridTiles = ultraHardDualGrid ?? Array.Empty<Tile>();
             boundaryDualGridTiles = boundaryDualGrid ?? Array.Empty<Tile>();
+            dualGridTerrainProfile = configuredDualGridTerrainProfile;
             bitmapGlyphFont = configuredBitmapGlyphFont;
             bitmapGlyphAtlas = configuredBitmapGlyphAtlas;
             bitmapGlyphDescriptor = configuredBitmapGlyphDescriptor;

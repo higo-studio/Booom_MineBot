@@ -323,7 +323,7 @@ namespace McpBridge.Editor
             switch (source)
             {
                 case "game":
-                    return ScreenCapture.CaptureScreenshotAsTexture();
+                    return CaptureGameTexture(out failureText);
                 case "scene":
                     return CaptureSceneViewTexture(out failureText);
                 case "camera":
@@ -332,6 +332,32 @@ namespace McpBridge.Editor
                     failureText = $"[Failed] Unsupported screenshot source '{source}'.";
                     return null;
             }
+        }
+
+        private static Texture2D CaptureGameTexture(out string failureText)
+        {
+            failureText = null;
+            try
+            {
+                var texture = ScreenCapture.CaptureScreenshotAsTexture();
+                if (texture != null)
+                {
+                    return texture;
+                }
+            }
+            catch (Exception exception)
+            {
+                failureText = $"[Failed] Game view screenshot capture failed: {exception.Message}";
+            }
+
+            var fallbackTexture = CaptureCameraTexture(null, out var fallbackFailureText);
+            if (fallbackTexture != null)
+            {
+                return fallbackTexture;
+            }
+
+            failureText = fallbackFailureText ?? failureText ?? "[Failed] Game view screenshot capture is not available in the current editor state.";
+            return null;
         }
 
         private static Texture2D CaptureSceneViewTexture(out string failureText)
