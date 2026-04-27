@@ -9,6 +9,7 @@ using Minebot.Progression;
 using Minebot.WaveSurvival;
 using NUnit.Framework;
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -662,6 +663,28 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void GeneratedActorStateFramesUseTransparentBackground()
+        {
+            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
+
+            Texture2D playerTexture = LoadTextureFromPngFile("Assets/Art/Minebot/Sprites/Actors/States/player_idle_0.png");
+            Texture2D robotTexture = LoadTextureFromPngFile("Assets/Art/Minebot/Sprites/Actors/States/robot_idle_0.png");
+
+            try
+            {
+                AssertTransparentCorners(playerTexture);
+                AssertTransparentCorners(robotTexture);
+                Assert.That(playerTexture.GetPixel(16, 16).a, Is.GreaterThan(0.9f));
+                Assert.That(robotTexture.GetPixel(16, 16).a, Is.GreaterThan(0.9f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(playerTexture);
+                Object.DestroyImmediate(robotTexture);
+            }
+        }
+
+        [Test]
         public void HologramAssetsExposeBitmapGlyphsAndDangerGeometryCompatibility()
         {
             MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
@@ -1014,6 +1037,22 @@ namespace Minebot.Tests.EditMode
             }
 
             return false;
+        }
+
+        private static Texture2D LoadTextureFromPngFile(string assetPath)
+        {
+            byte[] bytes = File.ReadAllBytes(assetPath);
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            Assert.That(ImageConversion.LoadImage(texture, bytes, false), Is.True, $"Failed to load PNG bytes from {assetPath}.");
+            return texture;
+        }
+
+        private static void AssertTransparentCorners(Texture2D texture)
+        {
+            Assert.That(texture.GetPixel(0, 0).a, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(texture.GetPixel(texture.width - 1, 0).a, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(texture.GetPixel(0, texture.height - 1).a, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(texture.GetPixel(texture.width - 1, texture.height - 1).a, Is.EqualTo(0f).Within(0.001f));
         }
 
         private static GameSessionService CreateSession(LogicalGridState grid, ResourceAmount startingResources, out PlayerEconomy economy)
