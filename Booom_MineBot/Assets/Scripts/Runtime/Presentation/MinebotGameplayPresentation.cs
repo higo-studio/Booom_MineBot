@@ -1744,7 +1744,7 @@ namespace Minebot.Presentation
                 {
                     hudView.BuildPanel.SetButton(i, visible, label, selected);
                 }
-                hudView.SetTemplateBuildButton(i, visible, label, selected);
+                //hudView.SetTemplateBuildButton(i, visible, label, selected);
             }
         }
 
