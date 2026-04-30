@@ -30,18 +30,19 @@ Offset Display Grid (-0.5, -0.5)
 
 同时，用户已经把多材质问题的边界定死了：
 
-1. floor 也必须进入 dual-grid 主显示  
-2. 当前版本接受“分层叠加”，但必须保留 future exact multistate 的接口  
+1. floor 也必须进入 dual-grid 主显示
+2. 四档可挖岩体必须共存于同一个 wall display layer
 3. `Indestructible` 也进入这套 dual-grid terrain family
+4. 不允许再靠独立 contour/detail overlay 把墙体外观补回来
 
-这意味着“16 种”不能再被理解为整个 terrain 的全局状态，而只能理解为：
+这意味着“16-state”不能再被理解为“每个岩体 family 各出一层”，而要拆成两部分：
 
 ```text
-每个 material family 各自维持 16-state
-最终画面 = 多个 family layer 的叠加
+display layer shape = 4 个 corner 的 dual-grid mask
+wall family choice   = 4 个 corner 中的岩体材质决策
 ```
 
-因为如果直接把四个角都当成多值材质状态：
+如果直接把四个角都当成多值材质状态：
 
 ```text
 corner state = {Floor, Soil, Stone, HardRock, UltraHard, Boundary}
@@ -51,18 +52,19 @@ corner state = {Floor, Soil, Stone, HardRock, UltraHard, Boundary}
 这不适合当前 Minebot 的 MVP 复杂度。  
 因此本 design 选择：
 
-- 当前落 `LayeredBinaryResolver`
-- 保留 `ExactMultistateResolver` 接口
-- 不让上层调用者依赖“当前一定是分层 16-state”
+- floor / wall / boundary 固定为 3 个 display layers
+- wall layer 的轮廓只看 `isWall`
+- wall layer 的 tile family 由四角岩体材质决定
+- 保留 `ExactMultistateResolver` 接口，但当前先不引入 1296-state atlas
 
 ## Goals / Non-Goals
 
 **Goals**
 
 - world grid 保持唯一玩法真相，但不再直接承担 terrain 主渲染。
-- terrain 主显示完全迁移到 half-cell offset dual-grid families。
+- terrain 主显示完全迁移到 half-cell offset dual-grid display layers。
 - floor、四档可挖岩体和 `Indestructible` 都纳入 dual-grid 主显示。
-- 以可替换 resolver 接口承接“当前 layered binary / 未来 exact multistate”两种路线。
+- 以可替换 resolver 接口承接“当前单墙层 family-aware / 未来 exact multistate”两种路线。
 - 保留当前独立 overlays：danger、marker、build preview、scan、facility、actors。
 - 把刷新语义收口为“1 个 world cell 变化 -> 周围 4 个 display cells 脏掉”。
 - 让资源、fallback、测试和场景装配都围绕新主渲染结构重组。
@@ -94,7 +96,7 @@ terrain 的可见结果将只由 dual-grid display layers 生成。
 选择理由：
 
 - 这正是用户当前明确要求的渲染模型。
-- 能把 floor / wall / boundary 统一到同一套 dual-grid 语言里。
+- 能把 floor / 多档岩体 / boundary 统一到同一套 dual-grid 语言里。
 - 避免继续维持“world base + contour overlay”两套 terrain 语义。
 
 ### 2. terrain family 统一映射为 6 类材质
@@ -187,14 +189,22 @@ ExactMultistateResolver
 
 这样后续如果要切到 1296-state atlas、shader 拼材质、mesh quarter-tile 等更复杂路线，上层采样和刷新逻辑不必重写。
 
-### 4. 当前 terrain 生成策略使用 layered binary families
+### 4. 当前 terrain 生成策略使用“单 wall slot + family-aware 输出”
 
-`LayeredBinaryResolver` 的逻辑是：
+当前 resolver 仍然读取四角完整材质，但输出不再是“每个岩体 family 一层”，而是：
 
-1. 读取四角完整材质  
-2. 对每个 material family 生成一个独立 4-bit mask  
-3. 对非零 mask 计算 dual-grid `16-state` index  
-4. 输出多个 `RenderLayerCommand`
+1. `Floor` slot：按四角是否为 `Floor` 计算 `16-state`
+2. `Wall` slot：按四角是否为任意可挖岩体计算 `16-state`
+3. `Boundary` slot：按四角是否为 `Boundary` 计算 `16-state`
+
+其中 `Wall` slot 还有第二个职责：
+当 wall mask 非零时，必须从 `Soil / Stone / HardRock / UltraHard` 中选出一个最终 tile family。
+
+当前版本的 family 选择策略是：
+
+1. 统计四角 wall materials 的出现次数
+2. 选择出现次数最多的岩体 family
+3. 若出现次数并列，按 `BR -> TR -> BL -> TL` 的角点顺序决胜
 
 例如：
 
@@ -202,31 +212,24 @@ ExactMultistateResolver
 TL = Soil
 TR = Stone
 BL = Floor
-BR = Floor
+BR = Boundary
 ```
 
 会得到：
 
 ```text
-Floor mask = 0011 -> Floor_3
-Soil  mask = 1000 -> Soil_8
-Stone mask = 0100 -> Stone_4
+Floor slot    = Floor_2
+Wall slot     = Stone_12
+Boundary slot = Boundary_1
 ```
 
-最终显示结果：
-
-```text
-DG Floor  index 3
-+ DG Soil index 8
-+ DG Stone index 4
-```
-
-这满足两点：
+这满足三点：
 
 - 当前仍然可以把资源控制在 `每个 family 16 tiles`
+- 墙和墙之间不会再因为硬度不同而拆出内部 contour
 - 不会把 exact multistate 的未来路线封死
 
-### 5. terrain scene graph 改为 6 个 half-cell offset Tilemap
+### 5. terrain scene graph 改为 3 个 half-cell offset Tilemap
 
 terrain 主显示将由以下 Tilemap 组成，全部挂在同一 `Grid Root` 下，并使用：
 
@@ -238,10 +241,7 @@ localPosition = (-0.5, -0.5, 0)
 
 ```text
 DG Floor Tilemap
-DG Soil Tilemap
-DG Stone Tilemap
-DG HardRock Tilemap
-DG UltraHard Tilemap
+DG Wall Tilemap
 DG Boundary Tilemap
 ```
 
@@ -249,11 +249,8 @@ DG Boundary Tilemap
 
 ```text
 DG Floor Tilemap       0
-DG Soil Tilemap        1
-DG Stone Tilemap       2
-DG HardRock Tilemap    3
-DG UltraHard Tilemap   4
-DG Boundary Tilemap    5
+DG Wall Tilemap        1
+DG Boundary Tilemap    2
 Danger Tilemap        10
 Facility Tilemap      15
 Marker Tilemap        20
@@ -275,7 +272,8 @@ Actors
 
 选择理由：
 
-- terrain families 都走同一 offset display 规则，避免部分材质仍然留在 world-grid。
+- terrain 主显示全部走同一 offset display 规则，避免部分材质仍然留在 world-grid。
+- 四档岩体共享一个 wall layer，内部不会再出现因为 family 分层导致的假边界。
 - `Boundary` 放在最上层，能稳定覆盖外框和不可破坏边界语义。
 - overlays 不被 terrain renderer 绑死，减少对现有危险区、建造预览和探测系统的改动面。
 - 固定 layer name 和 sorting order 后，PlayMode 烟测与人工截图审查会更稳定。
@@ -304,7 +302,7 @@ display(x, y) 采样
 初始化、地图整体替换或 art set 热切换时可以全量重建。  
 日常挖掘、爆炸、调试材质改动都应走局部刷新。
 
-### 7. 资源配置改为“6 个 family × 16-state atlas”
+### 7. 资源配置保留“6 个 family × 16-state atlas”
 
 当前版本的运行时资源目标至少为：
 
@@ -318,6 +316,9 @@ Boundary dual-grid atlas    16
 ```
 
 即：
+
+- display layers 只有 `Floor / Wall / Boundary`
+- 但 wall layer 运行时可以按 display cell 选择 `Soil / Stone / HardRock / UltraHard` 中任一 family 的 tile
 
 ```text
 96 terrain tiles

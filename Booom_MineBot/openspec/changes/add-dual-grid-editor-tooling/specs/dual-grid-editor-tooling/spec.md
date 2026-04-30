@@ -27,7 +27,7 @@
 
 #### Scenario: 在编辑器中创建或刷新 dual-grid family 预览
 - **WHEN** 开发者在场景中配置 dual-grid preview tool 并执行一次刷新
-- **THEN** 场景会存在 `DG Floor Tilemap`、`DG Soil Tilemap`、`DG Stone Tilemap`、`DG HardRock Tilemap`、`DG UltraHard Tilemap` 和 `DG Boundary Tilemap`，并显示当前 authoring 地形对应的 dual-grid 结果
+- **THEN** 场景会存在 `DG Floor Tilemap`、`DG Wall Tilemap`、`DG Boundary Tilemap` 和 `Wall Detail Tilemap`，并显示当前 authoring 地形对应的 dual-grid 结果
 
 #### Scenario: 编辑单个地形格后重新预览
 - **WHEN** 开发者修改一个 source terrain cell 并再次触发 dual-grid 预览刷新

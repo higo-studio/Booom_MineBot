@@ -21,10 +21,7 @@ namespace Minebot.Presentation
     {
         public const string PresentationRootName = "Presentation Root";
         public static readonly string DgFloorTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Floor);
-        public static readonly string DgSoilTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil);
-        public static readonly string DgStoneTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Stone);
-        public static readonly string DgHardRockTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.HardRock);
-        public static readonly string DgUltraHardTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.UltraHard);
+        public static readonly string DgWallTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil);
         public static readonly string DgBoundaryTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Boundary);
         public const string FogDeepTilemapName = "DG Fog Deep Tilemap";
         public const string FogNearTilemapName = "DG Fog Near Tilemap";

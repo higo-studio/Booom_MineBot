@@ -185,6 +185,24 @@ namespace Minebot.Presentation
             }
         }
 
+        public void CopyFrom(DualGridTerrainFamilyProfile source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            enabled = source.enabled;
+            authoringMode = source.authoringMode;
+            atlas16Source = source.atlas16Source;
+            explicit16Tiles = source.explicit16Tiles ?? Array.Empty<Tile>();
+            canonical6Tiles = source.canonical6Tiles ?? Array.Empty<Tile>();
+            perIndexOverrides16 = source.perIndexOverrides16 ?? Array.Empty<Tile>();
+            allowGeneratedFallbackForMissing = source.allowGeneratedFallbackForMissing;
+            allowAutoRotateCanonical = source.allowAutoRotateCanonical;
+            resolved16Tiles = source.resolved16Tiles ?? Array.Empty<Tile>();
+        }
+
 #if UNITY_EDITOR
         public void ConfigureResolvedTiles(Tile[] tiles)
         {
@@ -207,13 +225,13 @@ namespace Minebot.Presentation
 
         public static DualGridTerrainFamilyProfile[] CreateDefaults()
         {
-            TerrainRenderLayerId[] orderedLayers = DualGridTerrainLayout.OrderedLayers;
-            var result = new DualGridTerrainFamilyProfile[orderedLayers.Length];
-            for (int i = 0; i < orderedLayers.Length; i++)
+            TerrainRenderLayerId[] materialFamilies = DualGridTerrain.MaterialFamilies;
+            var result = new DualGridTerrainFamilyProfile[materialFamilies.Length];
+            for (int i = 0; i < materialFamilies.Length; i++)
             {
                 result[i] = new DualGridTerrainFamilyProfile
                 {
-                    layerId = orderedLayers[i],
+                    layerId = materialFamilies[i],
                     enabled = true,
                     authoringMode = DualGridAuthoringMode.Explicit16,
                     allowGeneratedFallbackForMissing = true,
@@ -418,12 +436,14 @@ namespace Minebot.Presentation
 
         private DualGridTerrainFamilyProfile[] EnsureFamilies()
         {
-            if (families != null && families.Length == DualGridTerrainLayout.RenderLayerCount)
+            if (families != null && families.Length == DualGridTerrain.MaterialFamilies.Length)
             {
                 return families;
             }
 
+            DualGridTerrainFamilyProfile[] legacyFamilies = families;
             families = DualGridTerrainFamilyProfile.CreateDefaults();
+            MigrateLegacyFamilies(legacyFamilies, families);
             return families;
         }
 
@@ -500,6 +520,85 @@ namespace Minebot.Presentation
             return configuredFamilies[0];
         }
 #endif
+
+        private static void MigrateLegacyFamilies(DualGridTerrainFamilyProfile[] source, DualGridTerrainFamilyProfile[] destination)
+        {
+            if (source == null || destination == null)
+            {
+                return;
+            }
+
+            CopyFamilyIfPresent(source, destination, TerrainRenderLayerId.Floor, TerrainRenderLayerId.Floor);
+            CopyFamilyIfPresent(source, destination, TerrainRenderLayerId.Boundary, TerrainRenderLayerId.Boundary);
+
+            DualGridTerrainFamilyProfile wallSource = FindFamilyIn(source, TerrainRenderLayerId.Soil)
+                ?? FindFamilyIn(source, TerrainRenderLayerId.Stone)
+                ?? FindFamilyIn(source, TerrainRenderLayerId.HardRock)
+                ?? FindFamilyIn(source, TerrainRenderLayerId.UltraHard);
+            if (wallSource != null)
+            {
+                CopyFromWallSourceIfMissing(destination, TerrainRenderLayerId.Soil, wallSource);
+                CopyFromWallSourceIfMissing(destination, TerrainRenderLayerId.Stone, wallSource);
+                CopyFromWallSourceIfMissing(destination, TerrainRenderLayerId.HardRock, wallSource);
+                CopyFromWallSourceIfMissing(destination, TerrainRenderLayerId.UltraHard, wallSource);
+            }
+        }
+
+        private static void CopyFamilyIfPresent(
+            DualGridTerrainFamilyProfile[] source,
+            DualGridTerrainFamilyProfile[] destination,
+            TerrainRenderLayerId sourceLayerId,
+            TerrainRenderLayerId destinationLayerId)
+        {
+            DualGridTerrainFamilyProfile sourceFamily = FindFamilyIn(source, sourceLayerId);
+            DualGridTerrainFamilyProfile destinationFamily = FindFamilyIn(destination, destinationLayerId);
+            if (sourceFamily == null || destinationFamily == null)
+            {
+                return;
+            }
+
+            destinationFamily.CopyFrom(sourceFamily);
+        }
+
+        private static DualGridTerrainFamilyProfile FindFamilyIn(DualGridTerrainFamilyProfile[] source, TerrainRenderLayerId layerId)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < source.Length; i++)
+            {
+                if (source[i] != null && source[i].LayerId == layerId)
+                {
+                    return source[i];
+                }
+            }
+
+            return null;
+        }
+
+        private static void CopyFromWallSourceIfMissing(
+            DualGridTerrainFamilyProfile[] destination,
+            TerrainRenderLayerId destinationLayerId,
+            DualGridTerrainFamilyProfile wallSource)
+        {
+            DualGridTerrainFamilyProfile destinationFamily = FindFamilyIn(destination, destinationLayerId);
+            if (destinationFamily == null)
+            {
+                return;
+            }
+
+            if (destinationFamily.Explicit16Tiles.Length > 0
+                || destinationFamily.Resolved16Tiles.Length > 0
+                || destinationFamily.Canonical6Tiles.Length > 0
+                || destinationFamily.PerIndexOverrides16.Length > 0)
+            {
+                return;
+            }
+
+            destinationFamily.CopyFrom(wallSource);
+        }
 
         private static void FillMissing(Tile[] destination, Tile[] fallback)
         {

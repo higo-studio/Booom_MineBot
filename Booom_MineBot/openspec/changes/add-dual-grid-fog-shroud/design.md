@@ -107,7 +107,7 @@ fog 不是 terrain material family，而是基于 reveal truth 的独立 overlay
 
 - `DualGridTerrainProfile.Families`
 - `TerrainRenderLayerId`
-- terrain 6 family Tilemap 顺序
+- terrain `Floor / Wall / Boundary` Tilemap 顺序
 
 ### 4. `DG Fog Deep Tilemap` / `DG Fog Near Tilemap` 进入现有 Grid Root
 
@@ -116,11 +116,9 @@ Scene graph 增量如下：
 ```text
 Grid Root
 ├─ DG Floor Tilemap
-├─ DG Soil Tilemap
-├─ DG Stone Tilemap
-├─ DG HardRock Tilemap
-├─ DG UltraHard Tilemap
+├─ DG Wall Tilemap
 ├─ DG Boundary Tilemap
+├─ Wall Detail Tilemap
 ├─ DG Fog Deep Tilemap
 ├─ DG Fog Near Tilemap
 ├─ Danger Tilemap

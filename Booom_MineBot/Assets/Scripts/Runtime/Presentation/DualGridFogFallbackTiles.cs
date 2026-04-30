@@ -43,8 +43,6 @@ namespace Minebot.Presentation
                 {
                     bool isTop = y >= HalfSize;
                     bool isLeft = x < HalfSize;
-                    int xWithin = isLeft ? x : x - HalfSize;
-                    int yWithin = isTop ? y - HalfSize : y;
                     bool isFilled = isTop
                         ? (isLeft ? topLeft : topRight)
                         : (isLeft ? bottomLeft : bottomRight);
@@ -55,36 +53,34 @@ namespace Minebot.Presentation
                         continue;
                     }
 
-                    bool exposedEdge = false;
+                    bool drawOutline = false;
+                    int xWithin = isLeft ? x : x - HalfSize;
+                    int yWithin = isTop ? y - HalfSize : y;
                     if (isTop && isLeft)
                     {
-                        exposedEdge = (topLeft != topRight && xWithin >= HalfSize - 2)
-                            || (topLeft != bottomLeft && yWithin < 2);
+                        drawOutline = (topLeft != topRight && xWithin >= HalfSize - 1)
+                            || (topLeft != bottomLeft && yWithin < 1);
                     }
                     else if (isTop)
                     {
-                        exposedEdge = (topRight != topLeft && xWithin < 2)
-                            || (topRight != bottomRight && yWithin < 2);
+                        drawOutline = (topRight != topLeft && xWithin < 1)
+                            || (topRight != bottomRight && yWithin < 1);
                     }
                     else if (isLeft)
                     {
-                        exposedEdge = (bottomLeft != bottomRight && xWithin >= HalfSize - 2)
-                            || (bottomLeft != topLeft && yWithin >= HalfSize - 2);
+                        drawOutline = (bottomLeft != bottomRight && xWithin >= HalfSize - 1)
+                            || (bottomLeft != topLeft && yWithin >= HalfSize - 1);
                     }
                     else
                     {
-                        exposedEdge = (bottomRight != bottomLeft && xWithin < 2)
-                            || (bottomRight != topRight && yWithin >= HalfSize - 2);
+                        drawOutline = (bottomRight != bottomLeft && xWithin < 1)
+                            || (bottomRight != topRight && yWithin >= HalfSize - 1);
                     }
 
                     bool accent = ((x + y + atlasIndex) & 3) == 0;
-                    bool highlight = exposedEdge && ((xWithin + yWithin + atlasIndex) & 1) == 0;
-                    Color color = accent ? style.Accent : style.Fill;
-                    if (exposedEdge)
-                    {
-                        color = highlight ? style.Highlight : style.Rim;
-                    }
-
+                    Color color = drawOutline
+                        ? style.Outline
+                        : accent ? style.Accent : style.Fill;
                     texture.SetPixel(x, y, color);
                 }
             }
@@ -111,31 +107,27 @@ namespace Minebot.Presentation
                     return new FogStyle(
                         new Color(0.01f, 0.02f, 0.03f, 0.98f),
                         new Color(0.03f, 0.04f, 0.05f, 1f),
-                        new Color(0.05f, 0.07f, 0.08f, 0.98f),
-                        new Color(0.07f, 0.09f, 0.1f, 1f));
+                        new Color(0.12f, 0.15f, 0.17f, 1f));
                 default:
                     return new FogStyle(
                         new Color(0.1f, 0.15f, 0.17f, 0.52f),
                         new Color(0.16f, 0.22f, 0.24f, 0.58f),
-                        new Color(0.28f, 0.4f, 0.42f, 0.78f),
-                        new Color(0.42f, 0.62f, 0.65f, 0.92f));
+                        new Color(0.28f, 0.36f, 0.39f, 0.72f));
             }
         }
 
         private readonly struct FogStyle
         {
-            public FogStyle(Color fill, Color accent, Color rim, Color highlight)
+            public FogStyle(Color fill, Color accent, Color outline)
             {
                 Fill = fill;
                 Accent = accent;
-                Rim = rim;
-                Highlight = highlight;
+                Outline = outline;
             }
 
             public Color Fill { get; }
             public Color Accent { get; }
-            public Color Rim { get; }
-            public Color Highlight { get; }
+            public Color Outline { get; }
         }
     }
 }

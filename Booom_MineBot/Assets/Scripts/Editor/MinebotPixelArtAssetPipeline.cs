@@ -357,7 +357,7 @@ namespace Minebot.Editor
             }
 
             profile.ConfigureLayout(DualGridTerrainLayoutSettings.CreateDefault());
-            foreach (TerrainRenderLayerId layerId in DualGridTerrainLayout.OrderedLayers)
+            foreach (TerrainRenderLayerId layerId in DualGridFamilies)
             {
                 profile.ConfigureFamilyTiles(layerId, LoadDualGridTiles(layerId));
             }
