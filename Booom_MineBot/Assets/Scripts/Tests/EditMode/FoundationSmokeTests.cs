@@ -554,19 +554,31 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void TilemapGridPresentationOnlyUpdatesFourDisplayCellsForSingleWorldCellChange()
+        public void TilemapGridPresentationPromotesDeepFogCellsToNearBandWhenFrontierAdvances()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
             GridPosition changedCell = new GridPosition(3, 4);
-            SetMineableWall(grid, changedCell, false);
+            GridPosition deepCell = new GridPosition(3, 3);
+            for (int y = 2; y <= 4; y++)
+            {
+                for (int x = 2; x <= 4; x++)
+                {
+                    SetMineableWall(grid, new GridPosition(x, y), false);
+                }
+            }
+
             RuntimeServiceRegistry services = CreatePresentationRegistry(grid);
             var root = new GameObject("DualGridPresentationEditModeTest");
             try
             {
                 Tilemap[] terrainTilemaps = CreateTerrainTilemaps(root.transform);
                 TilemapGridPresentation presentation = root.AddComponent<TilemapGridPresentation>();
+                Tilemap fogNearTilemap = CreateTilemap(root.transform, "Fog Near Test Tilemap", DualGridFog.DisplayOffset);
+                Tilemap fogDeepTilemap = CreateTilemap(root.transform, "Fog Deep Test Tilemap", DualGridFog.DisplayOffset);
                 presentation.Configure(
                     terrainTilemaps,
+                    fogNearTilemap,
+                    fogDeepTilemap,
                     CreateTilemap(root.transform, "Facility Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
@@ -575,13 +587,72 @@ namespace Minebot.Tests.EditMode
 
                 presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
                 Dictionary<Vector3Int, string> before = SnapshotTerrainDisplay(terrainTilemaps);
+                Dictionary<Vector3Int, string> fogNearBefore = SnapshotTilemapDisplay(fogNearTilemap);
+                Dictionary<Vector3Int, string> fogDeepBefore = SnapshotTilemapDisplay(fogDeepTilemap);
+                Assert.That(HasAnyDisplayTileAroundCell(fogNearTilemap, changedCell), Is.True);
+                Assert.That(HasAnyDisplayTileAroundCell(fogDeepTilemap, deepCell), Is.True);
 
                 SetEmpty(grid, changedCell);
                 presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
                 Dictionary<Vector3Int, string> after = SnapshotTerrainDisplay(terrainTilemaps);
+                Dictionary<Vector3Int, string> fogNearAfter = SnapshotTilemapDisplay(fogNearTilemap);
+                Dictionary<Vector3Int, string> fogDeepAfter = SnapshotTilemapDisplay(fogDeepTilemap);
 
                 IReadOnlyCollection<Vector3Int> changedDisplayCells = CollectChangedDisplayCells(before, after);
+                IReadOnlyCollection<Vector3Int> changedFogNearDisplayCells = CollectChangedDisplayCells(fogNearBefore, fogNearAfter);
+                IReadOnlyCollection<Vector3Int> changedFogDeepDisplayCells = CollectChangedDisplayCells(fogDeepBefore, fogDeepAfter);
                 Assert.That(changedDisplayCells, Is.EquivalentTo(DualGridTerrain.GetAffectedDisplayCells(changedCell)));
+                Assert.That(changedFogNearDisplayCells.Count, Is.GreaterThan(0));
+                Assert.That(changedFogDeepDisplayCells.Count, Is.GreaterThan(0));
+                Assert.That(HasAnyDisplayTileAroundCell(fogNearTilemap, deepCell), Is.True);
+                Assert.That(HasAnyDisplayTileAroundCell(fogDeepTilemap, deepCell), Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void FogTilemapsRenderCollapsedDangerCellBackIntoNearBand()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition collapsedCell = new GridPosition(3, 2);
+            ref GridCellState cell = ref grid.GetCellRef(collapsedCell);
+            cell.TerrainKind = TerrainKind.Empty;
+            cell.IsDangerZone = true;
+            cell.IsRevealed = true;
+
+            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+            RuntimeServiceRegistry services = CreatePresentationRegistry(grid);
+            var root = new GameObject("FogCollapseEditModeTest");
+            try
+            {
+                Tilemap[] terrainTilemaps = CreateTerrainTilemaps(root.transform);
+                Tilemap fogNearTilemap = CreateTilemap(root.transform, "Fog Near Test Tilemap", DualGridFog.DisplayOffset);
+                Tilemap fogDeepTilemap = CreateTilemap(root.transform, "Fog Deep Test Tilemap", DualGridFog.DisplayOffset);
+                TilemapGridPresentation presentation = root.AddComponent<TilemapGridPresentation>();
+                presentation.Configure(
+                    terrainTilemaps,
+                    fogNearTilemap,
+                    fogDeepTilemap,
+                    CreateTilemap(root.transform, "Facility Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
+                    MinebotPresentationAssets.Create(null));
+
+                presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
+                Assert.That(HasAnyDisplayTileAroundCell(fogNearTilemap, collapsedCell), Is.False);
+                Assert.That(HasAnyDisplayTileAroundCell(fogDeepTilemap, collapsedCell), Is.False);
+
+                waves.ResolveWave(grid.PlayerSpawn, new PlayerVitals(3), new List<RobotState>());
+                presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
+
+                Assert.That(grid.GetCell(collapsedCell).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+                Assert.That(grid.GetCell(collapsedCell).IsRevealed, Is.False);
+                Assert.That(HasAnyDisplayTileAroundCell(fogNearTilemap, collapsedCell), Is.True);
+                Assert.That(HasAnyDisplayTileAroundCell(fogDeepTilemap, collapsedCell), Is.False);
             }
             finally
             {
@@ -612,12 +683,16 @@ namespace Minebot.Tests.EditMode
             Assert.That(artSet.HardRockDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(artSet.UltraHardDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(artSet.BoundaryDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(artSet.FogNearDualGridTiles.Length, Is.EqualTo(DualGridFog.TileCount));
+            Assert.That(artSet.FogDeepDualGridTiles.Length, Is.EqualTo(DualGridFog.TileCount));
             Assert.That(serializedArtSet.FindProperty("floorDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(serializedArtSet.FindProperty("soilDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(serializedArtSet.FindProperty("stoneDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(serializedArtSet.FindProperty("hardRockDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(serializedArtSet.FindProperty("ultraHardDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(serializedArtSet.FindProperty("boundaryDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(serializedArtSet.FindProperty("fogNearDualGridTiles").arraySize, Is.EqualTo(DualGridFog.TileCount));
+            Assert.That(serializedArtSet.FindProperty("fogDeepDualGridTiles").arraySize, Is.EqualTo(DualGridFog.TileCount));
             Assert.That(artSet.BuildPreviewValidTile, Is.Not.Null);
             Assert.That(artSet.BuildPreviewInvalidTile, Is.Not.Null);
             Assert.That(artSet.SoilDetailTile, Is.Not.Null);
@@ -651,6 +726,8 @@ namespace Minebot.Tests.EditMode
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_Floor_15.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_HardRock_15.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_Boundary_15.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridFogNear/Tile_DG_FogNear_15.asset"), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridFogDeep/Tile_DG_FogDeep_15.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_BuildPreviewValid.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/Tile_DetailUltraHard.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<BitmapGlyphFontDefinition>("Assets/Resources/Minebot/MinebotBitmapGlyphFont_Default.asset"), Is.Not.Null);
@@ -674,6 +751,17 @@ namespace Minebot.Tests.EditMode
                 Assert.That(family, Is.Not.Null);
                 Assert.That(family.ResolveTiles(Array.Empty<Tile>()).Length, Is.EqualTo(DualGridTerrain.TileCount));
             }
+        }
+
+        [Test]
+        public void FallbackPresentationAssetsProvideNearAndDeepFogTileSets()
+        {
+            MinebotPresentationAssets assets = MinebotPresentationAssets.Create(null);
+
+            Assert.That(assets.FogNearDualGridTiles.Length, Is.EqualTo(DualGridFog.TileCount));
+            Assert.That(assets.FogDeepDualGridTiles.Length, Is.EqualTo(DualGridFog.TileCount));
+            Assert.That(assets.FogNearDualGridTileForIndex(15), Is.Not.Null);
+            Assert.That(assets.FogDeepDualGridTileForIndex(15), Is.Not.Null);
         }
 
         [Test]
@@ -859,6 +947,8 @@ namespace Minebot.Tests.EditMode
                 TilemapGridPresentation presentation = root.AddComponent<TilemapGridPresentation>();
                 presentation.Configure(
                     terrainTilemaps,
+                    CreateTilemap(root.transform, "Fog Near Test Tilemap", DualGridFog.DisplayOffset),
+                    CreateTilemap(root.transform, "Fog Deep Test Tilemap", DualGridFog.DisplayOffset),
                     CreateTilemap(root.transform, "Facility Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
@@ -967,6 +1057,20 @@ namespace Minebot.Tests.EditMode
             return false;
         }
 
+        private static bool HasAnyDisplayTileAroundCell(Tilemap tilemap, GridPosition worldCell)
+        {
+            Vector3Int[] positions = DualGridFog.GetAffectedDisplayCells(worldCell);
+            for (int i = 0; i < positions.Length; i++)
+            {
+                if (tilemap.GetTile(positions[i]) != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static void ConfigureProfileWithFallbackTiles(DualGridTerrainProfile profile)
         {
             profile.ConfigureLayout(DualGridTerrainLayoutSettings.CreateDefault());
@@ -1047,6 +1151,17 @@ namespace Minebot.Tests.EditMode
             return snapshot;
         }
 
+        private static Dictionary<Vector3Int, string> SnapshotTilemapDisplay(Tilemap tilemap)
+        {
+            var snapshot = new Dictionary<Vector3Int, string>();
+            foreach (Vector3Int position in tilemap.cellBounds.allPositionsWithin)
+            {
+                snapshot[position] = TilemapDisplaySignatureAt(tilemap, position);
+            }
+
+            return snapshot;
+        }
+
         private static IReadOnlyCollection<Vector3Int> CollectChangedDisplayCells(
             IReadOnlyDictionary<Vector3Int, string> before,
             IReadOnlyDictionary<Vector3Int, string> after)
@@ -1078,6 +1193,12 @@ namespace Minebot.Tests.EditMode
             }
 
             return string.Join("|", names);
+        }
+
+        private static string TilemapDisplaySignatureAt(Tilemap tilemap, Vector3Int position)
+        {
+            TileBase tile = tilemap != null ? tilemap.GetTile(position) : null;
+            return tile != null ? tile.name : "<null>";
         }
 
         private readonly struct RuleProbe

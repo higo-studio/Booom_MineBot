@@ -21,6 +21,10 @@ namespace Minebot.Editor
         private const string PalettePrefabPath = "Assets/Art/Minebot/Palettes/MinebotTilePalette.prefab";
         private const string DualGridSpriteDirectory = "Assets/Art/Minebot/Sprites/Tiles/DualGridTerrain";
         private const string DualGridTileDirectory = "Assets/Art/Minebot/Tiles/DualGridTerrain";
+        private const string FogNearDualGridSpriteDirectory = "Assets/Art/Minebot/Sprites/Tiles/DualGridFogNear";
+        private const string FogDeepDualGridSpriteDirectory = "Assets/Art/Minebot/Sprites/Tiles/DualGridFogDeep";
+        private const string FogNearDualGridTileDirectory = "Assets/Art/Minebot/Tiles/DualGridFogNear";
+        private const string FogDeepDualGridTileDirectory = "Assets/Art/Minebot/Tiles/DualGridFogDeep";
         private const string HologramSpriteDirectory = "Assets/Art/Minebot/Sprites/UI/Hologram";
         private const string HologramGlyphDirectory = "Assets/Art/Minebot/Sprites/UI/Hologram/Glyphs";
         private const string HologramOverlayAtlasPath = "Assets/Art/Minebot/Sprites/UI/Hologram/hologram_overlay_atlas.png";
@@ -79,6 +83,7 @@ namespace Minebot.Editor
             }
 
             EnsureDualGridTerrainSprites();
+            EnsureDualGridFogSprites();
             EnsureHologramSupportFiles();
             MinebotPrefabGameplayArtSupport.EnsureGeneratedFiles();
             EnsureTextureImporters();
@@ -117,6 +122,9 @@ namespace Minebot.Editor
                     ValidateTexture(GetDualGridSpritePath(layerId, i), TilePixelsPerUnit, errors);
                 }
             }
+
+            ValidateFogTextures(errors, DualGridFogBandKind.Near);
+            ValidateFogTextures(errors, DualGridFogBandKind.Deep);
 
             MinebotPrefabGameplayArtSupport.ValidateImportSettings(errors);
 
@@ -163,6 +171,9 @@ namespace Minebot.Editor
                     ConfigureTextureImporter(GetDualGridSpritePath(layerId, i), TilePixelsPerUnit);
                 }
             }
+
+            ConfigureFogTextureImporters(DualGridFogBandKind.Near);
+            ConfigureFogTextureImporters(DualGridFogBandKind.Deep);
 
             MinebotPrefabGameplayArtSupport.EnsureTextureImporters();
         }
@@ -242,6 +253,7 @@ namespace Minebot.Editor
             }
 
             EnsureDualGridTerrainTileAssets();
+            EnsureDualGridFogTileAssets();
         }
 
         private static BitmapGlyphFontDefinition EnsureBitmapGlyphFontAsset()
@@ -312,6 +324,8 @@ namespace Minebot.Editor
                 LoadDualGridTiles(TerrainRenderLayerId.HardRock),
                 LoadDualGridTiles(TerrainRenderLayerId.UltraHard),
                 LoadDualGridTiles(TerrainRenderLayerId.Boundary),
+                LoadFogDualGridTiles(DualGridFogBandKind.Near),
+                LoadFogDualGridTiles(DualGridFogBandKind.Deep),
                 dualGridTerrainProfile,
                 bitmapGlyphFont,
                 AssetDatabase.LoadAssetAtPath<Texture2D>(BitmapGlyphAtlasPath),
@@ -403,6 +417,33 @@ namespace Minebot.Editor
             return tiles;
         }
 
+        private static Tile[] LoadFogDualGridTiles(DualGridFogBandKind bandKind)
+        {
+            var tiles = new Tile[DualGridFog.TileCount];
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                tiles[i] = LoadTile(GetFogDualGridTilePath(bandKind, i));
+            }
+
+            return tiles;
+        }
+
+        private static void ValidateFogTextures(ICollection<string> errors, DualGridFogBandKind bandKind)
+        {
+            for (int i = 0; i < DualGridFog.TileCount; i++)
+            {
+                ValidateTexture(GetFogDualGridSpritePath(bandKind, i), TilePixelsPerUnit, errors);
+            }
+        }
+
+        private static void ConfigureFogTextureImporters(DualGridFogBandKind bandKind)
+        {
+            for (int i = 0; i < DualGridFog.TileCount; i++)
+            {
+                ConfigureTextureImporter(GetFogDualGridSpritePath(bandKind, i), TilePixelsPerUnit);
+            }
+        }
+
         private static Tile[] LoadDangerOutlineTiles()
         {
             return new[]
@@ -431,6 +472,29 @@ namespace Minebot.Editor
             }
 
             AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+        }
+
+        private static void EnsureDualGridFogSprites()
+        {
+            EnsureFogSprites(DualGridFogBandKind.Near);
+            EnsureFogSprites(DualGridFogBandKind.Deep);
+
+            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+        }
+
+        private static void EnsureFogSprites(DualGridFogBandKind bandKind)
+        {
+            EnsureAssetDirectory(GetFogDualGridSpriteDirectory(bandKind));
+            for (int i = 0; i < DualGridFog.TileCount; i++)
+            {
+                string spriteAssetPath = GetFogDualGridSpritePath(bandKind, i);
+                string fullPath = AssetPathToFullPath(spriteAssetPath);
+                using var scope = new GeneratedTextureScope(DualGridFogFallbackTiles.CreateTexture(
+                    bandKind,
+                    i,
+                    $"{GetFogDualGridSpriteFileName(bandKind, i)}_Texture"));
+                File.WriteAllBytes(fullPath, scope.Texture.EncodeToPNG());
+            }
         }
 
         private static void EnsureHologramSupportFiles()
@@ -495,6 +559,38 @@ namespace Minebot.Editor
             }
         }
 
+        private static void EnsureDualGridFogTileAssets()
+        {
+            EnsureFogTileAssets(DualGridFogBandKind.Near);
+            EnsureFogTileAssets(DualGridFogBandKind.Deep);
+        }
+
+        private static void EnsureFogTileAssets(DualGridFogBandKind bandKind)
+        {
+            EnsureAssetDirectory(GetFogDualGridTileDirectory(bandKind));
+            for (int i = 0; i < DualGridFog.TileCount; i++)
+            {
+                Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(GetFogDualGridSpritePath(bandKind, i));
+                if (sprite == null)
+                {
+                    continue;
+                }
+
+                string tilePath = GetFogDualGridTilePath(bandKind, i);
+                Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(tilePath);
+                if (tile == null)
+                {
+                    tile = ScriptableObject.CreateInstance<Tile>();
+                    AssetDatabase.CreateAsset(tile, tilePath);
+                }
+
+                tile.name = GetFogDualGridTileAssetName(bandKind, i);
+                tile.sprite = sprite;
+                tile.colliderType = Tile.ColliderType.None;
+                EditorUtility.SetDirty(tile);
+            }
+        }
+
         private static void EnsureAssetDirectory(string assetDirectoryPath)
         {
             Directory.CreateDirectory(AssetPathToFullPath(assetDirectoryPath));
@@ -522,6 +618,30 @@ namespace Minebot.Editor
             return $"{DualGridTileDirectory}/{GetDualGridTileAssetName(layerId, index)}.asset";
         }
 
+        private static string GetFogDualGridSpritePath(DualGridFogBandKind bandKind, int index)
+        {
+            return $"{GetFogDualGridSpriteDirectory(bandKind)}/{GetFogDualGridSpriteFileName(bandKind, index)}.png";
+        }
+
+        private static string GetFogDualGridTilePath(DualGridFogBandKind bandKind, int index)
+        {
+            return $"{GetFogDualGridTileDirectory(bandKind)}/{GetFogDualGridTileAssetName(bandKind, index)}.asset";
+        }
+
+        private static string GetFogDualGridSpriteDirectory(DualGridFogBandKind bandKind)
+        {
+            return bandKind == DualGridFogBandKind.Deep
+                ? FogDeepDualGridSpriteDirectory
+                : FogNearDualGridSpriteDirectory;
+        }
+
+        private static string GetFogDualGridTileDirectory(DualGridFogBandKind bandKind)
+        {
+            return bandKind == DualGridFogBandKind.Deep
+                ? FogDeepDualGridTileDirectory
+                : FogNearDualGridTileDirectory;
+        }
+
         private static string GetDualGridSpriteFileName(TerrainRenderLayerId layerId, int index)
         {
             return $"tile_dg_{GetDualGridFamilyToken(layerId)}_{index:00}";
@@ -530,6 +650,21 @@ namespace Minebot.Editor
         private static string GetDualGridTileAssetName(TerrainRenderLayerId layerId, int index)
         {
             return $"Tile_DG_{GetDualGridFamilyAssetToken(layerId)}_{index:00}";
+        }
+
+        private static string GetFogDualGridSpriteFileName(DualGridFogBandKind bandKind, int index)
+        {
+            return $"tile_dg_fog_{GetFogBandToken(bandKind)}_{index:00}";
+        }
+
+        private static string GetFogDualGridTileAssetName(DualGridFogBandKind bandKind, int index)
+        {
+            return $"Tile_DG_Fog{bandKind}_{index:00}";
+        }
+
+        private static string GetFogBandToken(DualGridFogBandKind bandKind)
+        {
+            return bandKind == DualGridFogBandKind.Deep ? "deep" : "near";
         }
 
         private static string GetDualGridFamilyToken(TerrainRenderLayerId layerId)

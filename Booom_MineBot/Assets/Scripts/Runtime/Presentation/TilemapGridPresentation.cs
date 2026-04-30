@@ -13,14 +13,19 @@ namespace Minebot.Presentation
     {
         private MinebotPresentationAssets assets;
         private readonly DualGridRenderer terrainRenderer = new DualGridRenderer(new LayeredBinaryTerrainResolver());
+        private readonly DualGridFogRenderer fogRenderer = new DualGridFogRenderer();
         private BuildingDefinition buildPreviewDefinition;
         private GridPosition? buildPreviewOrigin;
         private bool buildPreviewIsValid;
         private Vector2Int cachedGridSize;
         private TerrainMaterialId[] terrainMaterialCache;
+        private bool[] fogNearMaskCache;
+        private bool[] fogDeepMaskCache;
 
         public Tilemap TerrainTilemap => GetTerrainTilemap(TerrainRenderLayerId.Floor);
         public IReadOnlyList<Tilemap> TerrainTilemaps { get; private set; } = Array.Empty<Tilemap>();
+        public Tilemap FogNearTilemap { get; private set; }
+        public Tilemap FogDeepTilemap { get; private set; }
         public Tilemap FacilityTilemap { get; private set; }
         public Tilemap MarkerTilemap { get; private set; }
         public Tilemap DangerTilemap { get; private set; }
@@ -28,6 +33,8 @@ namespace Minebot.Presentation
 
         public void Configure(
             Tilemap[] terrainTilemaps,
+            Tilemap fogNearTilemap,
+            Tilemap fogDeepTilemap,
             Tilemap facilityTilemap,
             Tilemap markerTilemap,
             Tilemap dangerTilemap,
@@ -35,6 +42,8 @@ namespace Minebot.Presentation
             MinebotPresentationAssets presentationAssets)
         {
             TerrainTilemaps = terrainTilemaps ?? Array.Empty<Tilemap>();
+            FogNearTilemap = fogNearTilemap;
+            FogDeepTilemap = fogDeepTilemap;
             FacilityTilemap = facilityTilemap;
             MarkerTilemap = markerTilemap;
             DangerTilemap = dangerTilemap;
@@ -62,8 +71,9 @@ namespace Minebot.Presentation
             BuildPreviewTilemap.ClearAllTiles();
 
             LogicalGridState grid = services.Grid;
-            bool fullRebuild = EnsureMaterialCaches(grid.Size);
+            bool fullRebuild = EnsureGridCaches(grid.Size);
             var changedTerrainCells = new HashSet<GridPosition>();
+            var changedFogCells = new HashSet<GridPosition>();
             foreach (GridPosition position in grid.Positions())
             {
                 GridCellState cell = grid.GetCell(position);
@@ -97,6 +107,15 @@ namespace Minebot.Presentation
                     terrainMaterialCache[cellIndex] = material;
                     changedTerrainCells.Add(position);
                 }
+
+                bool fogNear = DualGridFog.IsNear(grid, position);
+                bool fogDeep = DualGridFog.IsDeep(grid, position);
+                if (fullRebuild || fogNearMaskCache[cellIndex] != fogNear || fogDeepMaskCache[cellIndex] != fogDeep)
+                {
+                    fogNearMaskCache[cellIndex] = fogNear;
+                    fogDeepMaskCache[cellIndex] = fogDeep;
+                    changedFogCells.Add(position);
+                }
             }
 
             if (buildPreviewDefinition != null && buildPreviewOrigin.HasValue)
@@ -112,12 +131,15 @@ namespace Minebot.Presentation
             }
 
             RefreshTerrain(grid, fullRebuild, changedTerrainCells);
+            RefreshFog(grid, fullRebuild, changedFogCells);
 
             for (int i = 0; i < TerrainTilemaps.Count; i++)
             {
                 TerrainTilemaps[i]?.CompressBounds();
             }
 
+            FogNearTilemap?.CompressBounds();
+            FogDeepTilemap?.CompressBounds();
             FacilityTilemap.CompressBounds();
             MarkerTilemap.CompressBounds();
             DangerTilemap.CompressBounds();
@@ -156,6 +178,22 @@ namespace Minebot.Presentation
                 changedTerrainCells);
         }
 
+        private void RefreshFog(LogicalGridState grid, bool fullRebuild, ICollection<GridPosition> changedFogCells)
+        {
+            if (FogNearTilemap == null && FogDeepTilemap == null)
+            {
+                return;
+            }
+
+            if (fullRebuild)
+            {
+                fogRenderer.RebuildAll(grid, FogNearTilemap, FogDeepTilemap, assets);
+                return;
+            }
+
+            fogRenderer.RefreshChanged(grid, FogNearTilemap, FogDeepTilemap, assets, changedFogCells);
+        }
+
         private static System.Collections.Generic.IEnumerable<GridPosition> FootprintCells(BuildingDefinition definition, GridPosition origin)
         {
             Vector2Int size = definition.FootprintSize;
@@ -168,9 +206,9 @@ namespace Minebot.Presentation
             }
         }
 
-        private bool EnsureMaterialCaches(Vector2Int size)
+        private bool EnsureGridCaches(Vector2Int size)
         {
-            if (terrainMaterialCache != null && cachedGridSize == size)
+            if (terrainMaterialCache != null && fogNearMaskCache != null && fogDeepMaskCache != null && cachedGridSize == size)
             {
                 return false;
             }
@@ -178,6 +216,8 @@ namespace Minebot.Presentation
             cachedGridSize = size;
             int cellCount = size.x * size.y;
             terrainMaterialCache = new TerrainMaterialId[cellCount];
+            fogNearMaskCache = new bool[cellCount];
+            fogDeepMaskCache = new bool[cellCount];
             return true;
         }
 
