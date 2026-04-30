@@ -90,10 +90,11 @@ namespace Minebot.Tests.PlayMode
             Assert.That(terrainFamilies.Count, Is.EqualTo(DualGridTerrain.RenderLayerCount));
             for (int i = 0; i < terrainFamilies.Count; i++)
             {
+                TerrainRenderLayerId layerId = DualGridTerrain.OrderedLayers[i];
                 Assert.That(terrainFamilies[i], Is.Not.Null);
-                Assert.That(terrainFamilies[i].name, Is.EqualTo(DualGridTerrain.GetTilemapName((TerrainRenderLayerId)i)));
+                Assert.That(terrainFamilies[i].name, Is.EqualTo(DualGridTerrain.GetTilemapName(layerId)));
                 Assert.That(terrainFamilies[i].transform.localPosition, Is.EqualTo(DualGridTerrain.DisplayOffset));
-                Assert.That(terrainFamilies[i].GetComponent<TilemapRenderer>().sortingOrder, Is.EqualTo(DualGridTerrain.GetSortingOrder((TerrainRenderLayerId)i)));
+                Assert.That(terrainFamilies[i].GetComponent<TilemapRenderer>().sortingOrder, Is.EqualTo(DualGridTerrain.GetSortingOrder(layerId)));
             }
 
             GameObject fogNearObject = GameObject.Find(MinebotGameplayPresentation.FogNearTilemapName);
@@ -108,7 +109,7 @@ namespace Minebot.Tests.PlayMode
             Assert.That(fogDeep.transform.localPosition, Is.EqualTo(DualGridFog.DisplayOffset));
             Assert.That(fogNear.GetComponent<TilemapRenderer>().sortingOrder, Is.EqualTo(9));
             Assert.That(fogDeep.GetComponent<TilemapRenderer>().sortingOrder, Is.EqualTo(8));
-            Assert.That(HasAnyDisplayTileAroundCell(terrainFamilies[(int)TerrainRenderLayerId.Floor], services.Grid.PlayerSpawn), Is.True);
+            Assert.That(HasAnyDisplayTileAroundCell(TerrainLayerTilemap(terrainFamilies, TerrainRenderLayerId.Floor), services.Grid.PlayerSpawn), Is.True);
             GridPosition hardRockPosition = new GridPosition(services.Grid.PlayerSpawn.X, services.Grid.PlayerSpawn.Y + 2);
             GridPosition deepFogCenter = new GridPosition(hardRockPosition.X + 2, hardRockPosition.Y);
             SetMineableHardness(services, hardRockPosition, HardnessTier.HardRock);
@@ -123,7 +124,7 @@ namespace Minebot.Tests.PlayMode
             }
             SetEmpty(services, new GridPosition(1, 1));
             presentation.RefreshAll();
-            Assert.That(HasAnyDisplayTileAroundCell(terrainFamilies[(int)TerrainRenderLayerId.HardRock], hardRockPosition), Is.True);
+            Assert.That(HasAnyDisplayTileAroundCell(TerrainLayerTilemap(terrainFamilies, TerrainRenderLayerId.HardRock), hardRockPosition), Is.True);
             Assert.That(HasAnyDisplayTileAroundCell(fogNear, hardRockPosition), Is.True);
             Assert.That(HasAnyTile(fogDeep), Is.True);
 
@@ -212,7 +213,7 @@ namespace Minebot.Tests.PlayMode
             Tilemap fogDeep = presentation.GridPresentation.FogDeepTilemap;
             string beforeTerrainSignature = GetTerrainSignature(terrainFamilies, minedPosition);
             string beforeFogSignature = GetTilemapSignature(fogNear, minedPosition);
-            Assert.That(HasAnyDisplayTileAroundCell(terrainFamilies[(int)TerrainRenderLayerId.Soil], minedPosition), Is.True);
+            Assert.That(HasAnyDisplayTileAroundCell(TerrainLayerTilemap(terrainFamilies, TerrainRenderLayerId.Soil), minedPosition), Is.True);
             Assert.That(HasAnyDisplayTileAroundCell(fogNear, minedPosition), Is.True);
             Assert.That(fogDeep, Is.Not.Null);
 
@@ -307,7 +308,7 @@ namespace Minebot.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator DifferentHardnessWallsDrawDualGridLayersAtSharedBoundary()
+        public IEnumerator DifferentHardnessWallsShareSingleWallLayerAtSharedBoundary()
         {
             yield return LoadBootstrapAndWaitForGameplay();
             yield return null;
@@ -342,11 +343,13 @@ namespace Minebot.Tests.PlayMode
             presentation.RefreshAll();
             yield return null;
 
-            Tilemap soilLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Soil);
-            Tilemap stoneLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Stone);
+            Tilemap wallLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Soil);
+            Tilemap floorLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Floor);
             Vector3Int sharedBoundary = new Vector3Int(origin.X + 1, origin.Y + 1, 0);
-            Assert.That(soilLayer.GetTile(sharedBoundary), Is.Not.Null);
-            Assert.That(stoneLayer.GetTile(sharedBoundary), Is.Not.Null);
+            TileBase wallTile = wallLayer.GetTile(sharedBoundary);
+            Assert.That(wallTile, Is.Not.Null);
+            Assert.That(wallTile.name, Does.Contain("Tile_DG_Stone_15"));
+            Assert.That(floorLayer.GetTile(sharedBoundary), Is.Null);
         }
 
         [UnityTest]
@@ -815,12 +818,14 @@ namespace Minebot.Tests.PlayMode
             return new[]
             {
                 GameObject.Find(MinebotGameplayPresentation.DgFloorTilemapName).GetComponent<Tilemap>(),
-                GameObject.Find(MinebotGameplayPresentation.DgSoilTilemapName).GetComponent<Tilemap>(),
-                GameObject.Find(MinebotGameplayPresentation.DgStoneTilemapName).GetComponent<Tilemap>(),
-                GameObject.Find(MinebotGameplayPresentation.DgHardRockTilemapName).GetComponent<Tilemap>(),
-                GameObject.Find(MinebotGameplayPresentation.DgUltraHardTilemapName).GetComponent<Tilemap>(),
+                GameObject.Find(MinebotGameplayPresentation.DgWallTilemapName).GetComponent<Tilemap>(),
                 GameObject.Find(MinebotGameplayPresentation.DgBoundaryTilemapName).GetComponent<Tilemap>()
             };
+        }
+
+        private static Tilemap TerrainLayerTilemap(IReadOnlyList<Tilemap> terrainTilemaps, TerrainRenderLayerId layerId)
+        {
+            return terrainTilemaps[DualGridTerrain.GetOrderedLayerIndex(layerId)];
         }
 
         private static bool HasAnyDisplayTileAroundCell(Tilemap tilemap, GridPosition worldCell)

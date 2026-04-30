@@ -136,6 +136,12 @@ namespace Minebot.Presentation
             for (int i = 0; i < orderedLayers.Length; i++)
             {
                 TerrainRenderLayerId layerId = orderedLayers[i];
+                if (layerId == TerrainRenderLayerId.Soil)
+                {
+                    output[i] = ResolveWallCommand(sample);
+                    continue;
+                }
+
                 TerrainMaterialId material = DualGridTerrain.MaterialForLayer(layerId);
                 int atlasIndex = DualGridTerrain.ComputeIndex(
                     sample.TopLeft == material,
@@ -145,6 +151,23 @@ namespace Minebot.Presentation
                 output[i] = new RenderLayerCommand(layerId, atlasIndex, atlasIndex != 0);
             }
         }
+
+        private static RenderLayerCommand ResolveWallCommand(CornerMaterialSample sample)
+        {
+            int atlasIndex = DualGridTerrain.ComputeIndex(
+                DualGridTerrain.IsWallMaterial(sample.TopLeft),
+                DualGridTerrain.IsWallMaterial(sample.TopRight),
+                DualGridTerrain.IsWallMaterial(sample.BottomLeft),
+                DualGridTerrain.IsWallMaterial(sample.BottomRight));
+
+            if (atlasIndex == 0)
+            {
+                return new RenderLayerCommand(TerrainRenderLayerId.Soil, 0, false);
+            }
+
+            TerrainRenderLayerId wallFamily = DualGridTerrain.ResolveWallFamilyLayer(sample);
+            return new RenderLayerCommand(wallFamily, atlasIndex, true);
+        }
     }
 
     public static class DualGridTerrain
@@ -153,6 +176,15 @@ namespace Minebot.Presentation
         public const int RenderLayerCount = DualGridTerrainLayout.RenderLayerCount;
         public static readonly Vector3 DisplayOffset = DualGridTerrainLayout.DefaultDisplayOffset;
         public static readonly TerrainRenderLayerId[] OrderedLayers = DualGridTerrainLayout.OrderedLayers;
+        public static readonly TerrainRenderLayerId[] MaterialFamilies =
+        {
+            TerrainRenderLayerId.Floor,
+            TerrainRenderLayerId.Soil,
+            TerrainRenderLayerId.Stone,
+            TerrainRenderLayerId.HardRock,
+            TerrainRenderLayerId.UltraHard,
+            TerrainRenderLayerId.Boundary
+        };
 
         public static TerrainMaterialId MaterialForCell(GridCellState cell)
         {
@@ -208,18 +240,64 @@ namespace Minebot.Presentation
             switch (materialId)
             {
                 case TerrainMaterialId.Soil:
-                    return TerrainRenderLayerId.Soil;
                 case TerrainMaterialId.Stone:
-                    return TerrainRenderLayerId.Stone;
                 case TerrainMaterialId.HardRock:
-                    return TerrainRenderLayerId.HardRock;
                 case TerrainMaterialId.UltraHard:
-                    return TerrainRenderLayerId.UltraHard;
+                    return TerrainRenderLayerId.Soil;
                 case TerrainMaterialId.Boundary:
                     return TerrainRenderLayerId.Boundary;
                 default:
                     return TerrainRenderLayerId.Floor;
             }
+        }
+
+        public static bool IsWallMaterial(TerrainMaterialId materialId)
+        {
+            switch (materialId)
+            {
+                case TerrainMaterialId.Soil:
+                case TerrainMaterialId.Stone:
+                case TerrainMaterialId.HardRock:
+                case TerrainMaterialId.UltraHard:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public static TerrainRenderLayerId ResolveWallFamilyLayer(CornerMaterialSample sample)
+        {
+            int soilCount = CountWallMaterial(sample, TerrainMaterialId.Soil);
+            int stoneCount = CountWallMaterial(sample, TerrainMaterialId.Stone);
+            int hardRockCount = CountWallMaterial(sample, TerrainMaterialId.HardRock);
+            int ultraHardCount = CountWallMaterial(sample, TerrainMaterialId.UltraHard);
+            int bestCount = Mathf.Max(soilCount, stoneCount, hardRockCount, ultraHardCount);
+            if (bestCount <= 0)
+            {
+                return TerrainRenderLayerId.Soil;
+            }
+
+            if (MatchesPreferredWallMaterial(sample.BottomRight, bestCount, ultraHardCount, hardRockCount, stoneCount, soilCount, out TerrainRenderLayerId preferred))
+            {
+                return preferred;
+            }
+
+            if (MatchesPreferredWallMaterial(sample.TopRight, bestCount, ultraHardCount, hardRockCount, stoneCount, soilCount, out preferred))
+            {
+                return preferred;
+            }
+
+            if (MatchesPreferredWallMaterial(sample.BottomLeft, bestCount, ultraHardCount, hardRockCount, stoneCount, soilCount, out preferred))
+            {
+                return preferred;
+            }
+
+            if (MatchesPreferredWallMaterial(sample.TopLeft, bestCount, ultraHardCount, hardRockCount, stoneCount, soilCount, out preferred))
+            {
+                return preferred;
+            }
+
+            return TerrainRenderLayerId.Soil;
         }
 
         public static CornerMaterialSample Sample(LogicalGridState grid, int displayX, int displayY)
@@ -258,6 +336,66 @@ namespace Minebot.Presentation
         public static int GetSortingOrder(TerrainRenderLayerId layerId)
         {
             return DualGridTerrainLayout.GetSortingOrder(layerId, DualGridTerrainLayoutSettings.CreateDefault());
+        }
+
+        public static int GetOrderedLayerIndex(TerrainRenderLayerId layerId)
+        {
+            return DualGridTerrainLayout.GetOrderedLayerIndex(layerId);
+        }
+
+        private static int CountWallMaterial(CornerMaterialSample sample, TerrainMaterialId target)
+        {
+            int count = 0;
+            if (sample.TopLeft == target)
+            {
+                count++;
+            }
+
+            if (sample.TopRight == target)
+            {
+                count++;
+            }
+
+            if (sample.BottomLeft == target)
+            {
+                count++;
+            }
+
+            if (sample.BottomRight == target)
+            {
+                count++;
+            }
+
+            return count;
+        }
+
+        private static bool MatchesPreferredWallMaterial(
+            TerrainMaterialId candidate,
+            int bestCount,
+            int ultraHardCount,
+            int hardRockCount,
+            int stoneCount,
+            int soilCount,
+            out TerrainRenderLayerId preferred)
+        {
+            preferred = TerrainRenderLayerId.Soil;
+            switch (candidate)
+            {
+                case TerrainMaterialId.UltraHard:
+                    preferred = TerrainRenderLayerId.UltraHard;
+                    return ultraHardCount == bestCount;
+                case TerrainMaterialId.HardRock:
+                    preferred = TerrainRenderLayerId.HardRock;
+                    return hardRockCount == bestCount;
+                case TerrainMaterialId.Stone:
+                    preferred = TerrainRenderLayerId.Stone;
+                    return stoneCount == bestCount;
+                case TerrainMaterialId.Soil:
+                    preferred = TerrainRenderLayerId.Soil;
+                    return soilCount == bestCount;
+                default:
+                    return false;
+            }
         }
 
         private static TerrainMaterialId SampleCell(LogicalGridState grid, int x, int y)

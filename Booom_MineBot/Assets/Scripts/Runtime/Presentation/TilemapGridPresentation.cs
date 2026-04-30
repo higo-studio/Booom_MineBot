@@ -153,7 +153,7 @@ namespace Minebot.Presentation
 
         public Tilemap GetTerrainTilemap(TerrainRenderLayerId layerId)
         {
-            int index = (int)layerId;
+            int index = DualGridTerrain.GetOrderedLayerIndex(layerId);
             return index >= 0 && index < TerrainTilemaps.Count ? TerrainTilemaps[index] : null;
         }
 

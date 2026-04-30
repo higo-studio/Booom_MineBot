@@ -191,10 +191,7 @@ TilemapAuthoringMaterialSource
               ▼
      Dual Grid Preview Root
      ├─ DG Floor Tilemap
-     ├─ DG Soil Tilemap
-     ├─ DG Stone Tilemap
-     ├─ DG HardRock Tilemap
-     ├─ DG UltraHard Tilemap
+     ├─ DG Wall Tilemap
      └─ DG Boundary Tilemap
 ```
 

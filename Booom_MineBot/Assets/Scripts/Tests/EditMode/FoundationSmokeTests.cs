@@ -488,15 +488,12 @@ namespace Minebot.Tests.EditMode
             Assert.That(first, Is.EqualTo(second));
             for (int i = 0; i < first.Length; i++)
             {
-                Assert.That(first[i].LayerId, Is.EqualTo(DualGridTerrain.OrderedLayers[i]));
+                Assert.That(DualGridTerrain.GetOrderedLayerIndex(first[i].LayerId), Is.EqualTo(i));
             }
 
-            Assert.That(first[(int)TerrainRenderLayerId.Floor], Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Floor, 2, true)));
-            Assert.That(first[(int)TerrainRenderLayerId.Soil], Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Soil, 8, true)));
-            Assert.That(first[(int)TerrainRenderLayerId.Stone], Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Stone, 4, true)));
-            Assert.That(first[(int)TerrainRenderLayerId.Boundary], Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Boundary, 1, true)));
-            Assert.That(first[(int)TerrainRenderLayerId.HardRock].HasContent, Is.False);
-            Assert.That(first[(int)TerrainRenderLayerId.UltraHard].HasContent, Is.False);
+            Assert.That(CommandAtLayer(first, TerrainRenderLayerId.Floor), Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Floor, 2, true)));
+            Assert.That(CommandAtLayer(first, TerrainRenderLayerId.Soil), Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Stone, 12, true)));
+            Assert.That(CommandAtLayer(first, TerrainRenderLayerId.Boundary), Is.EqualTo(new RenderLayerCommand(TerrainRenderLayerId.Boundary, 1, true)));
         }
 
         [Test]
@@ -539,8 +536,7 @@ namespace Minebot.Tests.EditMode
                     TerrainMaterialId.Stone,
                     TerrainMaterialId.Soil,
                     TerrainMaterialId.Stone),
-                new RenderLayerCommand(TerrainRenderLayerId.Soil, 10, true),
-                new RenderLayerCommand(TerrainRenderLayerId.Stone, 5, true));
+                new RenderLayerCommand(TerrainRenderLayerId.Stone, 15, true));
 
             AssertResolverScenario(
                 resolver,
@@ -675,7 +671,7 @@ namespace Minebot.Tests.EditMode
             Assert.That(artSet, Is.Not.Null);
             Assert.That(dualGridProfile, Is.Not.Null);
             Assert.That(artSet.DualGridTerrainProfile, Is.EqualTo(dualGridProfile));
-            Assert.That(dualGridProfile.Families.Length, Is.EqualTo(DualGridTerrain.RenderLayerCount));
+            Assert.That(dualGridProfile.Families.Length, Is.EqualTo(DualGridTerrain.MaterialFamilies.Length));
             Assert.That(dualGridProfile.LayoutSettings.DisplayOffset, Is.EqualTo(DualGridTerrain.DisplayOffset));
             Assert.That(artSet.FloorDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(artSet.SoilDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
@@ -765,6 +761,23 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void DualGridFogFallbackTilesPreserveQuarterCellGeometry()
+        {
+            Texture2D texture = DualGridFogFallbackTiles.CreateTexture(DualGridFogBandKind.Near, 8, "QuarterFogTest");
+            try
+            {
+                Assert.That(texture.GetPixel(4, 12).a, Is.GreaterThan(0.1f));
+                Assert.That(texture.GetPixel(12, 12).a, Is.EqualTo(0f).Within(0.001f));
+                Assert.That(texture.GetPixel(4, 4).a, Is.EqualTo(0f).Within(0.001f));
+                Assert.That(texture.GetPixel(12, 4).a, Is.EqualTo(0f).Within(0.001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        [Test]
         public void DualGridPreviewHostRefreshBuildsPreviewWithoutInitializingRuntimeServices()
         {
             MinebotServices.ResetForTests();
@@ -792,7 +805,7 @@ namespace Minebot.Tests.EditMode
 
                 Tilemap[] previewTilemaps = CreateTerrainTilemaps(host.PreviewRoot);
                 Assert.That(previewTilemaps.Length, Is.EqualTo(DualGridTerrain.RenderLayerCount));
-                Assert.That(HasAnyTile(previewTilemaps[(int)TerrainRenderLayerId.Soil]), Is.True);
+                Assert.That(HasAnyTile(TerrainLayerTilemap(previewTilemaps, TerrainRenderLayerId.Soil)), Is.True);
             }
             finally
             {
@@ -903,29 +916,38 @@ namespace Minebot.Tests.EditMode
 
             for (int i = 0; i < commands.Length; i++)
             {
-                Assert.That(commands[i].LayerId, Is.EqualTo(DualGridTerrain.OrderedLayers[i]));
+                Assert.That(DualGridTerrain.GetOrderedLayerIndex(commands[i].LayerId), Is.EqualTo(i));
             }
 
             foreach (TerrainRenderLayerId layerId in DualGridTerrain.OrderedLayers)
             {
-                bool matched = false;
+                int orderedIndex = DualGridTerrain.GetOrderedLayerIndex(layerId);
+                RenderLayerCommand? expected = null;
                 for (int i = 0; i < expectedCommands.Length; i++)
                 {
-                    if (expectedCommands[i].LayerId != layerId)
+                    if (DualGridTerrain.GetOrderedLayerIndex(expectedCommands[i].LayerId) != orderedIndex)
                     {
                         continue;
                     }
 
-                    Assert.That(commands[(int)layerId], Is.EqualTo(expectedCommands[i]));
-                    matched = true;
+                    expected = expectedCommands[i];
                     break;
                 }
 
-                if (!matched)
+                if (expected.HasValue)
                 {
-                    Assert.That(commands[(int)layerId].HasContent, Is.False);
+                    Assert.That(commands[orderedIndex], Is.EqualTo(expected.Value));
+                }
+                else
+                {
+                    Assert.That(commands[orderedIndex].HasContent, Is.False);
                 }
             }
+        }
+
+        private static RenderLayerCommand CommandAtLayer(RenderLayerCommand[] commands, TerrainRenderLayerId layerId)
+        {
+            return commands[DualGridTerrain.GetOrderedLayerIndex(layerId)];
         }
 
         private static RuleProbe CreateRuleProbe(bool useConfiguredArt, MinebotPresentationArtSet artSet)
@@ -1009,15 +1031,14 @@ namespace Minebot.Tests.EditMode
 
         private static Tilemap[] CreateTerrainTilemaps(Transform parent)
         {
-            return new[]
+            var tilemaps = new Tilemap[DualGridTerrain.OrderedLayers.Length];
+            for (int i = 0; i < tilemaps.Length; i++)
             {
-                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Floor), DualGridTerrain.DisplayOffset),
-                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil), DualGridTerrain.DisplayOffset),
-                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Stone), DualGridTerrain.DisplayOffset),
-                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.HardRock), DualGridTerrain.DisplayOffset),
-                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.UltraHard), DualGridTerrain.DisplayOffset),
-                FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Boundary), DualGridTerrain.DisplayOffset)
-            };
+                TerrainRenderLayerId layerId = DualGridTerrain.OrderedLayers[i];
+                tilemaps[i] = FindOrCreateTilemap(parent, DualGridTerrain.GetTilemapName(layerId), DualGridTerrain.DisplayOffset);
+            }
+
+            return tilemaps;
         }
 
         private static Tilemap CreateTilemap(Transform parent, string name, Vector3 localPosition)
@@ -1071,11 +1092,16 @@ namespace Minebot.Tests.EditMode
             return false;
         }
 
+        private static Tilemap TerrainLayerTilemap(IReadOnlyList<Tilemap> terrainTilemaps, TerrainRenderLayerId layerId)
+        {
+            return terrainTilemaps[DualGridTerrain.GetOrderedLayerIndex(layerId)];
+        }
+
         private static void ConfigureProfileWithFallbackTiles(DualGridTerrainProfile profile)
         {
             profile.ConfigureLayout(DualGridTerrainLayoutSettings.CreateDefault());
             MinebotPresentationAssets fallbackAssets = MinebotPresentationAssets.Create(null);
-            foreach (TerrainRenderLayerId layerId in DualGridTerrainLayout.OrderedLayers)
+            foreach (TerrainRenderLayerId layerId in DualGridTerrain.MaterialFamilies)
             {
                 profile.ConfigureFamilyTiles(layerId, ResolveFallbackTiles(fallbackAssets, layerId));
             }

@@ -37,26 +37,20 @@ namespace Minebot.Presentation
         {
             TerrainRenderLayerId.Floor,
             TerrainRenderLayerId.Soil,
-            TerrainRenderLayerId.Stone,
-            TerrainRenderLayerId.HardRock,
-            TerrainRenderLayerId.UltraHard,
             TerrainRenderLayerId.Boundary
         };
 
-        public const int RenderLayerCount = 6;
+        public const int RenderLayerCount = 3;
 
         public static string GetTilemapName(TerrainRenderLayerId layerId)
         {
             switch (layerId)
             {
                 case TerrainRenderLayerId.Soil:
-                    return "DG Soil Tilemap";
                 case TerrainRenderLayerId.Stone:
-                    return "DG Stone Tilemap";
                 case TerrainRenderLayerId.HardRock:
-                    return "DG HardRock Tilemap";
                 case TerrainRenderLayerId.UltraHard:
-                    return "DG UltraHard Tilemap";
+                    return "DG Wall Tilemap";
                 case TerrainRenderLayerId.Boundary:
                     return "DG Boundary Tilemap";
                 default:
@@ -66,7 +60,30 @@ namespace Minebot.Presentation
 
         public static int GetSortingOrder(TerrainRenderLayerId layerId, DualGridTerrainLayoutSettings settings)
         {
-            return settings.SortingOrderBase + ((int)layerId * settings.SortingOrderStep);
+            int orderedIndex = GetOrderedLayerIndex(layerId);
+            return settings.SortingOrderBase + (Math.Max(0, orderedIndex) * settings.SortingOrderStep);
+        }
+
+        public static int GetOrderedLayerIndex(TerrainRenderLayerId layerId)
+        {
+            switch (layerId)
+            {
+                case TerrainRenderLayerId.Stone:
+                case TerrainRenderLayerId.HardRock:
+                case TerrainRenderLayerId.UltraHard:
+                    layerId = TerrainRenderLayerId.Soil;
+                    break;
+            }
+
+            for (int i = 0; i < OrderedLayers.Length; i++)
+            {
+                if (OrderedLayers[i] == layerId)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
     }
 }
