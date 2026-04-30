@@ -19,6 +19,8 @@ namespace Minebot.Presentation
         public Tile[] HardRockDualGridTiles { get; private set; }
         public Tile[] UltraHardDualGridTiles { get; private set; }
         public Tile[] BoundaryDualGridTiles { get; private set; }
+        public Tile[] FogNearDualGridTiles { get; private set; }
+        public Tile[] FogDeepDualGridTiles { get; private set; }
         public Tile DangerTile { get; private set; }
         public Tile MarkerTile { get; private set; }
         public Tile RepairStationTile { get; private set; }
@@ -91,6 +93,8 @@ namespace Minebot.Presentation
             Tile[] hardRockTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.HardRock, fallback.HardRockDualGridTiles);
             Tile[] ultraHardTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.UltraHard, fallback.UltraHardDualGridTiles);
             Tile[] boundaryTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Boundary, fallback.BoundaryDualGridTiles);
+            Tile[] fogNearTiles = artSet != null ? artSet.FogNearDualGridTiles : fallback.FogNearDualGridTiles;
+            Tile[] fogDeepTiles = artSet != null ? artSet.FogDeepDualGridTiles : fallback.FogDeepDualGridTiles;
             Tile[] wallContours = ResolveLegacyContourTiles(
                 dualGridProfileOverride != null ? dualGridProfileOverride.ResolveWallContourTiles(artSet != null ? artSet.WallContourTiles : null) : artSet != null ? artSet.WallContourTiles : null,
                 fallback.WallContourTiles);
@@ -115,6 +119,8 @@ namespace Minebot.Presentation
                 HardRockDualGridTiles = NormalizeIndexedTiles(hardRockTiles, fallback.HardRockDualGridTiles),
                 UltraHardDualGridTiles = NormalizeIndexedTiles(ultraHardTiles, fallback.UltraHardDualGridTiles),
                 BoundaryDualGridTiles = NormalizeIndexedTiles(boundaryTiles, fallback.BoundaryDualGridTiles),
+                FogNearDualGridTiles = NormalizeIndexedTiles(fogNearTiles, fallback.FogNearDualGridTiles),
+                FogDeepDualGridTiles = NormalizeIndexedTiles(fogDeepTiles, fallback.FogDeepDualGridTiles),
                 DangerTile = artSet != null && artSet.DangerTile != null ? artSet.DangerTile : fallback.DangerTile,
                 MarkerTile = artSet != null && artSet.MarkerTile != null ? artSet.MarkerTile : fallback.MarkerTile,
                 RepairStationTile = artSet != null && artSet.RepairStationTile != null ? artSet.RepairStationTile : fallback.RepairStationTile,
@@ -223,6 +229,16 @@ namespace Minebot.Presentation
             }
         }
 
+        public Tile FogNearDualGridTileForIndex(int index)
+        {
+            return TileForContourIndex(FogNearDualGridTiles, index);
+        }
+
+        public Tile FogDeepDualGridTileForIndex(int index)
+        {
+            return TileForContourIndex(FogDeepDualGridTiles, index);
+        }
+
         public Tile WallBaseTileForHardness(Minebot.GridMining.HardnessTier hardness)
         {
             switch (hardness)
@@ -280,6 +296,8 @@ namespace Minebot.Presentation
                 HardRockDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.HardRock),
                 UltraHardDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.UltraHard),
                 BoundaryDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.Boundary),
+                FogNearDualGridTiles = DualGridFogFallbackTiles.CreateTileSet(DualGridFogBandKind.Near),
+                FogDeepDualGridTiles = DualGridFogFallbackTiles.CreateTileSet(DualGridFogBandKind.Deep),
                 DangerTile = CreateTile("Danger Tile", new Color(1f, 0.16f, 0.2f, 0.28f), new Color(1f, 0.38f, 0.24f, 0.92f)),
                 MarkerTile = CreateTile("Marker Tile", new Color(0.2f, 0.84f, 1f, 0.32f), new Color(0.86f, 1f, 0.98f, 0.92f)),
                 RepairStationTile = CreateTile("Repair Station Tile", new Color(0.1f, 0.38f, 0.85f, 1f), new Color(0.62f, 0.88f, 1f, 1f)),

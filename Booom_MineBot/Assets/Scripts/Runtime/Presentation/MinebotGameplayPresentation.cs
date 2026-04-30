@@ -16,25 +16,27 @@ using UnityEngine.UI;
 
 namespace Minebot.Presentation
 {
-        [DefaultExecutionOrder(-50)]
-        public sealed class MinebotGameplayPresentation : MonoBehaviour
-        {
-            public const string PresentationRootName = "Presentation Root";
-            public static readonly string DgFloorTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Floor);
-            public static readonly string DgSoilTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil);
-            public static readonly string DgStoneTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Stone);
-            public static readonly string DgHardRockTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.HardRock);
-            public static readonly string DgUltraHardTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.UltraHard);
-            public static readonly string DgBoundaryTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Boundary);
-            public static readonly string TerrainTilemapName = DgFloorTilemapName;
-            public const string FacilityTilemapName = "Facility Tilemap";
-            public const string MarkerTilemapName = "Marker Tilemap";
-            public const string DangerTilemapName = "Danger Tilemap";
-            public const string BuildPreviewTilemapName = "Build Preview Tilemap";
-            public const string ScanIndicatorRootName = "Scan Indicator Root";
-            public const string PickupRootName = "Pickup Root";
-            public const string CellFxRootName = "Cell FX Root";
-            public const string OverlayTilemapName = MarkerTilemapName;
+    [DefaultExecutionOrder(-50)]
+    public sealed class MinebotGameplayPresentation : MonoBehaviour
+    {
+        public const string PresentationRootName = "Presentation Root";
+        public static readonly string DgFloorTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Floor);
+        public static readonly string DgSoilTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil);
+        public static readonly string DgStoneTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Stone);
+        public static readonly string DgHardRockTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.HardRock);
+        public static readonly string DgUltraHardTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.UltraHard);
+        public static readonly string DgBoundaryTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Boundary);
+        public const string FogDeepTilemapName = "DG Fog Deep Tilemap";
+        public const string FogNearTilemapName = "DG Fog Near Tilemap";
+        public static readonly string TerrainTilemapName = DgFloorTilemapName;
+        public const string FacilityTilemapName = "Facility Tilemap";
+        public const string MarkerTilemapName = "Marker Tilemap";
+        public const string DangerTilemapName = "Danger Tilemap";
+        public const string BuildPreviewTilemapName = "Build Preview Tilemap";
+        public const string ScanIndicatorRootName = "Scan Indicator Root";
+        public const string PickupRootName = "Pickup Root";
+        public const string CellFxRootName = "Cell FX Root";
+        public const string OverlayTilemapName = MarkerTilemapName;
         public const string HintTilemapName = BuildPreviewTilemapName;
         public const string PlayerViewName = "Player View";
         public const string HudRootName = MinebotHudView.RootName;
@@ -464,6 +466,9 @@ namespace Minebot.Presentation
             unityGrid.cellGap = Vector3.zero;
 
             Tilemap[] terrainFamilies = EnsureTerrainFamilyLayers(gridRoot);
+            Vector3 fogOffset = assets != null ? assets.TerrainLayoutSettings.DisplayOffset : DualGridFog.DisplayOffset;
+            Tilemap fogDeep = EnsureTilemapLayer(gridRoot, FogDeepTilemapName, 8, fogOffset);
+            Tilemap fogNear = EnsureTilemapLayer(gridRoot, FogNearTilemapName, 9, fogOffset);
             Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, 10);
             Tilemap facility = EnsureTilemapLayer(gridRoot, FacilityTilemapName, 15);
             Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, 20);
@@ -477,7 +482,7 @@ namespace Minebot.Presentation
                 gridPresentation = gridRoot.gameObject.AddComponent<TilemapGridPresentation>();
             }
 
-            gridPresentation.Configure(terrainFamilies, facility, marker, danger, buildPreview, assets);
+            gridPresentation.Configure(terrainFamilies, fogNear, fogDeep, facility, marker, danger, buildPreview, assets);
             playerActorView = EnsureActorView(actorRoot, PlayerViewName, assets.PlayerActorPrefab, assets.PlayerSprite, 40);
             playerView = playerActorView.BodyRenderer;
             playerFreeform = EnsureFreeformActor(playerActorView.gameObject, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
@@ -1936,6 +1941,11 @@ namespace Minebot.Presentation
 
         private static Color32 ColorForMinimapCell(GridCellState cell)
         {
+            if (DualGridFog.IsSolid(cell))
+            {
+                return new Color32(10, 14, 18, 255);
+            }
+
             if (cell.IsMarked)
             {
                 return new Color32(32, 232, 220, 255);
