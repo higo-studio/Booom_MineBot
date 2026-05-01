@@ -4,19 +4,22 @@ using UnityEngine;
 
 namespace Minebot.Presentation
 {
-    [CreateAssetMenu(menuName = "Minebot/Presentation/Bitmap Glyph Font")]
+    [CreateAssetMenu(menuName = "Minebot/表现/位图字形字体")]
     public sealed class BitmapGlyphFontDefinition : ScriptableObject
     {
         [Serializable]
         public sealed class GlyphDefinition
         {
             [SerializeField]
+            [InspectorLabel("字符")]
             private string character = string.Empty;
 
             [SerializeField]
+            [InspectorLabel("精灵")]
             private Sprite sprite;
 
             [SerializeField]
+            [InspectorLabel("步进")]
             private float advance = 10f;
 
             public GlyphDefinition()
@@ -36,18 +39,23 @@ namespace Minebot.Presentation
         }
 
         [SerializeField]
+        [InspectorLabel("图集纹理")]
         private Texture2D atlasTexture;
 
         [SerializeField]
+        [InspectorLabel("描述文件")]
         private TextAsset descriptor;
 
         [SerializeField]
+        [InspectorLabel("行高")]
         private float lineHeight = 16f;
 
         [SerializeField]
+        [InspectorLabel("参考字号")]
         private float referenceFontSize = 4f;
 
         [SerializeField]
+        [InspectorLabel("字形列表")]
         private GlyphDefinition[] glyphs = Array.Empty<GlyphDefinition>();
 
         [NonSerialized]

@@ -22,9 +22,12 @@ namespace Minebot.Bootstrap
             }
 
             bool usingGeneratedMap = config == null || config.DefaultMap == null;
+            MapGenerationSettings generatedMapSettings = config != null
+                ? config.GeneratedMapConfig.ToSettings()
+                : MapGenerationSettings.CreateDefault();
             LogicalGridState grid = config != null && config.DefaultMap != null
                 ? config.DefaultMap.CreateGridState()
-                : MapGenerator.Generate(new MapGenerationSettings(new Vector2Int(12, 12), new Minebot.Common.GridPosition(6, 6), 1));
+                : MapGenerator.Generate(generatedMapSettings);
             GameBalanceConfig balance = config != null ? config.BalanceConfig : null;
             int maxHealth = balance != null ? balance.PlayerMaxHealth : 3;
             int firstThreshold = balance != null ? balance.FirstUpgradeThreshold : 4;

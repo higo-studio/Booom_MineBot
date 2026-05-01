@@ -640,6 +640,7 @@ namespace Minebot.Tests.PlayMode
             }
 
             if (services.Session.LastRobotAutomationResult.Kind == RobotAutomationResultKind.Mined
+                || services.Session.LastRobotAutomationResult.Kind == RobotAutomationResultKind.TriggeredBomb
                 || services.Session.LastRobotAutomationResult.Kind == RobotAutomationResultKind.Destroyed)
             {
                 Assert.That(GetCellFxRoot().GetComponentsInChildren<MinebotCellFxView>(true).Length, Is.GreaterThan(0));

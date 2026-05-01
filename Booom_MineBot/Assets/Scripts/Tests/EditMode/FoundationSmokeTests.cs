@@ -137,6 +137,24 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void DefaultGeneratedMapSettingsExpandCurrentMapByTwentyTimes()
+        {
+            MapGenerationSettings settings = MapGenerationSettings.CreateDefault();
+
+            Assert.That(settings.Size, Is.EqualTo(new Vector2Int(240, 240)));
+            Assert.That(settings.Spawn, Is.EqualTo(new GridPosition(120, 120)));
+        }
+
+        [Test]
+        public void BootstrapGeneratedMapUsesExpandedDefaultSize()
+        {
+            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
+
+            Assert.That(registry.Grid.Size, Is.EqualTo(new Vector2Int(240, 240)));
+            Assert.That(registry.Grid.PlayerSpawn, Is.EqualTo(new GridPosition(120, 120)));
+        }
+
+        [Test]
         public void DefaultBootstrapSeedsBombsOutsideStarterSafeRadius()
         {
             RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
@@ -172,6 +190,97 @@ namespace Minebot.Tests.EditMode
             }
 
             Assert.That(energyRewardCells, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void GeneratedMapForcesUltraHardOutsideConfiguredOuterRadius()
+        {
+            MapGenerationSettings settings = new MapGenerationSettings(
+                new Vector2Int(61, 61),
+                new GridPosition(30, 30),
+                1,
+                0.75f,
+                0.25f,
+                new Vector2(0.06f, 0.06f),
+                new Vector2(11.3f, 47.9f),
+                1f,
+                0.8f,
+                0.24f,
+                0.49f,
+                0.71f);
+            LogicalGridState grid = MapGenerator.Generate(settings);
+
+            foreach (GridPosition position in grid.Positions())
+            {
+                GridCellState cell = grid.GetCell(position);
+                if (cell.TerrainKind != TerrainKind.MineableWall)
+                {
+                    continue;
+                }
+
+                if (ComputeRadialDistance01(settings, position) >= settings.ForcedUltraHardDistanceNormalized)
+                {
+                    Assert.That(cell.HardnessTier, Is.EqualTo(HardnessTier.UltraHard), $"Expected outer ring cell {position} to be UltraHard.");
+                }
+            }
+        }
+
+        [Test]
+        public void GeneratedMapBlendsRadialGradientAndNoiseIntoVariedHardnessBands()
+        {
+            MapGenerationSettings settings = new MapGenerationSettings(
+                new Vector2Int(81, 81),
+                new GridPosition(40, 40),
+                1,
+                0.7f,
+                0.3f,
+                new Vector2(0.08f, 0.08f),
+                new Vector2(3.1f, 19.7f),
+                1.05f,
+                0.86f,
+                0.22f,
+                0.46f,
+                0.7f);
+            LogicalGridState grid = MapGenerator.Generate(settings);
+            var hardnessCounts = new Dictionary<HardnessTier, int>();
+            var hardnessByRingBucket = new Dictionary<int, HashSet<HardnessTier>>();
+
+            foreach (GridPosition position in grid.Positions())
+            {
+                GridCellState cell = grid.GetCell(position);
+                if (cell.TerrainKind != TerrainKind.MineableWall)
+                {
+                    continue;
+                }
+
+                hardnessCounts[cell.HardnessTier] = hardnessCounts.TryGetValue(cell.HardnessTier, out int count) ? count + 1 : 1;
+
+                int bucket = Mathf.RoundToInt(ComputeRadialDistance01(settings, position) * 12f);
+                if (!hardnessByRingBucket.TryGetValue(bucket, out HashSet<HardnessTier> ringValues))
+                {
+                    ringValues = new HashSet<HardnessTier>();
+                    hardnessByRingBucket.Add(bucket, ringValues);
+                }
+
+                ringValues.Add(cell.HardnessTier);
+            }
+
+            Assert.That(hardnessCounts.ContainsKey(HardnessTier.Soil), Is.True);
+            Assert.That(hardnessCounts.ContainsKey(HardnessTier.Stone), Is.True);
+            Assert.That(hardnessCounts.ContainsKey(HardnessTier.HardRock), Is.True);
+            Assert.That(hardnessCounts.ContainsKey(HardnessTier.UltraHard), Is.True);
+
+            bool foundRingWithNoiseVariation = false;
+            foreach (KeyValuePair<int, HashSet<HardnessTier>> pair in hardnessByRingBucket)
+            {
+                if (pair.Value.Count > 1)
+                {
+                    foundRingWithNoiseVariation = true;
+                    break;
+                }
+            }
+
+            Assert.That(foundRingWithNoiseVariation, Is.True);
         }
 
         [Test]
@@ -1315,6 +1424,29 @@ namespace Minebot.Tests.EditMode
             public BuildingPlacementFailure BuildFailure { get; }
             public bool DangerZoneAtProbe { get; }
             public bool WallPassable { get; }
+        }
+
+        private static float ComputeRadialDistance01(MapGenerationSettings settings, GridPosition position)
+        {
+            float maxDistance = Mathf.Max(
+                DistanceTo(settings.Spawn, 1, 1),
+                DistanceTo(settings.Spawn, settings.Size.x - 2, 1),
+                DistanceTo(settings.Spawn, 1, settings.Size.y - 2),
+                DistanceTo(settings.Spawn, settings.Size.x - 2, settings.Size.y - 2));
+            if (maxDistance <= 0.001f)
+            {
+                return 1f;
+            }
+
+            float distance = DistanceTo(settings.Spawn, position.X, position.Y);
+            return Mathf.Pow(Mathf.Clamp01(distance / maxDistance), settings.RadialExponent);
+        }
+
+        private static float DistanceTo(GridPosition origin, int x, int y)
+        {
+            float dx = origin.X - x;
+            float dy = origin.Y - y;
+            return Mathf.Sqrt(dx * dx + dy * dy);
         }
 
         private static LogicalGridState CreateOpenGrid(Vector2Int size, GridPosition spawn)

@@ -7,42 +7,63 @@ namespace Minebot.GridMining
 {
     public enum MapMarkerKind
     {
+        [InspectorName("出生点")]
         Spawn = 0,
+        [InspectorName("维修站")]
         RepairStation = 1,
+        [InspectorName("机器人工厂")]
         RobotFactory = 2
     }
 
     [Serializable]
     public struct MapCellDefinition
     {
+        [InspectorLabel("地形类型")]
         public TerrainKind terrainKind;
+
+        [InspectorLabel("硬度档位")]
         public HardnessTier hardnessTier;
+
+        [InspectorLabel("静态标记")]
         public CellStaticFlags staticFlags;
+
+        [InspectorLabel("资源奖励")]
         public ResourceAmount reward;
     }
 
     [Serializable]
     public struct MapMarkerDefinition
     {
+        [InspectorLabel("标记类型")]
         public MapMarkerKind markerKind;
+
+        [InspectorLabel("位置")]
         public GridPosition position;
+
+        [InspectorLabel("尺寸")]
         public Vector2Int size;
+
+        [InspectorLabel("朝向")]
         public int direction;
     }
 
-    [CreateAssetMenu(menuName = "Minebot/Grid Mining/Map Definition")]
+    [CreateAssetMenu(menuName = "Minebot/网格挖掘/地图定义")]
     public sealed class MapDefinition : ScriptableObject
     {
         [SerializeField]
+        [InspectorLabel("地图标识")]
         private string mapId = "default";
 
         [SerializeField]
+        [InspectorLabel("地图尺寸")]
         private Vector2Int size = new Vector2Int(12, 12);
 
         [SerializeField]
+        [InspectorLabel("格子定义")]
         private MapCellDefinition[] cells = Array.Empty<MapCellDefinition>();
 
         [SerializeField]
+        [InspectorLabel("标记定义")]
         private MapMarkerDefinition[] markers = Array.Empty<MapMarkerDefinition>();
 
         public string MapId => mapId;

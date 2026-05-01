@@ -7,12 +7,15 @@ namespace Minebot.Presentation
     public struct DualGridTerrainLayoutSettings
     {
         [SerializeField]
+        [InspectorLabel("显示偏移")]
         private Vector3 displayOffset;
 
         [SerializeField]
+        [InspectorLabel("基础排序层级")]
         private int sortingOrderBase;
 
         [SerializeField]
+        [InspectorLabel("排序层级步进")]
         private int sortingOrderStep;
 
         public Vector3 DisplayOffset => displayOffset == default ? DualGridTerrainLayout.DefaultDisplayOffset : displayOffset;

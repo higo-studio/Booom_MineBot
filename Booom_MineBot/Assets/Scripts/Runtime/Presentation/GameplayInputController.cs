@@ -114,7 +114,7 @@ namespace Minebot.Presentation
             {
                 ResetAutoMineState();
                 presentation.NotifyPlayerMoved();
-                presentation.RefreshAll();
+                presentation.RefreshAfterPlayerMoved();
                 return true;
             }
 
@@ -141,6 +141,7 @@ namespace Minebot.Presentation
 
             GridPosition target = services.PlayerMiningState.Position + lastDirection;
             bool marked = services.Session.ToggleMarker(target);
+            presentation.RefreshAfterMarkerChanged();
             presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
             return marked;
         }
@@ -192,6 +193,7 @@ namespace Minebot.Presentation
             if (presentation.InteractionMode == GameplayInteractionMode.Marker)
             {
                 bool marked = services.Session.ToggleMarker(target);
+                presentation.RefreshAfterMarkerChanged();
                 presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
                 return true;
             }
@@ -430,6 +432,10 @@ namespace Minebot.Presentation
         {
             MineInteractionResult result = services.Session.Mine(target);
             presentation.NotifyPlayerMineResolved(target, result);
+            if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
+            {
+                presentation.RefreshAfterTerrainChanged();
+            }
             presentation.ShowFeedback(result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb
                 ? $"自动挖掘 {target}：{ToChineseResultText(result)}"
                 : $"无法挖掘 {target}：{ToChineseResultText(result)}");

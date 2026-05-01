@@ -13,9 +13,9 @@ namespace McpBridge.Editor
         {
             return new SettingsProvider("Project/MCP Bridge", SettingsScope.Project)
             {
-                label = "MCP Bridge",
+                label = "MCP 桥接",
                 guiHandler = _ => DrawGui(),
-                keywords = new HashSet<string>(new[] { "MCP", "Bridge", "Codex", "Tools", "Compile" })
+                keywords = new HashSet<string>(new[] { "MCP", "桥接", "Codex", "工具", "编译" })
             };
         }
 
@@ -24,33 +24,33 @@ namespace McpBridge.Editor
             var settings = McpBridgeSettings.instance;
             settings.EnsureProjectScopedDefaults();
 
-            EditorGUILayout.LabelField("Bridge", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("桥接", EditorStyles.boldLabel);
             EditorGUI.BeginChangeCheck();
-            settings.Enabled = EditorGUILayout.Toggle("Enabled", settings.Enabled);
-            settings.AutoStartHost = EditorGUILayout.Toggle("Auto Start Host", settings.AutoStartHost);
-            settings.HttpPort = EditorGUILayout.IntField("HTTP Port", settings.HttpPort);
-            settings.IpcPort = EditorGUILayout.IntField("IPC Port", settings.IpcPort);
+            settings.Enabled = EditorGUILayout.Toggle("启用桥接", settings.Enabled);
+            settings.AutoStartHost = EditorGUILayout.Toggle("自动启动宿主进程", settings.AutoStartHost);
+            settings.HttpPort = EditorGUILayout.IntField("HTTP 端口", settings.HttpPort);
+            settings.IpcPort = EditorGUILayout.IntField("IPC 端口", settings.IpcPort);
             var bridgeChanged = EditorGUI.EndChangeCheck();
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Codex", EditorStyles.boldLabel);
             EditorGUI.BeginChangeCheck();
-            settings.AutoWriteCodexConfig = EditorGUILayout.Toggle("Auto Write ~/.codex/config.toml", settings.AutoWriteCodexConfig);
-            settings.CodexServerName = EditorGUILayout.TextField("Server Name", settings.CodexServerName);
+            settings.AutoWriteCodexConfig = EditorGUILayout.Toggle("自动写入 ~/.codex/config.toml", settings.AutoWriteCodexConfig);
+            settings.CodexServerName = EditorGUILayout.TextField("服务名", settings.CodexServerName);
             var codexChanged = EditorGUI.EndChangeCheck();
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("High Risk", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("高风险", EditorStyles.boldLabel);
             EditorGUI.BeginChangeCheck();
-            settings.EnableReflectionTools = EditorGUILayout.Toggle("Enable Reflection Tools", settings.EnableReflectionTools);
+            settings.EnableReflectionTools = EditorGUILayout.Toggle("启用反射工具", settings.EnableReflectionTools);
             var highRiskChanged = EditorGUI.EndChangeCheck();
             EditorGUILayout.HelpBox(
-                "Reflection tools are disabled by default. They expose method discovery and invocation inside the Unity editor and should only be enabled deliberately.",
+                "反射工具默认关闭。它会暴露 Unity 编辑器内的方法发现与调用能力，只有在明确需要时才应手动开启。",
                 MessageType.Warning);
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Write Codex Config Now"))
+                if (GUILayout.Button("立即写入 Codex 配置"))
                 {
                     McpCodexConfigWriter.Write(settings.CodexServerName, settings.HttpUrl);
                 }
@@ -58,14 +58,14 @@ namespace McpBridge.Editor
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Host", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("宿主进程", EditorStyles.boldLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
                 GUI.enabled = !McpBridgeProcessManager.IsHostRunning();
-                if (GUILayout.Button("Start Host")) McpBridgeProcessManager.StartHost();
+                if (GUILayout.Button("启动宿主进程")) McpBridgeProcessManager.StartHost();
                 GUI.enabled = true;
-                if (GUILayout.Button("Stop Host")) McpBridgeProcessManager.StopHost();
-                if (GUILayout.Button("Refresh Tools"))
+                if (GUILayout.Button("停止宿主进程")) McpBridgeProcessManager.StopHost();
+                if (GUILayout.Button("刷新工具列表"))
                 {
                     McpToolRegistry.Invalidate();
                     McpBridgeConnection.EnsureConnected();
@@ -73,14 +73,14 @@ namespace McpBridge.Editor
                 }
             }
 
-            EditorGUILayout.LabelField("HTTP URL", settings.HttpUrl);
-            EditorGUILayout.LabelField("Host Running", McpBridgeProcessManager.IsHostRunning() ? "Yes" : "No");
-            EditorGUILayout.LabelField("Unity Connected", McpBridgeConnection.IsConnected ? "Yes" : "No");
+            EditorGUILayout.LabelField("HTTP 地址", settings.HttpUrl);
+            EditorGUILayout.LabelField("宿主进程运行中", McpBridgeProcessManager.IsHostRunning() ? "是" : "否");
+            EditorGUILayout.LabelField("Unity 已连接", McpBridgeConnection.IsConnected ? "是" : "否");
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Tools", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("工具开关", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Toggle individual MCP tools. Changes broadcast notifications/tools/list_changed to connected clients.",
+                "可单独启用或禁用 MCP 工具。变更后会向已连接客户端广播 notifications/tools/list_changed。",
                 MessageType.None);
 
             var toolsChanged = false;

@@ -7,22 +7,35 @@ namespace Minebot.Presentation
 {
     public enum TerrainMaterialId : byte
     {
+        [InspectorName("无")]
         None = 0,
+        [InspectorName("地板")]
         Floor = 1,
+        [InspectorName("土层")]
         Soil = 2,
+        [InspectorName("石层")]
         Stone = 3,
+        [InspectorName("硬岩")]
         HardRock = 4,
+        [InspectorName("超硬岩")]
         UltraHard = 5,
+        [InspectorName("边界")]
         Boundary = 6
     }
 
     public enum TerrainRenderLayerId : byte
     {
+        [InspectorName("地板")]
         Floor = 0,
+        [InspectorName("土层")]
         Soil = 1,
+        [InspectorName("石层")]
         Stone = 2,
+        [InspectorName("硬岩")]
         HardRock = 3,
+        [InspectorName("超硬岩")]
         UltraHard = 4,
+        [InspectorName("边界")]
         Boundary = 5
     }
 

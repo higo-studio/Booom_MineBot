@@ -8,18 +8,23 @@ namespace Minebot.Presentation
     public sealed class ActorStateSequenceSet
     {
         [SerializeField]
+        [InspectorLabel("待机")]
         private SpriteSequenceAsset idle;
 
         [SerializeField]
+        [InspectorLabel("移动")]
         private SpriteSequenceAsset moving;
 
         [SerializeField]
+        [InspectorLabel("挖掘")]
         private SpriteSequenceAsset mining;
 
         [SerializeField]
+        [InspectorLabel("受阻")]
         private SpriteSequenceAsset blocked;
 
         [SerializeField]
+        [InspectorLabel("销毁")]
         private SpriteSequenceAsset destroyed;
 
         public SpriteSequenceAsset Idle => idle;
@@ -66,15 +71,19 @@ namespace Minebot.Presentation
     public sealed class MinebotPresentationActorResources
     {
         [SerializeField]
+        [InspectorLabel("玩家预制体")]
         private GameObject playerPrefab;
 
         [SerializeField]
+        [InspectorLabel("从属机器人预制体")]
         private GameObject helperRobotPrefab;
 
         [SerializeField]
+        [InspectorLabel("玩家状态序列")]
         private ActorStateSequenceSet playerStates = new ActorStateSequenceSet();
 
         [SerializeField]
+        [InspectorLabel("从属机器人状态序列")]
         private ActorStateSequenceSet helperRobotStates = new ActorStateSequenceSet();
 
         public GameObject PlayerPrefab => playerPrefab;
@@ -101,21 +110,27 @@ namespace Minebot.Presentation
     public sealed class MinebotPresentationPickupResources
     {
         [SerializeField]
+        [InspectorLabel("金属拾取物预制体")]
         private GameObject metalPickupPrefab;
 
         [SerializeField]
+        [InspectorLabel("能量拾取物预制体")]
         private GameObject energyPickupPrefab;
 
         [SerializeField]
+        [InspectorLabel("经验拾取物预制体")]
         private GameObject experiencePickupPrefab;
 
         [SerializeField]
+        [InspectorLabel("金属图标")]
         private Sprite metalIcon;
 
         [SerializeField]
+        [InspectorLabel("能量图标")]
         private Sprite energyIcon;
 
         [SerializeField]
+        [InspectorLabel("经验图标")]
         private Sprite experienceIcon;
 
         public GameObject MetalPickupPrefab => metalPickupPrefab;
@@ -174,21 +189,27 @@ namespace Minebot.Presentation
     public sealed class MinebotPresentationCellFxResources
     {
         [SerializeField]
+        [InspectorLabel("挖掘裂纹预制体")]
         private GameObject miningCrackPrefab;
 
         [SerializeField]
+        [InspectorLabel("墙体破碎预制体")]
         private GameObject wallBreakPrefab;
 
         [SerializeField]
+        [InspectorLabel("爆炸预制体")]
         private GameObject explosionPrefab;
 
         [SerializeField]
+        [InspectorLabel("挖掘裂纹序列")]
         private SpriteSequenceAsset miningCrackSequence;
 
         [SerializeField]
+        [InspectorLabel("墙体破碎序列")]
         private SpriteSequenceAsset wallBreakSequence;
 
         [SerializeField]
+        [InspectorLabel("爆炸序列")]
         private SpriteSequenceAsset explosionSequence;
 
         public GameObject MiningCrackPrefab => miningCrackPrefab;
@@ -221,30 +242,39 @@ namespace Minebot.Presentation
     public sealed class MinebotPresentationHudResources
     {
         [SerializeField]
+        [InspectorLabel("界面预制体")]
         private MinebotHudView hudPrefab;
 
         [SerializeField]
+        [InspectorLabel("面板背景")]
         private Sprite panelBackground;
 
         [SerializeField]
+        [InspectorLabel("状态图标")]
         private Sprite statusIcon;
 
         [SerializeField]
+        [InspectorLabel("交互图标")]
         private Sprite interactionIcon;
 
         [SerializeField]
+        [InspectorLabel("反馈图标")]
         private Sprite feedbackIcon;
 
         [SerializeField]
+        [InspectorLabel("警告图标")]
         private Sprite warningIcon;
 
         [SerializeField]
+        [InspectorLabel("升级图标")]
         private Sprite upgradeIcon;
 
         [SerializeField]
+        [InspectorLabel("建造图标")]
         private Sprite buildIcon;
 
         [SerializeField]
+        [InspectorLabel("建筑交互图标")]
         private Sprite buildingInteractionIcon;
 
         public MinebotHudView HudPrefab => hudPrefab;

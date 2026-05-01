@@ -168,6 +168,16 @@ namespace Minebot.Presentation
             bool hazardSenseUpdated = services.Session.TickPassiveHazardSense(Time.deltaTime);
             bool robotsChanged = services.Session.TickRobots(Time.deltaTime);
             bool pickupRewardsGranted = services.Session.TickWorldPickups(Time.deltaTime, PlayerWorldPosition);
+            if (robotsChanged)
+            {
+                RefreshAfterRobotAutomationTick();
+            }
+
+            if (pickupRewardsGranted)
+            {
+                RefreshAfterPickupCollection();
+            }
+
             if (!hazardSenseUpdated && !robotsChanged && !pickupRewardsGranted)
             {
                 RefreshHud();
@@ -215,7 +225,48 @@ namespace Minebot.Presentation
                 feedbackMessage = message;
             }
 
-            RefreshAll();
+            if (services != null)
+            {
+                RefreshActors();
+            }
+
+            RefreshHud();
+        }
+
+        public void RefreshAfterPlayerMoved()
+        {
+            if (services == null)
+            {
+                return;
+            }
+
+            RefreshActors();
+            RefreshHud();
+        }
+
+        public void RefreshAfterMarkerChanged()
+        {
+            if (services == null)
+            {
+                return;
+            }
+
+            gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
+            RefreshHud();
+        }
+
+        public void RefreshAfterTerrainChanged()
+        {
+            if (services == null)
+            {
+                return;
+            }
+
+            EvaluateDangerZones();
+            gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
+            RefreshActors();
+            RefreshPickups();
+            RefreshHud();
         }
 
         public bool TryRepairAtStation(int metalCost)
@@ -245,6 +296,12 @@ namespace Minebot.Presentation
             }
 
             bool produced = services.RobotFactory.TryProduce(robotFactoryPosition, out RobotState robot);
+            if (produced && robot != null)
+            {
+                RefreshActors();
+                RefreshHud();
+            }
+
             ShowFeedback(produced && robot != null ? "已生产从属机器人。" : "金属不足，无法生产机器人。");
             return produced;
         }
@@ -858,7 +915,6 @@ namespace Minebot.Presentation
                 return;
             }
 
-            services.Session.StateChanged += RefreshDangerZoneOnly;
             services.Session.RewardGranted += OnRewardGranted;
             services.Session.PassiveHazardSenseUpdated += OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted += OnRobotAutomationCompleted;
@@ -878,7 +934,6 @@ namespace Minebot.Presentation
                 return;
             }
 
-            services.Session.StateChanged -= RefreshDangerZoneOnly;
             services.Session.RewardGranted -= OnRewardGranted;
             services.Session.PassiveHazardSenseUpdated -= OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted -= OnRobotAutomationCompleted;
@@ -922,6 +977,13 @@ namespace Minebot.Presentation
                         PlayWallBreakFx(result.Target, triggerExplosion: false);
                     }
                     break;
+                case RobotAutomationResultKind.TriggeredBomb:
+                    destroyedRobotVisualExpiry[result.Robot] = Time.time + 0.35f;
+                    PlayWallBreakFx(result.Target, triggerExplosion: true);
+                    feedbackMessage = result.Reward.Metal > 0 || result.Reward.Energy > 0 || result.Reward.Experience > 0
+                        ? $"从属机器人误挖炸药损毁，回收 +{result.Reward.Metal} 金属。"
+                        : "从属机器人误挖炸药并损毁。";
+                    break;
                 case RobotAutomationResultKind.Destroyed:
                     destroyedRobotVisualExpiry[result.Robot] = Time.time + 0.35f;
                     if (!result.Target.Equals(GridPosition.Zero) && !string.IsNullOrEmpty(result.Status) && result.Status.Contains("炸药", StringComparison.Ordinal))
@@ -946,6 +1008,36 @@ namespace Minebot.Presentation
             {
                 view.BeginAbsorb(PlayerWorldPosition);
             }
+        }
+
+        private void RefreshAfterRobotAutomationTick()
+        {
+            if (services == null)
+            {
+                return;
+            }
+
+            RobotAutomationResultKind kind = services.Session.LastRobotAutomationResult.Kind;
+            if (kind == RobotAutomationResultKind.Mined || kind == RobotAutomationResultKind.TriggeredBomb)
+            {
+                EvaluateDangerZones();
+                gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
+            }
+
+            RefreshActors();
+            RefreshPickups();
+            RefreshHud();
+        }
+
+        private void RefreshAfterPickupCollection()
+        {
+            if (services == null)
+            {
+                return;
+            }
+
+            RefreshPickups();
+            RefreshHud();
         }
 
         public void NotifyPlayerMoved()
@@ -1354,10 +1446,23 @@ namespace Minebot.Presentation
                 hudView.GameOverPanel.SetText(services.Vitals.IsDead ? "任务失败\n核心机体已失效" : string.Empty);
             }
 
-            RefreshMinimapPanel();
+            DisableMinimapPanel();
             RefreshUpgradePanel();
             RefreshBuildPanel();
             RefreshBuildingInteractionPanel();
+        }
+
+        private void DisableMinimapPanel()
+        {
+            ReleaseHudMinimapTexture();
+            if (hudView == null || hudView.MinimapPanel == null)
+            {
+                return;
+            }
+
+            hudView.MinimapPanel.SetTexture(null);
+            hudView.MinimapPanel.SetSummary(string.Empty);
+            hudView.MinimapPanel.SetVisible(false);
         }
 
         private string BuildInteractionText()

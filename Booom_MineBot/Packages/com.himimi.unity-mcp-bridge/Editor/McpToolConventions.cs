@@ -7,24 +7,24 @@ namespace McpBridge.Editor
     {
         private static readonly Dictionary<string, string> s_Groups = new(StringComparer.Ordinal)
         {
-            ["unity.instances"] = "Workflow",
-            ["unity.compile"] = "Workflow",
-            ["unity.editor_state"] = "Workflow",
-            ["unity.enter_play_mode"] = "Workflow",
-            ["unity.exit_play_mode"] = "Workflow",
-            ["unity.selection_get"] = "Workflow",
-            ["unity.selection_set"] = "Workflow",
-            ["unity.console_logs"] = "Workflow",
-            ["unity.screenshot"] = "Workflow",
-            ["unity.tests_run"] = "Workflow",
-            ["unity.mppm_status"] = "Multiplayer Play Mode",
-            ["unity.mppm_players"] = "Multiplayer Play Mode",
-            ["unity.mppm_set_active"] = "Multiplayer Play Mode",
-            ["unity.mppm_configure"] = "Multiplayer Play Mode",
-            ["unity.mppm_player_set_active"] = "Multiplayer Play Mode",
-            ["unity.mppm_tag_add"] = "Multiplayer Play Mode",
-            ["unity.mppm_tag_remove"] = "Multiplayer Play Mode",
-            ["unity.mppm_player_tags_set"] = "Multiplayer Play Mode"
+            ["unity.instances"] = "工作流",
+            ["unity.compile"] = "工作流",
+            ["unity.editor_state"] = "工作流",
+            ["unity.enter_play_mode"] = "工作流",
+            ["unity.exit_play_mode"] = "工作流",
+            ["unity.selection_get"] = "工作流",
+            ["unity.selection_set"] = "工作流",
+            ["unity.console_logs"] = "工作流",
+            ["unity.screenshot"] = "工作流",
+            ["unity.tests_run"] = "工作流",
+            ["unity.mppm_status"] = "多人播放模式",
+            ["unity.mppm_players"] = "多人播放模式",
+            ["unity.mppm_set_active"] = "多人播放模式",
+            ["unity.mppm_configure"] = "多人播放模式",
+            ["unity.mppm_player_set_active"] = "多人播放模式",
+            ["unity.mppm_tag_add"] = "多人播放模式",
+            ["unity.mppm_tag_remove"] = "多人播放模式",
+            ["unity.mppm_player_tags_set"] = "多人播放模式"
         };
 
         public static bool IsReflectionTool(string toolName)
@@ -61,7 +61,7 @@ namespace McpBridge.Editor
         {
             if (string.IsNullOrWhiteSpace(toolName))
             {
-                return "Other";
+                return "其他";
             }
 
             if (s_Groups.TryGetValue(toolName, out var group))
@@ -74,7 +74,7 @@ namespace McpBridge.Editor
                 toolName.StartsWith("unity.component_", StringComparison.Ordinal) ||
                 toolName.StartsWith("unity.object_", StringComparison.Ordinal))
             {
-                return "Scene / Object";
+                return "场景 / 对象";
             }
 
             if (toolName.StartsWith("unity.asset_", StringComparison.Ordinal) ||
@@ -82,15 +82,15 @@ namespace McpBridge.Editor
                 toolName.StartsWith("unity.script_", StringComparison.Ordinal) ||
                 toolName.StartsWith("unity.package_", StringComparison.Ordinal))
             {
-                return "Asset / Script / Package";
+                return "资源 / 脚本 / 包";
             }
 
             if (IsReflectionTool(toolName))
             {
-                return "Reflection";
+                return "反射";
             }
 
-            return "Other";
+            return "其他";
         }
     }
 }

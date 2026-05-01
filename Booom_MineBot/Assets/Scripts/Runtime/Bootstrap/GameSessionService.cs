@@ -165,6 +165,11 @@ namespace Minebot.Bootstrap
             bool avoidDangerZones = waves == null || waves.IsWarningWindowActive;
             foreach (RobotState robot in robots)
             {
+                if (robot == null || !robot.IsActive)
+                {
+                    continue;
+                }
+
                 RobotAutomationResult result = robotAutomation.TickRobot(robot, drillTier, mining, deltaTime, avoidDangerZones);
                 if (!result.HasStateChange)
                 {
@@ -185,11 +190,12 @@ namespace Minebot.Bootstrap
                     }
 
                     result = new RobotAutomationResult(
-                        RobotAutomationResultKind.Destroyed,
+                        RobotAutomationResultKind.TriggeredBomb,
                         robot,
                         result.Target,
                         robotRecycleDrop,
-                        "机器人误挖炸药并损毁。");
+                        "机器人误挖炸药并损毁。",
+                        result.ClearedCells);
                 }
 
                 LastRobotAutomationResult = result;

@@ -10,29 +10,29 @@ namespace Minebot.Editor
 {
     public static class DualGridMigrationTools
     {
-        [MenuItem("Minebot/Dual Grid/Migrate Default Configuration")]
+        [MenuItem("Minebot/双网格/迁移默认配置")]
         public static void MigrateDefaultConfiguration()
         {
             MinebotPresentationArtSet artSet = MinebotPixelArtAssetPipeline.EnsureDefaultDualGridConfiguration();
             Debug.Log(
                 artSet != null && artSet.DualGridTerrainProfile != null
-                    ? $"Migrated default dual-grid configuration to '{AssetDatabase.GetAssetPath(artSet.DualGridTerrainProfile)}'."
-                    : "Failed to migrate default dual-grid configuration.");
+                    ? $"已将默认双网格配置迁移到 '{AssetDatabase.GetAssetPath(artSet.DualGridTerrainProfile)}'。"
+                    : "迁移默认双网格配置失败。");
         }
 
-        [MenuItem("Minebot/Dual Grid/Migrate Selected Art Sets", true)]
+        [MenuItem("Minebot/双网格/迁移所选美术集", true)]
         private static bool CanMigrateSelectedArtSets()
         {
             return Selection.GetFiltered<MinebotPresentationArtSet>(SelectionMode.Assets).Length > 0;
         }
 
-        [MenuItem("Minebot/Dual Grid/Migrate Selected Art Sets")]
+        [MenuItem("Minebot/双网格/迁移所选美术集")]
         public static void MigrateSelectedArtSets()
         {
             MinebotPresentationArtSet[] artSets = Selection.GetFiltered<MinebotPresentationArtSet>(SelectionMode.Assets);
             if (artSets.Length == 0)
             {
-                Debug.LogWarning("Select at least one MinebotPresentationArtSet asset to migrate.");
+                Debug.LogWarning("请至少选择一个表现美术集资源再执行迁移。");
                 return;
             }
 
@@ -44,17 +44,17 @@ namespace Minebot.Editor
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log($"Migrated {artSets.Length} dual-grid art set(s):\n{string.Join("\n", migratedProfiles)}");
+            Debug.Log($"已迁移 {artSets.Length} 个双网格美术集：\n{string.Join("\n", migratedProfiles)}");
         }
 
-        [MenuItem("Minebot/Dual Grid/Validate Selected Assets", true)]
+        [MenuItem("Minebot/双网格/校验所选资源", true)]
         private static bool CanValidateSelectedAssets()
         {
             return Selection.GetFiltered<MinebotPresentationArtSet>(SelectionMode.Assets).Length > 0
                 || Selection.GetFiltered<DualGridTerrainProfile>(SelectionMode.Assets).Length > 0;
         }
 
-        [MenuItem("Minebot/Dual Grid/Validate Selected Assets")]
+        [MenuItem("Minebot/双网格/校验所选资源")]
         public static void ValidateSelectedAssets()
         {
             var messages = new List<string>();
@@ -66,7 +66,7 @@ namespace Minebot.Editor
                 DualGridTerrainProfile profile = artSet.DualGridTerrainProfile;
                 if (profile == null)
                 {
-                    messages.Add($"{artSet.name}: missing dual-grid terrain profile reference.");
+                    messages.Add($"{artSet.name}：缺少双网格地形配置引用。");
                     continue;
                 }
 
@@ -80,11 +80,11 @@ namespace Minebot.Editor
 
             if (messages.Count == 0)
             {
-                Debug.Log("Selected dual-grid assets validated without issues.");
+                Debug.Log("所选双网格资源校验通过，没有发现问题。");
                 return;
             }
 
-            Debug.LogWarning($"Selected dual-grid assets have {messages.Count} issue(s):\n{string.Join("\n", messages)}");
+            Debug.LogWarning($"所选双网格资源发现 {messages.Count} 个问题：\n{string.Join("\n", messages)}");
         }
 
         private static DualGridTerrainProfile MigrateArtSet(MinebotPresentationArtSet artSet)
@@ -126,13 +126,13 @@ namespace Minebot.Editor
             bool hasIssues = false;
             foreach (string issue in profile.GetValidationIssues())
             {
-                messages.Add($"{label}: {issue}");
+                messages.Add($"{label}：{issue}");
                 hasIssues = true;
             }
 
             if (!hasIssues)
             {
-                messages.Add($"{label}: OK");
+                messages.Add($"{label}：正常");
             }
         }
 

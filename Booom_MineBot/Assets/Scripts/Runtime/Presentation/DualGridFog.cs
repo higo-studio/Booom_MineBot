@@ -6,7 +6,9 @@ namespace Minebot.Presentation
 {
     public enum DualGridFogBandKind : byte
     {
+        [InspectorName("近雾")]
         Near = 0,
+        [InspectorName("深雾")]
         Deep = 1
     }
 

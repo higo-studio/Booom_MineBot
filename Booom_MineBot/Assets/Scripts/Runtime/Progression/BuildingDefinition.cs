@@ -4,28 +4,35 @@ using UnityEngine;
 
 namespace Minebot.Progression
 {
-    [CreateAssetMenu(menuName = "Minebot/Progression/Building Definition")]
+    [CreateAssetMenu(menuName = "Minebot/成长/建筑定义")]
     public sealed class BuildingDefinition : ScriptableObject
     {
         [SerializeField]
+        [InspectorLabel("内部标识")]
         private string id = "building";
 
         [SerializeField]
+        [InspectorLabel("显示名称")]
         private string displayName = "建筑";
 
         [SerializeField]
+        [InspectorLabel("建造消耗")]
         private ResourceAmount cost = ResourceAmount.Zero;
 
         [SerializeField]
+        [InspectorLabel("占地尺寸")]
         private Vector2Int footprintSize = Vector2Int.one;
 
         [SerializeField]
+        [InspectorLabel("可放置地形")]
         private TerrainKind allowedTerrain = TerrainKind.Empty;
 
         [SerializeField]
+        [InspectorLabel("表现预制体")]
         private GameObject prefab;
 
         [SerializeField]
+        [InspectorLabel("碰撞尺寸")]
         private Vector2 colliderSize = Vector2.one;
 
         public string Id => string.IsNullOrWhiteSpace(id) ? name : id;

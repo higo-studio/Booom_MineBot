@@ -1,0 +1,6 @@
+- [x] 1. 新增生成地图配置类型，并将 `BootstrapConfig` / `MinebotServices` 接到该配置上
+- [x] 2. 改造 `MapGenerationSettings` 与 `MapGenerator`，支持大尺寸、径向渐变、Perlin 噪声、阈值阶梯和外圈强制 `UltraHard`
+- [x] 3. 更新默认奖励映射，使 `UltraHard` 程序岩体有合理默认掉落
+- [x] 4. 补充 EditMode 测试，覆盖默认尺寸、远处全超硬和混合硬度分布
+- [x] 5. 运行 `openspec validate scale-generated-map-with-radial-noise-hardness`
+- [x] 6. 使用 Unity MCP 运行 `unity_compile(exitPlayMode:true)` 校验编译
