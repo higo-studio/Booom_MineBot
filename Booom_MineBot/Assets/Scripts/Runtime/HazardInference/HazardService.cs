@@ -72,10 +72,15 @@ namespace Minebot.HazardInference
                     continue;
                 }
 
-                results.Add(new ScanReading(position, CountBombsInSquare(position, 1)));
+                results.Add(new ScanReading(position, GridBombCounter.CountBombsInScanSquare(grid, position)));
             }
 
             return results;
+        }
+
+        public int CountBombsInScanSquare(GridPosition origin)
+        {
+            return GridBombCounter.CountBombsInScanSquare(grid, origin);
         }
 
         public bool ToggleMarker(GridPosition position)
@@ -174,24 +179,6 @@ namespace Minebot.HazardInference
             }
 
             return nearestFrontierDistance != int.MaxValue && nearestFrontierDistance <= frontierRange;
-        }
-
-        private int CountBombsInSquare(GridPosition origin, int radius)
-        {
-            int count = 0;
-            for (int y = -radius; y <= radius; y++)
-            {
-                for (int x = -radius; x <= radius; x++)
-                {
-                    GridPosition position = new GridPosition(origin.X + x, origin.Y + y);
-                    if (grid.IsInside(position) && grid.GetCell(position).HasBomb)
-                    {
-                        count++;
-                    }
-                }
-            }
-
-            return count;
         }
 
         private static IEnumerable<GridPosition> PositionsInRadius(GridPosition origin, int radius)

@@ -260,6 +260,7 @@ namespace Minebot.Tests.EditMode
             MineInteractionResult weakResult = registry.Session.Mine(target);
             registry.PlayerMiningState.DrillTier = HardnessTier.UltraHard;
             MineInteractionResult minedResult = registry.Session.Mine(target);
+            registry.Session.TickWorldPickups(1f, new Vector2(target.X + 0.5f, target.Y + 0.5f));
 
             Assert.That(weakResult, Is.EqualTo(MineInteractionResult.DrillTooWeak));
             Assert.That(minedResult, Is.EqualTo(MineInteractionResult.Mined));
