@@ -47,7 +47,7 @@ namespace Minebot.Presentation
                     assets.ScanLabelColor,
                     assets.ScanLabelFontSize,
                     assets.ScanLabelSortingOrder);
-                label.transform.position = (Vector3)ActorContactProbe.GridToWorldCenter(reading.WallPosition) + (Vector3)assets.ScanLabelOffset;
+                label.transform.position = ActorContactProbe.GridToWorldCenter(reading.CellPosition);
             }
 
             for (int i = readings.Count; i < labels.Count; i++)

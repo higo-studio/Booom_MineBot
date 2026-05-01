@@ -12,6 +12,7 @@ namespace Minebot.Bootstrap
 {
     public sealed class GameSessionService
     {
+        private const int PassiveHazardSenseInfluenceRadius = 2;
         private readonly PlayerMiningState player;
         private readonly MiningService mining;
         private readonly HazardService hazards;
@@ -93,6 +94,7 @@ namespace Minebot.Bootstrap
 
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
             {
+                RefreshPassiveHazardSenseIfAffected(resolution.ClearedCells);
                 StateChanged?.Invoke();
             }
 
@@ -101,8 +103,7 @@ namespace Minebot.Bootstrap
 
         public IReadOnlyList<ScanReading> RefreshPassiveHazardSense()
         {
-            int frontierRange = hazardRules != null ? hazardRules.ScanFrontierRange : HazardRules.DefaultScanFrontierRange;
-            IReadOnlyList<ScanReading> readings = hazards.ScanFrontierWalls(player.Position, frontierRange);
+            IReadOnlyList<ScanReading> readings = hazards.ScanNearbyEmptyCells(player.Position);
             lastPassiveHazardSenseReadings.Clear();
             if (readings != null)
             {
@@ -179,10 +180,12 @@ namespace Minebot.Bootstrap
                 if (result.Kind == RobotAutomationResultKind.Mined)
                 {
                     SpawnWorldPickupRewards(result.ClearedCells, WorldPickupSource.HelperRobotMining);
+                    RefreshPassiveHazardSenseIfAffected(result.ClearedCells);
                 }
                 else if (result.Kind == RobotAutomationResultKind.TriggeredBomb)
                 {
                     SpawnWorldPickupRewards(result.ClearedCells, WorldPickupSource.HelperRobotMining);
+                    RefreshPassiveHazardSenseIfAffected(result.ClearedCells);
                     robot.Destroy("误挖炸药损毁");
                     if (robotRecycleDrop.Metal > 0 || robotRecycleDrop.Energy > 0 || robotRecycleDrop.Experience > 0)
                     {
@@ -256,6 +259,36 @@ namespace Minebot.Bootstrap
             {
                 SpawnWorldPickupReward(clearedCells[i].Position, clearedCells[i].Reward, source);
             }
+        }
+
+        private bool RefreshPassiveHazardSenseIfAffected(IReadOnlyList<MineClearedCell> clearedCells)
+        {
+            if (clearedCells == null || clearedCells.Count == 0)
+            {
+                return false;
+            }
+
+            GridPosition playerPosition = player.Position;
+            for (int i = 0; i < clearedCells.Count; i++)
+            {
+                if (!AffectsPassiveHazardSense(clearedCells[i].Position, playerPosition))
+                {
+                    continue;
+                }
+
+                RefreshPassiveHazardSense();
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool AffectsPassiveHazardSense(GridPosition clearedPosition, GridPosition playerPosition)
+        {
+            // Passive scan samples the player's 3x3 neighborhood, and each reading depends on one extra ring
+            // for bomb counts / wall adjacency, so only cleared cells inside the player's local 5x5 can matter.
+            return Math.Abs(clearedPosition.X - playerPosition.X) <= PassiveHazardSenseInfluenceRadius
+                && Math.Abs(clearedPosition.Y - playerPosition.Y) <= PassiveHazardSenseInfluenceRadius;
         }
 
         private void GrantCollectedReward(ResourceAmount reward)

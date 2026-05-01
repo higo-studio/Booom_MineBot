@@ -334,19 +334,21 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void PassiveHazardSenseRefreshesGroupedFrontierReadingsWithoutConsumingEnergy()
+        public void PassiveHazardSenseRefreshesNineGridEmptyCellReadingsWithoutConsumingEnergy()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
-            SetMineableWall(grid, new GridPosition(3, 5), true);
+            SetMineableWall(grid, new GridPosition(2, 4), true);
             SetMineableWall(grid, new GridPosition(4, 4), true);
+            SetMineableWall(grid, new GridPosition(4, 2), true);
             SetMineableWall(grid, new GridPosition(1, 1), true);
             GameSessionService session = CreateSession(grid, new ResourceAmount(0, 4, 0), out PlayerEconomy economy);
 
             IReadOnlyList<ScanReading> readings = session.RefreshPassiveHazardSense();
 
-            Assert.That(readings.Count, Is.EqualTo(2));
-            Assert.That(FindReading(readings, new GridPosition(3, 5)).BombCount, Is.EqualTo(2));
-            Assert.That(FindReading(readings, new GridPosition(4, 4)).BombCount, Is.EqualTo(2));
+            Assert.That(readings.Count, Is.EqualTo(6));
+            Assert.That(FindReading(readings, grid.PlayerSpawn).BombCount, Is.EqualTo(3));
+            Assert.That(FindReading(readings, new GridPosition(3, 4)).BombCount, Is.EqualTo(2));
+            Assert.That(FindReading(readings, new GridPosition(2, 3)).BombCount, Is.EqualTo(1));
             Assert.That(economy.Resources.Energy, Is.EqualTo(4));
         }
 
@@ -354,7 +356,7 @@ namespace Minebot.Tests.EditMode
         public void PassiveHazardSenseTimerWaitsForConfiguredInterval()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
-            SetMineableWall(grid, new GridPosition(3, 5), true);
+            SetMineableWall(grid, new GridPosition(3, 4), true);
             GameSessionService session = CreateSession(grid, ResourceAmount.Zero, out _);
             IReadOnlyList<ScanReading> latestReadings = Array.Empty<ScanReading>();
             int updateCount = 0;
@@ -370,14 +372,26 @@ namespace Minebot.Tests.EditMode
             Assert.That(beforeInterval, Is.False);
             Assert.That(atInterval, Is.True);
             Assert.That(updateCount, Is.EqualTo(1));
-            Assert.That(latestReadings.Count, Is.EqualTo(1));
-            Assert.That(latestReadings[0].WallPosition, Is.EqualTo(new GridPosition(3, 5)));
+            Assert.That(latestReadings.Count, Is.EqualTo(5));
+            Assert.That(FindReading(latestReadings, grid.PlayerSpawn).BombCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void PassiveHazardSenseReturnsEmptyWhenNoFrontierWallsExist()
+        public void PassiveHazardSenseReturnsEmptyWhenNineGridContainsNoReadableEmptyCells()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            for (int y = -1; y <= 1; y++)
+            {
+                for (int x = -1; x <= 1; x++)
+                {
+                    GridPosition position = new GridPosition(grid.PlayerSpawn.X + x, grid.PlayerSpawn.Y + y);
+                    SetMineableWall(grid, position, false);
+                }
+            }
+
+            ref GridCellState playerCell = ref grid.GetCellRef(grid.PlayerSpawn);
+            playerCell.TerrainKind = TerrainKind.Empty;
+            playerCell.IsOccupiedByBuilding = true;
             GameSessionService session = CreateSession(grid, new ResourceAmount(0, 3, 0), out PlayerEconomy economy);
 
             IReadOnlyList<ScanReading> readings = session.RefreshPassiveHazardSense();
@@ -387,24 +401,50 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void HazardServiceOnlyReturnsNearbyWallsThatTouchEmptyFrontier()
+        public void HazardServiceOnlyReturnsNearbyReadableEmptyCells()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(8, 8), new GridPosition(3, 3));
             var hazards = new HazardService(grid);
 
-            SetMineableWall(grid, new GridPosition(3, 5), false);
-            SetMineableWall(grid, new GridPosition(6, 6), false);
             SetMineableWall(grid, new GridPosition(2, 2), false);
             SetMineableWall(grid, new GridPosition(2, 3), false);
-            SetMineableWall(grid, new GridPosition(3, 2), false);
-            SetMineableWall(grid, new GridPosition(1, 3), false);
-            SetMineableWall(grid, new GridPosition(2, 4), false);
+            ref GridCellState occupied = ref grid.GetCellRef(new GridPosition(4, 3));
+            occupied.IsOccupiedByBuilding = true;
 
-            IReadOnlyList<ScanReading> readings = hazards.ScanFrontierWalls(grid.PlayerSpawn, HazardRules.DefaultScanFrontierRange);
+            IReadOnlyList<ScanReading> readings = hazards.ScanNearbyEmptyCells(grid.PlayerSpawn);
 
-            Assert.That(ContainsReading(readings, new GridPosition(3, 5)), Is.True);
-            Assert.That(ContainsReading(readings, new GridPosition(6, 6)), Is.False);
+            Assert.That(ContainsReading(readings, grid.PlayerSpawn), Is.True);
+            Assert.That(ContainsReading(readings, new GridPosition(3, 4)), Is.True);
             Assert.That(ContainsReading(readings, new GridPosition(2, 2)), Is.False);
+            Assert.That(ContainsReading(readings, new GridPosition(2, 3)), Is.False);
+            Assert.That(ContainsReading(readings, new GridPosition(4, 3)), Is.False);
+            Assert.That(ContainsReading(readings, new GridPosition(6, 6)), Is.False);
+        }
+
+        [Test]
+        public void MiningRelevantWallImmediatelyClearsPassiveHazardSenseSnapshot()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = new GridPosition(3, 4);
+            SetMineableWall(grid, target, false);
+            GameSessionService session = CreateSession(grid, ResourceAmount.Zero, out _);
+            IReadOnlyList<ScanReading> latestReadings = session.RefreshPassiveHazardSense();
+            int updateCount = 0;
+
+            Assert.That(latestReadings, Is.Not.Empty);
+            Assert.That(ContainsReading(latestReadings, grid.PlayerSpawn), Is.True);
+
+            session.PassiveHazardSenseUpdated += readings =>
+            {
+                latestReadings = readings;
+                updateCount++;
+            };
+
+            MineInteractionResult result = session.Mine(target);
+
+            Assert.That(result, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(updateCount, Is.EqualTo(1));
+            Assert.That(latestReadings, Is.Empty);
         }
 
         [Test]
@@ -1508,7 +1548,7 @@ namespace Minebot.Tests.EditMode
         {
             for (int i = 0; i < readings.Count; i++)
             {
-                if (readings[i].WallPosition.Equals(position))
+                if (readings[i].CellPosition.Equals(position))
                 {
                     return readings[i];
                 }
@@ -1522,7 +1562,7 @@ namespace Minebot.Tests.EditMode
         {
             for (int i = 0; i < readings.Count; i++)
             {
-                if (readings[i].WallPosition.Equals(position))
+                if (readings[i].CellPosition.Equals(position))
                 {
                     return true;
                 }

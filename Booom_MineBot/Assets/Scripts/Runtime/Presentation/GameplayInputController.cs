@@ -2,6 +2,7 @@ using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.Progression;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,6 +10,15 @@ namespace Minebot.Presentation
 {
     public sealed class GameplayInputController : MonoBehaviour
     {
+        private static readonly ProfilerMarker UpdateProfilerMarker = new("Minebot.GameplayInputController.Update");
+        private static readonly ProfilerMarker UpdateMoveProfilerMarker = new("Minebot.GameplayInputController.Update.MoveInput");
+        private static readonly ProfilerMarker MoveFreeformProfilerMarker = new("Minebot.GameplayInputController.MoveFreeform");
+        private static readonly ProfilerMarker ClickGridCellProfilerMarker = new("Minebot.GameplayInputController.ClickGridCell");
+        private static readonly ProfilerMarker PointerPositionProfilerMarker = new("Minebot.GameplayInputController.PointerPosition");
+        private static readonly ProfilerMarker PointerClickProfilerMarker = new("Minebot.GameplayInputController.PointerClick");
+        private static readonly ProfilerMarker AutoMineProfilerMarker = new("Minebot.GameplayInputController.AutoMineContact");
+        private static readonly ProfilerMarker MineTargetProfilerMarker = new("Minebot.GameplayInputController.MineTarget");
+
         [SerializeField]
         private int repairMetalCost = 2;
 
@@ -83,9 +93,15 @@ namespace Minebot.Presentation
 
         private void Update()
         {
-            if (currentMoveInput.sqrMagnitude > 0.0001f)
+            using (UpdateProfilerMarker.Auto())
             {
-                MoveFreeform(currentMoveInput, Time.deltaTime);
+                if (currentMoveInput.sqrMagnitude > 0.0001f)
+                {
+                    using (UpdateMoveProfilerMarker.Auto())
+                    {
+                        MoveFreeform(currentMoveInput, Time.deltaTime);
+                    }
+                }
             }
         }
 
@@ -97,28 +113,31 @@ namespace Minebot.Presentation
 
         public bool MoveFreeform(Vector2 direction, float deltaTime)
         {
-            if (!CanAcceptGameplayInput() || presentation.InteractionMode != GameplayInteractionMode.Normal)
+            using (MoveFreeformProfilerMarker.Auto())
             {
-                return false;
-            }
+                if (!CanAcceptGameplayInput() || presentation.InteractionMode != GameplayInteractionMode.Normal)
+                {
+                    return false;
+                }
 
-            if (direction.sqrMagnitude < 0.0001f)
-            {
-                ResetAutoMineState();
-                return false;
-            }
+                if (direction.sqrMagnitude < 0.0001f)
+                {
+                    ResetAutoMineState();
+                    return false;
+                }
 
-            lastDirection = QuantizeDirection(direction);
-            CharacterMoveResult2D moveResult = presentation.TryMovePlayerFreeform(direction, deltaTime);
-            if (moveResult.HasMoved)
-            {
-                ResetAutoMineState();
-                presentation.NotifyPlayerMoved();
-                presentation.RefreshAfterPlayerMoved();
-                return true;
-            }
+                lastDirection = QuantizeDirection(direction);
+                CharacterMoveResult2D moveResult = presentation.TryMovePlayerFreeform(direction, deltaTime);
+                if (moveResult.HasMoved)
+                {
+                    ResetAutoMineState();
+                    presentation.NotifyPlayerMoved();
+                    presentation.RefreshAfterPlayerMoved();
+                    return true;
+                }
 
-            return TryAutoMineContact(moveResult, deltaTime);
+                return TryAutoMineContact(moveResult, deltaTime);
+            }
         }
 
         public bool MineFacingCell()
@@ -141,7 +160,7 @@ namespace Minebot.Presentation
 
             GridPosition target = services.PlayerMiningState.Position + lastDirection;
             bool marked = services.Session.ToggleMarker(target);
-            presentation.RefreshAfterMarkerChanged();
+            presentation.RefreshAfterMarkerChanged(target);
             presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
             return marked;
         }
@@ -179,32 +198,35 @@ namespace Minebot.Presentation
 
         public bool ClickGridCell(GridPosition target)
         {
-            if (!EnsureServices())
+            using (ClickGridCellProfilerMarker.Auto())
             {
+                if (!EnsureServices())
+                {
+                    return false;
+                }
+
+                if (services.Vitals.IsDead || services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
+                {
+                    presentation.ShowFeedback("输入已锁定，先处理升级或失败状态。");
+                    return false;
+                }
+
+                if (presentation.InteractionMode == GameplayInteractionMode.Marker)
+                {
+                    bool marked = services.Session.ToggleMarker(target);
+                    presentation.RefreshAfterMarkerChanged(target);
+                    presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
+                    return true;
+                }
+
+                if (presentation.InteractionMode == GameplayInteractionMode.Build)
+                {
+                    BuildingDefinition definition = presentation.GetSelectedBuildingOrDefault();
+                    return presentation.TryPlaceBuildingAt(definition, target);
+                }
+
                 return false;
             }
-
-            if (services.Vitals.IsDead || services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
-            {
-                presentation.ShowFeedback("输入已锁定，先处理升级或失败状态。");
-                return false;
-            }
-
-            if (presentation.InteractionMode == GameplayInteractionMode.Marker)
-            {
-                bool marked = services.Session.ToggleMarker(target);
-                presentation.RefreshAfterMarkerChanged();
-                presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
-                return true;
-            }
-
-            if (presentation.InteractionMode == GameplayInteractionMode.Build)
-            {
-                BuildingDefinition definition = presentation.GetSelectedBuildingOrDefault();
-                return presentation.TryPlaceBuildingAt(definition, target);
-            }
-
-            return false;
         }
 
         public bool Repair()
@@ -327,16 +349,22 @@ namespace Minebot.Presentation
 
         private void OnPointerPositionPerformed(InputAction.CallbackContext context)
         {
-            pointerPosition = context.ReadValue<Vector2>();
-            if (presentation != null && presentation.InteractionMode == GameplayInteractionMode.Build)
+            using (PointerPositionProfilerMarker.Auto())
             {
-                presentation.SetBuildPreview(presentation.ScreenToGridPosition(pointerPosition));
+                pointerPosition = context.ReadValue<Vector2>();
+                if (presentation != null && presentation.InteractionMode == GameplayInteractionMode.Build)
+                {
+                    presentation.SetBuildPreview(presentation.ScreenToGridPosition(pointerPosition));
+                }
             }
         }
 
         private void OnPointerClickPerformed(InputAction.CallbackContext context)
         {
-            ClickGridCell(presentation.ScreenToGridPosition(pointerPosition));
+            using (PointerClickProfilerMarker.Auto())
+            {
+                ClickGridCell(presentation.ScreenToGridPosition(pointerPosition));
+            }
         }
 
         private void OnCancelPerformed(InputAction.CallbackContext context)
@@ -393,34 +421,37 @@ namespace Minebot.Presentation
 
         private bool TryAutoMineContact(CharacterMoveResult2D moveResult, float deltaTime)
         {
-            AutoMineContactDecision decision = AutoMineContactResolver.Advance(
-                autoMineState,
-                moveResult,
-                services.Grid,
-                services.PlayerMiningState.Position,
-                lastDirection,
-                deltaTime,
-                autoMineInterval);
-
-            autoMineState = decision.NextState;
-            if (decision.ShouldShowFeedback)
+            using (AutoMineProfilerMarker.Auto())
             {
-                presentation.NotifyPlayerMiningContact(decision.TargetCell);
-                presentation.ShowFeedback($"正在挖掘 {decision.TargetCell}...");
-            }
+                AutoMineContactDecision decision = AutoMineContactResolver.Advance(
+                    autoMineState,
+                    moveResult,
+                    services.Grid,
+                    services.PlayerMiningState.Position,
+                    lastDirection,
+                    deltaTime,
+                    autoMineInterval);
 
-            if (!decision.ShouldMine)
-            {
-                if (moveResult.WasBlocked && !decision.ShouldShowFeedback)
+                autoMineState = decision.NextState;
+                if (decision.ShouldShowFeedback)
                 {
-                    presentation.NotifyPlayerBlocked();
+                    presentation.NotifyPlayerMiningContact(decision.TargetCell);
+                    presentation.ShowFeedback($"正在挖掘 {decision.TargetCell}...");
                 }
 
-                return false;
-            }
+                if (!decision.ShouldMine)
+                {
+                    if (moveResult.WasBlocked && !decision.ShouldShowFeedback)
+                    {
+                        presentation.NotifyPlayerBlocked();
+                    }
 
-            ResetAutoMineState();
-            return MineTarget(decision.TargetCell);
+                    return false;
+                }
+
+                ResetAutoMineState();
+                return MineTarget(decision.TargetCell);
+            }
         }
 
         private void ResetAutoMineState()
@@ -430,16 +461,19 @@ namespace Minebot.Presentation
 
         private bool MineTarget(GridPosition target)
         {
-            MineInteractionResult result = services.Session.Mine(target);
-            presentation.NotifyPlayerMineResolved(target, result);
-            if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
+            using (MineTargetProfilerMarker.Auto())
             {
-                presentation.RefreshAfterTerrainChanged();
+                MineInteractionResult result = services.Session.Mine(target);
+                presentation.NotifyPlayerMineResolved(target, result);
+                if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
+                {
+                    presentation.RefreshAfterTerrainChanged(services.Session.LastMineResolution.ClearedCells);
+                }
+                presentation.ShowFeedback(result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb
+                    ? $"自动挖掘 {target}：{ToChineseResultText(result)}"
+                    : $"无法挖掘 {target}：{ToChineseResultText(result)}");
+                return result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb;
             }
-            presentation.ShowFeedback(result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb
-                ? $"自动挖掘 {target}：{ToChineseResultText(result)}"
-                : $"无法挖掘 {target}：{ToChineseResultText(result)}");
-            return result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb;
         }
 
         private static Vector2 ToVector2(GridPosition direction)
