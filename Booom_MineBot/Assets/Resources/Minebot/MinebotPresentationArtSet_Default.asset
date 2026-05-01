@@ -121,7 +121,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ac6cfab9224134c80a562d611f33adc4, type: 2}
   - {fileID: 11400000, guid: e6ec9deb6d1604d249b0fd6f0976359d, type: 2}
   - {fileID: 11400000, guid: 8603e3989add146c480e45c4b3177b79, type: 2}
-  dangerTile: {fileID: 11400000, guid: 6fd9007294ae34be3a75c6efdcb738f0, type: 2}
+  fogNearDualGridTiles: []
+  fogDeepDualGridTiles: []
+  dangerTile: {fileID: 11400000, guid: 6683ea565f0ba34439b9e239b0bb4c91, type: 2}
   markerTile: {fileID: 11400000, guid: 72aa5024b3fc24142b00e607645a9793, type: 2}
   scanHintTile: {fileID: 11400000, guid: 749469656695a49dfbbcd0a1c1c1c093, type: 2}
   dangerOutlineTiles:
