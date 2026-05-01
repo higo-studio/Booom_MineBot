@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Minebot.Common;
 using Minebot.GridMining;
@@ -92,11 +93,24 @@ namespace Minebot.Presentation
     {
         private readonly IReadOnlyList<Tilemap> tilemaps;
         private readonly MinebotPresentationAssets assets;
+        private readonly Dictionary<Vector3Int, TileBase>[] tileCaches;
 
         public TilemapDualGridRenderTarget(IReadOnlyList<Tilemap> terrainTilemaps, MinebotPresentationAssets presentationAssets)
         {
             tilemaps = terrainTilemaps;
             assets = presentationAssets;
+            if (tilemaps != null)
+            {
+                tileCaches = new Dictionary<Vector3Int, TileBase>[tilemaps.Count];
+                for (int i = 0; i < tileCaches.Length; i++)
+                {
+                    tileCaches[i] = new Dictionary<Vector3Int, TileBase>();
+                }
+            }
+            else
+            {
+                tileCaches = Array.Empty<Dictionary<Vector3Int, TileBase>>();
+            }
         }
 
         public void ClearAll()
@@ -109,6 +123,11 @@ namespace Minebot.Presentation
             for (int i = 0; i < tilemaps.Count; i++)
             {
                 tilemaps[i]?.ClearAllTiles();
+            }
+
+            for (int i = 0; i < tileCaches.Length; i++)
+            {
+                tileCaches[i].Clear();
             }
         }
 
@@ -129,8 +148,19 @@ namespace Minebot.Presentation
                 }
 
                 RenderLayerCommand command = commands[i];
-                Tile tile = command.HasContent ? assets.DualGridTerrainTileFor(command.LayerId, command.AtlasIndex) : null;
-                tilemap.SetTile(displayPosition, tile);
+                TileBase newTile = command.HasContent ? assets.DualGridTerrainTileFor(command.LayerId, command.AtlasIndex) : null;
+                
+                // Check if tile is already set to the same value - skip to preserve tile animations
+                if (tileCaches[i].TryGetValue(displayPosition, out TileBase existingTile))
+                {
+                    if (existingTile == newTile)
+                    {
+                        continue;
+                    }
+                }
+
+                tileCaches[i][displayPosition] = newTile;
+                tilemap.SetTile(displayPosition, newTile);
             }
         }
 

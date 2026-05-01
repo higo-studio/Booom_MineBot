@@ -1,0 +1,16 @@
+﻿<Solution>
+  <Project Path="Minebot.Runtime.Presentation.csproj" />
+  <Project Path="Minebot.Runtime.Bootstrap.csproj" />
+  <Project Path="McpBridge.Editor.csproj" />
+  <Project Path="Minebot.Runtime.UI.csproj" />
+  <Project Path="McpBridge.Runtime.csproj" />
+  <Project Path="Minebot.Editor.csproj" />
+  <Project Path="Minebot.Runtime.Common.csproj" />
+  <Project Path="Minebot.Runtime.GridMining.csproj" />
+  <Project Path="Minebot.Runtime.HazardInference.csproj" />
+  <Project Path="Minebot.Runtime.Progression.csproj" />
+  <Project Path="Minebot.Tests.EditMode.csproj" />
+  <Project Path="Minebot.Runtime.WaveSurvival.csproj" />
+  <Project Path="Minebot.Tests.PlayMode.csproj" />
+  <Project Path="Minebot.Runtime.Automation.csproj" />
+</Solution>

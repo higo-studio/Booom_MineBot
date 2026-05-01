@@ -195,6 +195,19 @@ namespace Minebot.Presentation
             RefreshHud();
         }
 
+        public void RefreshDangerZoneOnly()
+        {
+            if (services == null)
+            {
+                return;
+            }
+
+            Debug.Log($"[DangerZone] RefreshDangerZoneOnly called");
+            EvaluateDangerZones();
+            gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
+            RefreshHud();
+        }
+
         public void ShowFeedback(string message)
         {
             if (!string.IsNullOrEmpty(message))
@@ -845,7 +858,7 @@ namespace Minebot.Presentation
                 return;
             }
 
-            services.Session.StateChanged += RefreshAll;
+            services.Session.StateChanged += RefreshDangerZoneOnly;
             services.Session.RewardGranted += OnRewardGranted;
             services.Session.PassiveHazardSenseUpdated += OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted += OnRobotAutomationCompleted;
@@ -865,7 +878,7 @@ namespace Minebot.Presentation
                 return;
             }
 
-            services.Session.StateChanged -= RefreshAll;
+            services.Session.StateChanged -= RefreshDangerZoneOnly;
             services.Session.RewardGranted -= OnRewardGranted;
             services.Session.PassiveHazardSenseUpdated -= OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted -= OnRobotAutomationCompleted;
@@ -1282,10 +1295,12 @@ namespace Minebot.Presentation
 
             if (instance.Id.Contains("factory", StringComparison.OrdinalIgnoreCase) && assets.RobotFactoryTile != null)
             {
-                return assets.RobotFactoryTile.sprite;
+                return (assets.RobotFactoryTile as Tile)?.sprite ?? (assets.EmptyTile as Tile)?.sprite;
             }
 
-            return assets.RepairStationTile != null ? assets.RepairStationTile.sprite : assets.EmptyTile.sprite;
+            Tile repairStationTile = assets.RepairStationTile as Tile;
+            Tile emptyTile = assets.EmptyTile as Tile;
+            return repairStationTile != null ? repairStationTile.sprite : emptyTile?.sprite;
         }
 
         private void RefreshHud()

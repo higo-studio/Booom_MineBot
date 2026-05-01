@@ -136,7 +136,7 @@ namespace Minebot.Editor
             }
         }
 
-        private static Tile[] CopyTiles(Tile[] source)
+        private static Tile[] CopyTiles(TileBase[] source)
         {
             if (source == null || source.Length == 0)
             {
@@ -144,7 +144,11 @@ namespace Minebot.Editor
             }
 
             var copy = new Tile[source.Length];
-            Array.Copy(source, copy, source.Length);
+            for (int i = 0; i < source.Length; i++)
+            {
+                copy[i] = source[i] as Tile;
+            }
+
             return copy;
         }
 
