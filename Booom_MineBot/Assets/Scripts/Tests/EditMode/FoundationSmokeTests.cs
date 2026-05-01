@@ -1202,7 +1202,7 @@ namespace Minebot.Tests.EditMode
             return tile;
         }
 
-        private static Tile[] ResolveFallbackTiles(MinebotPresentationAssets assets, TerrainRenderLayerId layerId)
+        private static TileBase[] ResolveFallbackTiles(MinebotPresentationAssets assets, TerrainRenderLayerId layerId)
         {
             switch (layerId)
             {

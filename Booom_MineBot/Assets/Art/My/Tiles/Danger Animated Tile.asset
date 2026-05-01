@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 19b2287e4ad6b6c48a0821907f11b52f, type: 3}
+  m_Name: Danger Animated Tile
+  m_EditorClassIdentifier: 
+  m_Sprite: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Transform:
+    e00: 1
+    e01: 0
+    e02: 0
+    e03: 0
+    e10: 0
+    e11: 1
+    e12: 0
+    e13: 0
+    e20: 0
+    e21: 0
+    e22: 1
+    e23: 0
+    e30: 0
+    e31: 0
+    e32: 0
+    e33: 1
+  m_InstancedGameObject: {fileID: 0}
+  m_Flags: 1
+  m_ColliderType: 1
+  animationData:
+    animatedSprites:
+    - {fileID: 2485634852003101362, guid: 7f1158bb4a280564b8481f15d5f5e2cd, type: 3}
+    - {fileID: 3694360895314894608, guid: 7f1158bb4a280564b8481f15d5f5e2cd, type: 3}
+    - {fileID: -471009961, guid: 7f1158bb4a280564b8481f15d5f5e2cd, type: 3}
+    - {fileID: -1761016333, guid: 7f1158bb4a280564b8481f15d5f5e2cd, type: 3}
+    - {fileID: -736813003, guid: 7f1158bb4a280564b8481f15d5f5e2cd, type: 3}
+    - {fileID: -521050725, guid: 7f1158bb4a280564b8481f15d5f5e2cd, type: 3}
+    - {fileID: 1063239266, guid: 7f1158bb4a280564b8481f15d5f5e2cd, type: 3}
+    - {fileID: 2005363582, guid: 7f1158bb4a280564b8481f15d5f5e2cd, type: 3}
+    animationSpeed: 1
+    tileSize: {x: 16, y: 16}
+  usePositionOffset: 1
+  frameOffset: 0
+  dangerColor: {r: 1, g: 0.16, b: 0.2, a: 0.28}

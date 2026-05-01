@@ -2,43 +2,44 @@ using Minebot.Progression;
 using Minebot.UI;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using TileBase = UnityEngine.Tilemaps.TileBase;
 
 namespace Minebot.Presentation
 {
     public sealed class MinebotPresentationAssets
     {
-        public Tile EmptyTile { get; private set; }
-        public Tile SoilWallTile { get; private set; }
-        public Tile StoneWallTile { get; private set; }
-        public Tile HardRockWallTile { get; private set; }
-        public Tile UltraHardWallTile { get; private set; }
-        public Tile BoundaryTile { get; private set; }
-        public Tile[] FloorDualGridTiles { get; private set; }
-        public Tile[] SoilDualGridTiles { get; private set; }
-        public Tile[] StoneDualGridTiles { get; private set; }
-        public Tile[] HardRockDualGridTiles { get; private set; }
-        public Tile[] UltraHardDualGridTiles { get; private set; }
-        public Tile[] BoundaryDualGridTiles { get; private set; }
-        public Tile[] FogNearDualGridTiles { get; private set; }
-        public Tile[] FogDeepDualGridTiles { get; private set; }
-        public Tile DangerTile { get; private set; }
-        public Tile MarkerTile { get; private set; }
-        public Tile RepairStationTile { get; private set; }
-        public Tile RobotFactoryTile { get; private set; }
-        public Tile ScanHintTile { get; private set; }
-        public Tile BuildPreviewValidTile { get; private set; }
-        public Tile BuildPreviewInvalidTile { get; private set; }
-        public Tile[] WallContourTiles { get; private set; }
-        public Tile[] DangerContourTiles { get; private set; }
-        public Tile[] DangerOutlineTiles { get; private set; }
+        public TileBase EmptyTile { get; private set; }
+        public TileBase SoilWallTile { get; private set; }
+        public TileBase StoneWallTile { get; private set; }
+        public TileBase HardRockWallTile { get; private set; }
+        public TileBase UltraHardWallTile { get; private set; }
+        public TileBase BoundaryTile { get; private set; }
+        public TileBase[] FloorDualGridTiles { get; private set; }
+        public TileBase[] SoilDualGridTiles { get; private set; }
+        public TileBase[] StoneDualGridTiles { get; private set; }
+        public TileBase[] HardRockDualGridTiles { get; private set; }
+        public TileBase[] UltraHardDualGridTiles { get; private set; }
+        public TileBase[] BoundaryDualGridTiles { get; private set; }
+        public TileBase[] FogNearDualGridTiles { get; private set; }
+        public TileBase[] FogDeepDualGridTiles { get; private set; }
+        public TileBase DangerTile { get; private set; }
+        public TileBase MarkerTile { get; private set; }
+        public TileBase RepairStationTile { get; private set; }
+        public TileBase RobotFactoryTile { get; private set; }
+        public TileBase ScanHintTile { get; private set; }
+        public TileBase BuildPreviewValidTile { get; private set; }
+        public TileBase BuildPreviewInvalidTile { get; private set; }
+        public TileBase[] WallContourTiles { get; private set; }
+        public TileBase[] DangerContourTiles { get; private set; }
+        public TileBase[] DangerOutlineTiles { get; private set; }
         public Texture2D HologramOverlayAtlas { get; private set; }
         public Texture2D BitmapGlyphAtlas { get; private set; }
         public TextAsset BitmapGlyphDescriptor { get; private set; }
         public BitmapGlyphFontDefinition BitmapGlyphFont { get; private set; }
-        public Tile SoilDetailTile { get; private set; }
-        public Tile StoneDetailTile { get; private set; }
-        public Tile HardRockDetailTile { get; private set; }
-        public Tile UltraHardDetailTile { get; private set; }
+        public TileBase SoilDetailTile { get; private set; }
+        public TileBase StoneDetailTile { get; private set; }
+        public TileBase HardRockDetailTile { get; private set; }
+        public TileBase UltraHardDetailTile { get; private set; }
         public Sprite PlayerSprite { get; private set; }
         public Sprite RobotSprite { get; private set; }
         public GameObject PlayerActorPrefab { get; private set; }
@@ -87,18 +88,18 @@ namespace Minebot.Presentation
                 return fallback;
             }
 
-            Tile[] floorTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Floor, fallback.FloorDualGridTiles);
-            Tile[] soilTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Soil, fallback.SoilDualGridTiles);
-            Tile[] stoneTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Stone, fallback.StoneDualGridTiles);
-            Tile[] hardRockTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.HardRock, fallback.HardRockDualGridTiles);
-            Tile[] ultraHardTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.UltraHard, fallback.UltraHardDualGridTiles);
-            Tile[] boundaryTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Boundary, fallback.BoundaryDualGridTiles);
-            Tile[] fogNearTiles = artSet != null ? artSet.FogNearDualGridTiles : fallback.FogNearDualGridTiles;
-            Tile[] fogDeepTiles = artSet != null ? artSet.FogDeepDualGridTiles : fallback.FogDeepDualGridTiles;
-            Tile[] wallContours = ResolveLegacyContourTiles(
+            TileBase[] floorTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Floor, fallback.FloorDualGridTiles);
+            TileBase[] soilTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Soil, fallback.SoilDualGridTiles);
+            TileBase[] stoneTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Stone, fallback.StoneDualGridTiles);
+            TileBase[] hardRockTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.HardRock, fallback.HardRockDualGridTiles);
+            TileBase[] ultraHardTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.UltraHard, fallback.UltraHardDualGridTiles);
+            TileBase[] boundaryTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Boundary, fallback.BoundaryDualGridTiles);
+            TileBase[] fogNearTiles = artSet != null ? artSet.FogNearDualGridTiles : fallback.FogNearDualGridTiles;
+            TileBase[] fogDeepTiles = artSet != null ? artSet.FogDeepDualGridTiles : fallback.FogDeepDualGridTiles;
+            TileBase[] wallContours = ResolveLegacyContourTiles(
                 dualGridProfileOverride != null ? dualGridProfileOverride.ResolveWallContourTiles(artSet != null ? artSet.WallContourTiles : null) : artSet != null ? artSet.WallContourTiles : null,
                 fallback.WallContourTiles);
-            Tile[] dangerContours = ResolveLegacyContourTiles(
+            TileBase[] dangerContours = ResolveLegacyContourTiles(
                 dualGridProfileOverride != null ? dualGridProfileOverride.ResolveDangerContourTiles(artSet != null ? artSet.DangerContourTiles : null) : artSet != null ? artSet.DangerContourTiles : null,
                 fallback.DangerContourTiles);
             DualGridTerrainLayoutSettings layoutSettings = dualGridProfileOverride != null
@@ -176,7 +177,7 @@ namespace Minebot.Presentation
             };
         }
 
-        public Tile ResolveDangerOverlayTile(DangerOverlayGeometryKind geometryKind, int variant)
+        public TileBase ResolveDangerOverlayTile(DangerOverlayGeometryKind geometryKind, int variant)
         {
             switch (geometryKind)
             {
@@ -189,7 +190,7 @@ namespace Minebot.Presentation
             }
         }
 
-        public Tile DangerOutlineTileForWave(int currentWave)
+        public TileBase DangerOutlineTileForWave(int currentWave)
         {
             if (DangerOutlineTiles == null || DangerOutlineTiles.Length == 0)
             {
@@ -197,20 +198,20 @@ namespace Minebot.Presentation
             }
 
             int index = Mathf.Clamp(Mathf.Max(0, currentWave), 0, DangerOutlineTiles.Length - 1);
-            return DangerOutlineTiles[index] != null ? DangerOutlineTiles[index] : DangerTile;
+            return DangerOutlineTiles[index] ?? DangerTile;
         }
 
-        public Tile WallContourTileForIndex(int index)
+        public TileBase WallContourTileForIndex(int index)
         {
             return TileForContourIndex(WallContourTiles, index);
         }
 
-        public Tile DangerContourTileForIndex(int index)
+        public TileBase DangerContourTileForIndex(int index)
         {
             return TileForContourIndex(DangerContourTiles, index);
         }
 
-        public Tile DualGridTerrainTileFor(TerrainRenderLayerId layerId, int index)
+        public TileBase DualGridTerrainTileFor(TerrainRenderLayerId layerId, int index)
         {
             switch (layerId)
             {
@@ -229,28 +230,28 @@ namespace Minebot.Presentation
             }
         }
 
-        public Tile FogNearDualGridTileForIndex(int index)
+        public TileBase FogNearDualGridTileForIndex(int index)
         {
             return TileForContourIndex(FogNearDualGridTiles, index);
         }
 
-        public Tile FogDeepDualGridTileForIndex(int index)
+        public TileBase FogDeepDualGridTileForIndex(int index)
         {
             return TileForContourIndex(FogDeepDualGridTiles, index);
         }
 
-        public Tile WallBaseTileForHardness(Minebot.GridMining.HardnessTier hardness)
+        public TileBase WallBaseTileForHardness(Minebot.GridMining.HardnessTier hardness)
         {
             switch (hardness)
             {
                 case Minebot.GridMining.HardnessTier.Stone:
-                    return StoneDetailTile != null ? StoneDetailTile : StoneWallTile;
+                    return StoneDetailTile ?? StoneWallTile;
                 case Minebot.GridMining.HardnessTier.HardRock:
-                    return HardRockDetailTile != null ? HardRockDetailTile : HardRockWallTile;
+                    return HardRockDetailTile ?? HardRockWallTile;
                 case Minebot.GridMining.HardnessTier.UltraHard:
-                    return UltraHardDetailTile != null ? UltraHardDetailTile : UltraHardWallTile;
+                    return UltraHardDetailTile ?? UltraHardWallTile;
                 default:
-                    return SoilDetailTile != null ? SoilDetailTile : SoilWallTile;
+                    return SoilDetailTile ?? SoilWallTile;
             }
         }
 
@@ -344,24 +345,24 @@ namespace Minebot.Presentation
             };
         }
 
-        private static Tile[] NormalizeIndexedTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
+        private static TileBase[] NormalizeIndexedTiles(TileBase[] configuredTiles, TileBase[] fallbackTiles)
         {
-            var normalized = new Tile[DualGridTerrain.TileCount];
+            var normalized = new TileBase[DualGridTerrain.TileCount];
             for (int i = 0; i < normalized.Length; i++)
             {
-                Tile configured = configuredTiles != null && i < configuredTiles.Length ? configuredTiles[i] : null;
-                Tile fallback = fallbackTiles != null && i < fallbackTiles.Length ? fallbackTiles[i] : null;
-                normalized[i] = configured != null ? configured : fallback;
+                TileBase configured = configuredTiles != null && i < configuredTiles.Length ? configuredTiles[i] : null;
+                TileBase fallback = fallbackTiles != null && i < fallbackTiles.Length ? fallbackTiles[i] : null;
+                normalized[i] = configured ?? fallback;
             }
 
             return normalized;
         }
 
-        private static Tile[] ResolveDualGridTiles(
+        private static TileBase[] ResolveDualGridTiles(
             MinebotPresentationArtSet artSet,
             DualGridTerrainProfile overrideProfile,
             TerrainRenderLayerId layerId,
-            Tile[] fallbackTiles)
+            TileBase[] fallbackTiles)
         {
             if (overrideProfile != null)
             {
@@ -376,7 +377,7 @@ namespace Minebot.Presentation
             return fallbackTiles;
         }
 
-        private static Tile[] ArtSetTilesForLayer(MinebotPresentationArtSet artSet, TerrainRenderLayerId layerId)
+        private static TileBase[] ArtSetTilesForLayer(MinebotPresentationArtSet artSet, TerrainRenderLayerId layerId)
         {
             switch (layerId)
             {
@@ -395,37 +396,37 @@ namespace Minebot.Presentation
             }
         }
 
-        private static Tile[] ResolveLegacyContourTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
+        private static TileBase[] ResolveLegacyContourTiles(TileBase[] configuredTiles, TileBase[] fallbackTiles)
         {
-            var normalized = new Tile[DualGridContour.TileCount];
+            var normalized = new TileBase[DualGridContour.TileCount];
             for (int i = 0; i < normalized.Length; i++)
             {
-                Tile configured = configuredTiles != null && i < configuredTiles.Length ? configuredTiles[i] : null;
-                Tile fallback = fallbackTiles != null && i < fallbackTiles.Length ? fallbackTiles[i] : null;
-                normalized[i] = configured != null ? configured : fallback;
+                TileBase configured = configuredTiles != null && i < configuredTiles.Length ? configuredTiles[i] : null;
+                TileBase fallback = fallbackTiles != null && i < fallbackTiles.Length ? fallbackTiles[i] : null;
+                normalized[i] = configured ?? fallback;
             }
 
             return normalized;
         }
 
-        private static Tile[] NormalizeDangerOutlineTiles(Tile[] configuredTiles, Tile[] fallbackTiles)
+        private static TileBase[] NormalizeDangerOutlineTiles(TileBase[] configuredTiles, TileBase[] fallbackTiles)
         {
             if (configuredTiles == null || configuredTiles.Length == 0)
             {
                 return fallbackTiles;
             }
 
-            var normalized = new Tile[configuredTiles.Length];
+            var normalized = new TileBase[configuredTiles.Length];
             for (int i = 0; i < configuredTiles.Length; i++)
             {
-                Tile fallback = fallbackTiles[Mathf.Min(i, fallbackTiles.Length - 1)];
-                normalized[i] = configuredTiles[i] != null ? configuredTiles[i] : fallback;
+                TileBase fallback = fallbackTiles[Mathf.Min(i, fallbackTiles.Length - 1)];
+                normalized[i] = configuredTiles[i] ?? fallback;
             }
 
             return normalized;
         }
 
-        private static Tile TileForContourIndex(Tile[] contourTiles, int index)
+        private static TileBase TileForContourIndex(TileBase[] contourTiles, int index)
         {
             if (contourTiles == null || contourTiles.Length == 0)
             {

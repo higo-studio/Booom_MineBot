@@ -72,11 +72,6 @@ namespace Minebot.Bootstrap
         public MineInteractionResult Move(GridPosition direction)
         {
             MineInteractionResult result = mining.Move(player, direction);
-            if (result == MineInteractionResult.Moved)
-            {
-                StateChanged?.Invoke();
-            }
-
             return result;
         }
 

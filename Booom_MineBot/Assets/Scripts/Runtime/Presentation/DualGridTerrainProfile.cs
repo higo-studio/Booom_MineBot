@@ -120,7 +120,7 @@ namespace Minebot.Presentation
         public bool AllowAutoRotateCanonical => allowAutoRotateCanonical;
         public Tile[] Resolved16Tiles => resolved16Tiles ?? Array.Empty<Tile>();
 
-        public Tile[] ResolveTiles(Tile[] legacyTiles)
+        public Tile[] ResolveTiles(TileBase[] legacyTiles)
         {
             var resolved = new Tile[DualGridTerrain.TileCount];
 
@@ -142,7 +142,7 @@ namespace Minebot.Presentation
 
             if (legacyTiles != null && legacyTiles.Length > 0)
             {
-                FillMissing(resolved, legacyTiles);
+                FillMissingFromTileBase(resolved, legacyTiles);
             }
 
             if (allowGeneratedFallbackForMissing)
@@ -351,6 +351,18 @@ namespace Minebot.Presentation
                 destination[destinationIndex] = source[sourceIndex];
             }
         }
+
+        private static void FillMissingFromTileBase(Tile[] destination, TileBase[] fallback)
+        {
+            int count = Mathf.Min(destination.Length, fallback.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (destination[i] == null && fallback[i] is Tile tile)
+                {
+                    destination[i] = tile;
+                }
+            }
+        }
     }
 
     [CreateAssetMenu(menuName = "Minebot/Presentation/Dual Grid Terrain Profile")]
@@ -376,7 +388,7 @@ namespace Minebot.Presentation
         public DualGridLegacyTopologyAssets LegacyTopology => legacyTopology ?? new DualGridLegacyTopologyAssets();
         public bool AllowLegacyArtSetFallback => allowLegacyArtSetFallback;
 
-        public Tile[] ResolveFamilyTiles(TerrainRenderLayerId layerId, Tile[] legacyTiles)
+        public TileBase[] ResolveFamilyTiles(TerrainRenderLayerId layerId, TileBase[] legacyTiles)
         {
             DualGridTerrainFamilyProfile family = FindFamily(layerId);
             if (family == null || !family.Enabled)
@@ -388,12 +400,12 @@ namespace Minebot.Presentation
             return resolved.Length > 0 ? resolved : ResolveFallbackTiles(layerId, legacyTiles);
         }
 
-        public Tile[] ResolveWallContourTiles(Tile[] legacyTiles)
+        public TileBase[] ResolveWallContourTiles(TileBase[] legacyTiles)
         {
             return ResolveLegacyTiles(LegacyTopology.WallContourTiles, legacyTiles);
         }
 
-        public Tile[] ResolveDangerContourTiles(Tile[] legacyTiles)
+        public TileBase[] ResolveDangerContourTiles(TileBase[] legacyTiles)
         {
             return ResolveLegacyTiles(LegacyTopology.DangerContourTiles, legacyTiles);
         }
@@ -421,10 +433,15 @@ namespace Minebot.Presentation
             layoutSettings = settings;
         }
 
-        public void ConfigureFamilyTiles(TerrainRenderLayerId layerId, Tile[] tiles)
+        public void ConfigureFamilyTiles(TerrainRenderLayerId layerId, TileBase[] tiles)
         {
             DualGridTerrainFamilyProfile family = GetOrCreateFamily(layerId);
-            family.ConfigureLegacyMigration(tiles, tiles);
+            var tileArray = new Tile[tiles.Length];
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                tileArray[i] = tiles[i] as Tile;
+            }
+            family.ConfigureLegacyMigration(tileArray, tileArray);
         }
 
         public void ConfigureLegacyTopology(Tile[] wallContours, Tile[] dangerContours)
@@ -461,32 +478,32 @@ namespace Minebot.Presentation
             return null;
         }
 
-        private Tile[] ResolveFallbackTiles(TerrainRenderLayerId layerId, Tile[] legacyTiles)
+        private TileBase[] ResolveFallbackTiles(TerrainRenderLayerId layerId, TileBase[] legacyTiles)
         {
             if (allowLegacyArtSetFallback && legacyTiles != null && legacyTiles.Length > 0)
             {
-                var normalized = new Tile[DualGridTerrain.TileCount];
+                var normalized = new TileBase[DualGridTerrain.TileCount];
                 for (int i = 0; i < normalized.Length; i++)
                 {
                     normalized[i] = i < legacyTiles.Length ? legacyTiles[i] : null;
                 }
 
-                FillMissing(normalized, DualGridTerrainFallbackTiles.CreateTileSet(layerId));
+                FillMissingBase(normalized, DualGridTerrainFallbackTiles.CreateTileSet(layerId));
                 return normalized;
             }
 
             return DualGridTerrainFallbackTiles.CreateTileSet(layerId);
         }
 
-        private static Tile[] ResolveLegacyTiles(Tile[] profileLegacyTiles, Tile[] artSetLegacyTiles)
+        private static TileBase[] ResolveLegacyTiles(Tile[] profileLegacyTiles, TileBase[] artSetLegacyTiles)
         {
-            Tile[] preferred = profileLegacyTiles != null && profileLegacyTiles.Length > 0 ? profileLegacyTiles : artSetLegacyTiles;
+            TileBase[] preferred = profileLegacyTiles != null && profileLegacyTiles.Length > 0 ? profileLegacyTiles : artSetLegacyTiles;
             if (preferred == null || preferred.Length == 0)
             {
-                return Array.Empty<Tile>();
+                return Array.Empty<TileBase>();
             }
 
-            var normalized = new Tile[DualGridContour.TileCount];
+            var normalized = new TileBase[DualGridContour.TileCount];
             for (int i = 0; i < normalized.Length; i++)
             {
                 normalized[i] = i < preferred.Length ? preferred[i] : null;
@@ -608,6 +625,30 @@ namespace Minebot.Presentation
                 if (destination[i] == null)
                 {
                     destination[i] = fallback[i];
+                }
+            }
+        }
+
+        private static void FillMissingBase(TileBase[] destination, Tile[] fallback)
+        {
+            int count = Mathf.Min(destination.Length, fallback.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (destination[i] == null && fallback[i] != null)
+                {
+                    destination[i] = fallback[i];
+                }
+            }
+        }
+
+        private static void FillMissingFromTileBase(Tile[] destination, TileBase[] fallback)
+        {
+            int count = Mathf.Min(destination.Length, fallback.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (destination[i] == null && fallback[i] is Tile tile)
+                {
+                    destination[i] = tile;
                 }
             }
         }
