@@ -121,8 +121,40 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ac6cfab9224134c80a562d611f33adc4, type: 2}
   - {fileID: 11400000, guid: e6ec9deb6d1604d249b0fd6f0976359d, type: 2}
   - {fileID: 11400000, guid: 8603e3989add146c480e45c4b3177b79, type: 2}
-  fogNearDualGridTiles: []
-  fogDeepDualGridTiles: []
+  fogNearDualGridTiles:
+  - {fileID: 11400000, guid: 9c5a3af46376f4ba2901d6b638d4634e, type: 2}
+  - {fileID: 11400000, guid: 9b24ab3ee616b42849e0322db0a75d1d, type: 2}
+  - {fileID: 11400000, guid: 411194dac35de4780bdc7fc509aaa26e, type: 2}
+  - {fileID: 11400000, guid: 41331bfbe7120442a922fec8e2e27eb9, type: 2}
+  - {fileID: 11400000, guid: 65bc9f329245a4bc29621765e9147d7b, type: 2}
+  - {fileID: 11400000, guid: c613b91ed087d426880ee79dad112d7f, type: 2}
+  - {fileID: 11400000, guid: 79dff048a4b4c476bb7b9528b6bff863, type: 2}
+  - {fileID: 11400000, guid: fd9114d413f554a5cb8320da011a742f, type: 2}
+  - {fileID: 11400000, guid: 35d5a028c35bd49349ef5d707e119d67, type: 2}
+  - {fileID: 11400000, guid: dae36f5b214e14eb2b365b362df844ae, type: 2}
+  - {fileID: 11400000, guid: 7956d58507f454532867fc652d84e3df, type: 2}
+  - {fileID: 11400000, guid: f81d3505fb9e44368a74a4737e30320e, type: 2}
+  - {fileID: 11400000, guid: 5204beb35c66344a1832cd42c1885ca6, type: 2}
+  - {fileID: 11400000, guid: 33f0ffbe5b21c40f2a1c4d4eb50e86e5, type: 2}
+  - {fileID: 11400000, guid: f828fa850357040f4916e141910b0072, type: 2}
+  - {fileID: 11400000, guid: b903563415484493aaba49d13a8178e9, type: 2}
+  fogDeepDualGridTiles:
+  - {fileID: 11400000, guid: 033e87416234c4df8a53670882e2d311, type: 2}
+  - {fileID: 11400000, guid: 059024b7ae0ad439ea1e82381b9168c9, type: 2}
+  - {fileID: 11400000, guid: ff8251c44486c4528bb47867e083c79b, type: 2}
+  - {fileID: 11400000, guid: 40a8b7e0e91f24efcba2e533ff99ec3b, type: 2}
+  - {fileID: 11400000, guid: 41d37abbc293540dd865820fdceac0d0, type: 2}
+  - {fileID: 11400000, guid: 178022b8e6fb04a2784b39f7c67990cd, type: 2}
+  - {fileID: 11400000, guid: dc2e429b7d0d34386a03e501c934877f, type: 2}
+  - {fileID: 11400000, guid: 82001b974c3f8498596fec13fea8513a, type: 2}
+  - {fileID: 11400000, guid: a12ae830f4310420b95d1cd124ee3d58, type: 2}
+  - {fileID: 11400000, guid: f20508fef226248cdbacb2a0125d477c, type: 2}
+  - {fileID: 11400000, guid: 0da913a5dde4d4c7d8bce55d21144e15, type: 2}
+  - {fileID: 11400000, guid: cee31805e1ef6470c9a313eadd432105, type: 2}
+  - {fileID: 11400000, guid: f47b6c8f5da234e2c85d332028b5d6a3, type: 2}
+  - {fileID: 11400000, guid: 5f22610bc411448a9ac320d29651375d, type: 2}
+  - {fileID: 11400000, guid: cc8e21790ccfa4e7a893644c262ff421, type: 2}
+  - {fileID: 11400000, guid: 46dfd4c21825d492fbdebdf3ad9fd37f, type: 2}
   dangerTile: {fileID: 11400000, guid: 6683ea565f0ba34439b9e239b0bb4c91, type: 2}
   markerTile: {fileID: 11400000, guid: 72aa5024b3fc24142b00e607645a9793, type: 2}
   scanHintTile: {fileID: 11400000, guid: 749469656695a49dfbbcd0a1c1c1c093, type: 2}

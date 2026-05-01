@@ -752,7 +752,7 @@ namespace Minebot.Tests.EditMode
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
-                    MinebotPresentationAssets.Create(null));
+                    LoadDefaultPresentationAssets());
 
                 presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
                 Dictionary<Vector3Int, string> before = SnapshotTerrainDisplay(terrainTilemaps);
@@ -809,7 +809,7 @@ namespace Minebot.Tests.EditMode
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
-                    MinebotPresentationAssets.Create(null));
+                    LoadDefaultPresentationAssets());
 
                 presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
                 Assert.That(HasAnyDisplayTileAroundCell(fogNearTilemap, collapsedCell), Is.False);
@@ -923,10 +923,12 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void FallbackPresentationAssetsProvideNearAndDeepFogTileSets()
+        public void DefaultPresentationAssetsProvideNearAndDeepFogTileSets()
         {
-            MinebotPresentationAssets assets = MinebotPresentationAssets.Create(null);
+            MinebotPresentationAssets assets = LoadDefaultPresentationAssets();
 
+            Assert.That(MinebotPresentationAssets.LoadDefaultArtSet(), Is.Not.Null);
+            Assert.That(assets.IsUsingConfiguredArtSet, Is.True);
             Assert.That(assets.FogNearDualGridTiles.Length, Is.EqualTo(DualGridFog.TileCount));
             Assert.That(assets.FogDeepDualGridTiles.Length, Is.EqualTo(DualGridFog.TileCount));
             Assert.That(assets.FogNearDualGridTileForIndex(15), Is.Not.Null);
@@ -934,7 +936,7 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void DualGridFogFallbackTilesPreserveQuarterCellGeometry()
+        public void DualGridFogEditorBakePreservesQuarterCellGeometry()
         {
             Texture2D texture = DualGridFogFallbackTiles.CreateTexture(DualGridFogBandKind.Near, 8, "QuarterFogTest");
             try
@@ -964,7 +966,7 @@ namespace Minebot.Tests.EditMode
                 Tilemap sourceTerrainTilemap = CreateTilemap(root.transform, "Source Terrain Tilemap", Vector3.zero);
                 sourceTerrainTilemap.SetTile(Vector3Int.zero, sourceTile);
                 ConfigureBakeProfileForSingleTile(bakeProfile, sourceTile, TerrainKind.MineableWall, HardnessTier.Soil);
-                ConfigureProfileWithFallbackTiles(profile);
+                ConfigureProfileWithDefaultDualGridTiles(profile);
 
                 DualGridPreviewHost host = root.AddComponent<DualGridPreviewHost>();
                 host.Configure(sourceTerrainTilemap, bakeProfile, configuredProfileOverride: profile);
@@ -1148,7 +1150,7 @@ namespace Minebot.Tests.EditMode
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
-                    useConfiguredArt ? MinebotPresentationAssets.Create(artSet) : MinebotPresentationAssets.Create(null));
+                    useConfiguredArt ? MinebotPresentationAssets.Create(artSet) : LoadDefaultPresentationAssets());
                 presentation.Refresh(CreatePresentationRegistry(grid), new GridPosition(-1, -1), new GridPosition(-2, -2));
 
                 var moveMining = new MiningService(grid);
@@ -1270,14 +1272,20 @@ namespace Minebot.Tests.EditMode
             return terrainTilemaps[DualGridTerrain.GetOrderedLayerIndex(layerId)];
         }
 
-        private static void ConfigureProfileWithFallbackTiles(DualGridTerrainProfile profile)
+        private static void ConfigureProfileWithDefaultDualGridTiles(DualGridTerrainProfile profile)
         {
             profile.ConfigureLayout(DualGridTerrainLayoutSettings.CreateDefault());
-            MinebotPresentationAssets fallbackAssets = MinebotPresentationAssets.Create(null);
+            MinebotPresentationAssets defaultAssets = LoadDefaultPresentationAssets();
             foreach (TerrainRenderLayerId layerId in DualGridTerrain.MaterialFamilies)
             {
-                profile.ConfigureFamilyTiles(layerId, ResolveFallbackTiles(fallbackAssets, layerId));
+                profile.ConfigureFamilyTiles(layerId, ResolveFallbackTiles(defaultAssets, layerId));
             }
+        }
+
+        private static MinebotPresentationAssets LoadDefaultPresentationAssets()
+        {
+            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
+            return MinebotPresentationAssets.Create(null);
         }
 
         private static void ConfigureBakeProfileForSingleTile(

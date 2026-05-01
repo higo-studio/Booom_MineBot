@@ -75,7 +75,6 @@ namespace Minebot.Presentation
         private readonly Dictionary<RobotState, float> destroyedRobotVisualExpiry = new Dictionary<RobotState, float>();
         private readonly List<GameObject> buildingViews = new List<GameObject>();
         private static TMP_FontAsset runtimeFontAsset;
-        private Texture2D hudMinimapTexture;
         private MinebotHudView hudView;
         private UpgradeDefinition[] currentCandidates = Array.Empty<UpgradeDefinition>();
         private BuildingDefinition[] availableBuildingDefinitions = Array.Empty<BuildingDefinition>();
@@ -147,7 +146,6 @@ namespace Minebot.Presentation
 
         private void OnDestroy()
         {
-            ReleaseHudMinimapTexture();
         }
 
         private void Update()
@@ -583,7 +581,7 @@ namespace Minebot.Presentation
 
         private MinebotPresentationArtSet ResolveArtSet()
         {
-            return artSet != null ? artSet : Resources.Load<MinebotPresentationArtSet>("Minebot/MinebotPresentationArtSet_Default");
+            return artSet != null ? artSet : MinebotPresentationAssets.LoadDefaultArtSet();
         }
 
         private void EnsureCamera()
@@ -1454,7 +1452,6 @@ namespace Minebot.Presentation
 
         private void DisableMinimapPanel()
         {
-            ReleaseHudMinimapTexture();
             if (hudView == null || hudView.MinimapPanel == null)
             {
                 return;
@@ -1871,73 +1868,6 @@ namespace Minebot.Presentation
             }
         }
 
-        private void RefreshMinimapPanel()
-        {
-            if (hudView == null || hudView.MinimapPanel == null)
-            {
-                return;
-            }
-
-            if (services == null)
-            {
-                hudView.MinimapPanel.SetVisible(false);
-                return;
-            }
-
-            Vector2Int size = services.Grid.Size;
-            if (size.x <= 0 || size.y <= 0)
-            {
-                hudView.MinimapPanel.SetVisible(false);
-                return;
-            }
-
-            if (hudMinimapTexture == null || hudMinimapTexture.width != size.x || hudMinimapTexture.height != size.y)
-            {
-                ReleaseHudMinimapTexture();
-                hudMinimapTexture = new Texture2D(size.x, size.y, TextureFormat.RGBA32, false)
-                {
-                    name = "HUD Minimap",
-                    filterMode = FilterMode.Point,
-                    wrapMode = TextureWrapMode.Clamp
-                };
-            }
-
-            foreach (GridPosition position in services.Grid.Positions())
-            {
-                GridCellState cell = services.Grid.GetCell(position);
-                hudMinimapTexture.SetPixel(position.X, size.y - 1 - position.Y, ColorForMinimapCell(cell));
-            }
-
-            if (services.Grid.IsInside(repairStationPosition))
-            {
-                hudMinimapTexture.SetPixel(repairStationPosition.X, size.y - 1 - repairStationPosition.Y, new Color32(72, 220, 255, 255));
-            }
-
-            if (services.Grid.IsInside(robotFactoryPosition))
-            {
-                hudMinimapTexture.SetPixel(robotFactoryPosition.X, size.y - 1 - robotFactoryPosition.Y, new Color32(255, 142, 64, 255));
-            }
-
-            foreach (RobotState robot in services.Robots)
-            {
-                if (robot.IsActive && services.Grid.IsInside(robot.Position))
-                {
-                    hudMinimapTexture.SetPixel(robot.Position.X, size.y - 1 - robot.Position.Y, new Color32(112, 255, 148, 255));
-                }
-            }
-
-            GridPosition playerPosition = services.PlayerMiningState.Position;
-            if (services.Grid.IsInside(playerPosition))
-            {
-                hudMinimapTexture.SetPixel(playerPosition.X, size.y - 1 - playerPosition.Y, new Color32(40, 168, 255, 255));
-            }
-
-            hudMinimapTexture.Apply(false, false);
-            hudView.MinimapPanel.SetTexture(hudMinimapTexture);
-            hudView.MinimapPanel.SetSummary($"已标记 {CountMarkedCells()} | 危险 {CountDangerZoneCells()}");
-            hudView.MinimapPanel.SetVisible(true);
-        }
-
         private void RefreshBuildingInteractionPanel()
         {
             if (hudView == null || hudView.BuildingInteractionPanel == null)
@@ -1996,21 +1926,6 @@ namespace Minebot.Presentation
             return count;
         }
 
-        private int CountDangerZoneCells()
-        {
-            int count = 0;
-            foreach (GridPosition position in services.Grid.Positions())
-            {
-                GridCellState cell = services.Grid.GetCell(position);
-                if (cell.TerrainKind == TerrainKind.Empty && cell.IsDangerZone)
-                {
-                    count++;
-                }
-            }
-
-            return count;
-        }
-
         private bool PlayerIsInDangerZone()
         {
             GridPosition position = services.PlayerMiningState.Position;
@@ -2036,67 +1951,6 @@ namespace Minebot.Presentation
                 ? "地震波吞没了主机器人。"
                 : $"地震波结算：存活到第 {resolution.SurvivedWave} 波，损失机器人 {resolution.RobotsDestroyed}。";
             RefreshAll();
-        }
-
-        private void ReleaseHudMinimapTexture()
-        {
-            if (hudMinimapTexture == null)
-            {
-                return;
-            }
-
-            if (Application.isPlaying)
-            {
-                Destroy(hudMinimapTexture);
-            }
-            else
-            {
-                DestroyImmediate(hudMinimapTexture);
-            }
-
-            hudMinimapTexture = null;
-        }
-
-        private static Color32 ColorForMinimapCell(GridCellState cell)
-        {
-            if (DualGridFog.IsSolid(cell))
-            {
-                return new Color32(10, 14, 18, 255);
-            }
-
-            if (cell.IsMarked)
-            {
-                return new Color32(32, 232, 220, 255);
-            }
-
-            if (cell.IsOccupiedByBuilding)
-            {
-                return new Color32(196, 206, 212, 255);
-            }
-
-            if (cell.TerrainKind == TerrainKind.Empty)
-            {
-                return cell.IsDangerZone
-                    ? new Color32(196, 64, 58, 255)
-                    : new Color32(128, 92, 58, 255);
-            }
-
-            if (cell.TerrainKind == TerrainKind.Indestructible)
-            {
-                return new Color32(28, 34, 40, 255);
-            }
-
-            switch (cell.HardnessTier)
-            {
-                case HardnessTier.Stone:
-                    return new Color32(116, 122, 128, 255);
-                case HardnessTier.HardRock:
-                    return new Color32(82, 90, 102, 255);
-                case HardnessTier.UltraHard:
-                    return new Color32(56, 64, 78, 255);
-                default:
-                    return new Color32(150, 128, 92, 255);
-            }
         }
 
         private GridPosition PickFacilityPosition(GridPosition direction)

@@ -138,6 +138,8 @@ namespace Minebot.Editor
                 errors.Add($"{BitmapGlyphFontAssetPath}：缺少位图字形字体资源");
             }
 
+            ValidateDefaultPresentationResources(errors);
+
             if (errors.Count == 0)
             {
                 Debug.Log("Minebot 像素美术导入配置校验通过。");
@@ -176,6 +178,54 @@ namespace Minebot.Editor
             ConfigureFogTextureImporters(DualGridFogBandKind.Deep);
 
             MinebotPrefabGameplayArtSupport.EnsureTextureImporters();
+        }
+
+        private static void ValidateDefaultPresentationResources(ICollection<string> errors)
+        {
+            MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(ArtSetPath);
+            if (artSet == null)
+            {
+                errors.Add($"{ArtSetPath}：缺少默认表现美术集");
+                return;
+            }
+
+            DualGridTerrainProfile profile = AssetDatabase.LoadAssetAtPath<DualGridTerrainProfile>(DualGridTerrainProfilePath);
+            if (profile == null)
+            {
+                errors.Add($"{DualGridTerrainProfilePath}：缺少默认双网格地形配置");
+            }
+            else
+            {
+                foreach (string issue in profile.GetValidationIssues())
+                {
+                    errors.Add($"{DualGridTerrainProfilePath}：{issue}");
+                }
+            }
+
+            if (artSet.BitmapGlyphFont == null)
+            {
+                errors.Add($"{ArtSetPath}：缺少位图字形字体引用");
+            }
+
+            ValidateTileArray($"{ArtSetPath} / FogNear", artSet.FogNearDualGridTiles, DualGridFog.TileCount, errors);
+            ValidateTileArray($"{ArtSetPath} / FogDeep", artSet.FogDeepDualGridTiles, DualGridFog.TileCount, errors);
+        }
+
+        private static void ValidateTileArray(string label, TileBase[] tiles, int expectedCount, ICollection<string> errors)
+        {
+            if (tiles == null || tiles.Length != expectedCount)
+            {
+                errors.Add($"{label}：瓦片数量必须为 {expectedCount}");
+                return;
+            }
+
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                if (tiles[i] == null)
+                {
+                    errors.Add($"{label}：索引 {i:00} 缺少瓦片");
+                }
+            }
         }
 
         private static void ConfigureTextureImporter(string assetPath, int pixelsPerUnit)

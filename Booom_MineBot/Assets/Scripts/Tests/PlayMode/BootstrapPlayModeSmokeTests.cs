@@ -44,8 +44,16 @@ namespace Minebot.Tests.PlayMode
             MineEnoughForUpgradeRepairAndRobot(services);
             Assert.That(services.Experience.HasPendingUpgrade, Is.True);
 
-            UpgradeDefinition[] candidates = services.Upgrades.GetCandidates(3);
-            Assert.That(services.Upgrades.Select(candidates[0]), Is.True);
+            int upgradesApplied = 0;
+            while (services.Experience.HasPendingUpgrade && upgradesApplied < 8)
+            {
+                UpgradeDefinition[] candidates = services.Upgrades.GetCandidates(3);
+                Assert.That(candidates.Length, Is.GreaterThan(0));
+                Assert.That(services.Upgrades.Select(candidates[0]), Is.True);
+                upgradesApplied++;
+            }
+
+            Assert.That(upgradesApplied, Is.GreaterThan(0));
             Assert.That(services.Experience.HasPendingUpgrade, Is.False);
 
             services.Vitals.Damage(1);
@@ -69,27 +77,28 @@ namespace Minebot.Tests.PlayMode
 
         private static void MineEnoughForUpgradeRepairAndRobot(RuntimeServiceRegistry services)
         {
+            GridPosition spawn = services.Grid.PlayerSpawn;
             ClearBombs(
                 services,
-                new GridPosition(6, 8),
-                new GridPosition(6, 9),
-                new GridPosition(6, 10),
-                new GridPosition(7, 10),
-                new GridPosition(7, 9),
-                new GridPosition(5, 10),
-                new GridPosition(5, 9));
+                Offset(spawn, 0, 2),
+                Offset(spawn, 0, 3),
+                Offset(spawn, 0, 4),
+                Offset(spawn, 1, 4),
+                Offset(spawn, 1, 3),
+                Offset(spawn, -1, 4),
+                Offset(spawn, -1, 3));
 
             Assert.That(services.Session.Move(GridPosition.Up), Is.EqualTo(MineInteractionResult.Moved));
 
-            MineCollectAndEnter(services, new GridPosition(6, 8), GridPosition.Up);
-            MineCollectAndEnter(services, new GridPosition(6, 9), GridPosition.Up);
-            MineCollectAndEnter(services, new GridPosition(6, 10), GridPosition.Up);
-            MineCollectAndEnter(services, new GridPosition(7, 10), GridPosition.Right);
-            MineAndCollect(services, new GridPosition(7, 9));
+            MineCollectAndEnter(services, Offset(spawn, 0, 2), GridPosition.Up);
+            MineCollectAndEnter(services, Offset(spawn, 0, 3), GridPosition.Up);
+            MineCollectAndEnter(services, Offset(spawn, 0, 4), GridPosition.Up);
+            MineCollectAndEnter(services, Offset(spawn, 1, 4), GridPosition.Right);
+            MineAndCollect(services, Offset(spawn, 1, 3));
             Assert.That(services.Session.Move(GridPosition.Left), Is.EqualTo(MineInteractionResult.Moved));
-            MineAndCollect(services, new GridPosition(5, 10));
+            MineAndCollect(services, Offset(spawn, -1, 4));
             Assert.That(services.Session.Move(GridPosition.Left), Is.EqualTo(MineInteractionResult.Moved));
-            MineAndCollect(services, new GridPosition(5, 9));
+            MineAndCollect(services, Offset(spawn, -1, 3));
 
             Assert.That(services.Economy.Resources.Metal, Is.GreaterThanOrEqualTo(7));
             Assert.That(services.Experience.Experience, Is.GreaterThanOrEqualTo(5));
@@ -125,6 +134,11 @@ namespace Minebot.Tests.PlayMode
         private static Vector2 ToWorldCenter(GridPosition position)
         {
             return new Vector2(position.X + 0.5f, position.Y + 0.5f);
+        }
+
+        private static GridPosition Offset(GridPosition origin, int x, int y)
+        {
+            return new GridPosition(origin.X + x, origin.Y + y);
         }
     }
 }
