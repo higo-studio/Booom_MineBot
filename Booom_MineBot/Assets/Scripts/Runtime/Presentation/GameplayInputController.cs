@@ -43,7 +43,6 @@ namespace Minebot.Presentation
             MinebotInputActions.PlayerActions player = inputActions.Player;
             player.Move.performed += OnMovePerformed;
             player.Move.canceled += OnMoveCanceled;
-            player.Scan.performed += OnScanPerformed;
             player.ToggleMarkerMode.performed += OnToggleMarkerModePerformed;
             player.ToggleBuildMode.performed += OnToggleBuildModePerformed;
             player.PointerPosition.performed += OnPointerPositionPerformed;
@@ -69,7 +68,6 @@ namespace Minebot.Presentation
             inputActions.UI.Disable();
             player.Move.performed -= OnMovePerformed;
             player.Move.canceled -= OnMoveCanceled;
-            player.Scan.performed -= OnScanPerformed;
             player.ToggleMarkerMode.performed -= OnToggleMarkerModePerformed;
             player.ToggleBuildMode.performed -= OnToggleBuildModePerformed;
             player.PointerPosition.performed -= OnPointerPositionPerformed;
@@ -132,24 +130,6 @@ namespace Minebot.Presentation
 
             GridPosition target = services.PlayerMiningState.Position + lastDirection;
             return MineTarget(target);
-        }
-
-        public bool ScanCurrentCell()
-        {
-            if (!CanAcceptGameplayInput())
-            {
-                return false;
-            }
-
-            GridPosition origin = services.PlayerMiningState.Position;
-            ScanResult result = services.Session.Scan(origin);
-            if (!result.Success)
-            {
-                presentation.ShowFeedback("能量不足，无法探测。");
-                return false;
-            }
-
-            return true;
         }
 
         public bool ToggleMarkerFacingCell()
@@ -331,11 +311,6 @@ namespace Minebot.Presentation
         {
             currentMoveInput = Vector2.zero;
             ResetAutoMineState();
-        }
-
-        private void OnScanPerformed(InputAction.CallbackContext context)
-        {
-            ScanCurrentCell();
         }
 
         private void OnToggleMarkerModePerformed(InputAction.CallbackContext context)

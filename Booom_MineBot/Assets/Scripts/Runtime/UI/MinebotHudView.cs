@@ -497,7 +497,7 @@ namespace Minebot.UI
                 0 => "建筑",
                 1 => "从机",
                 2 => "标记",
-                3 => "探测",
+                3 => "感知",
                 _ => string.Empty
             };
 

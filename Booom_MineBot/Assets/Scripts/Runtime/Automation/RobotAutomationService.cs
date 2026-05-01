@@ -1,7 +1,8 @@
+using System;
+using System.Collections.Generic;
 using Minebot.Common;
 using Minebot.GridMining;
 using UnityEngine;
-using System.Collections.Generic;
 
 namespace Minebot.Automation
 {
@@ -30,13 +31,14 @@ namespace Minebot.Automation
 
     public readonly struct RobotAutomationResult
     {
-        public RobotAutomationResult(RobotAutomationResultKind kind, RobotState robot, GridPosition target, ResourceAmount reward, string status)
+        public RobotAutomationResult(RobotAutomationResultKind kind, RobotState robot, GridPosition target, ResourceAmount reward, string status, IReadOnlyList<MineClearedCell> clearedCells = null)
         {
             Kind = kind;
             Robot = robot;
             Target = target;
             Reward = reward;
             Status = status;
+            ClearedCells = clearedCells ?? Array.Empty<MineClearedCell>();
         }
 
         public RobotAutomationResultKind Kind { get; }
@@ -44,6 +46,7 @@ namespace Minebot.Automation
         public GridPosition Target { get; }
         public ResourceAmount Reward { get; }
         public string Status { get; }
+        public IReadOnlyList<MineClearedCell> ClearedCells { get; }
         public bool HasStateChange => Kind != RobotAutomationResultKind.None && Kind != RobotAutomationResultKind.Waiting;
 
         public static RobotAutomationResult None(RobotState robot)
@@ -180,18 +183,20 @@ namespace Minebot.Automation
             if (robot.Position.ManhattanDistance(target) == 1 && IsSafeStagingCell(robot.Position, avoidDangerZones))
             {
                 robot.SetActivity(RobotActivity.Mining, $"挖掘 {target}");
-                MineInteractionResult mineResult = mining.TryMineFrom(robot.Position, drillTier, target, out ResourceAmount reward);
+                MineResolution mineResolution = mining.TryMineDetailedFrom(robot.Position, drillTier, target);
+                MineInteractionResult mineResult = mineResolution.Result;
+                ResourceAmount reward = mineResolution.TotalReward;
                 robot.ClearTarget();
                 if (mineResult == MineInteractionResult.Mined)
                 {
                     robot.SetActivity(RobotActivity.Idle, "挖掘完成");
-                    return new RobotAutomationResult(RobotAutomationResultKind.Mined, robot, target, reward, "机器人完成挖掘。");
+                    return new RobotAutomationResult(RobotAutomationResultKind.Mined, robot, target, reward, "机器人完成挖掘。", mineResolution.ClearedCells);
                 }
 
                 if (mineResult == MineInteractionResult.TriggeredBomb)
                 {
                     robot.SetActivity(RobotActivity.Mining, "误挖炸药");
-                    return new RobotAutomationResult(RobotAutomationResultKind.TriggeredBomb, robot, target, reward, "机器人误挖炸药。");
+                    return new RobotAutomationResult(RobotAutomationResultKind.TriggeredBomb, robot, target, reward, "机器人误挖炸药。", mineResolution.ClearedCells);
                 }
 
                 robot.SetActivity(RobotActivity.Blocked, "目标无法挖掘");

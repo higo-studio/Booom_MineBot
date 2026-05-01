@@ -73,14 +73,22 @@ namespace Minebot.Tests.PlayMode
             Assert.That(hud.transform.Find("Upper Center/WaveText"), Is.Not.Null);
             Assert.That(hud.transform.Find("Lower Left/Resources/Metal/Count"), Is.Not.Null);
             Assert.That(hud.transform.Find("Lower Right/Layout/Building"), Is.Not.Null);
+            TMP_Text radarKeyText = hud.transform.Find("Lower Right/Layout/Radar/Key/Text (TMP)")?.GetComponent<TMP_Text>();
+            TMP_Text radarNameText = hud.transform.Find("Lower Right/Layout/Radar/Name")?.GetComponent<TMP_Text>();
             TMP_Text hudText = hud.GetComponentInChildren<TMP_Text>();
             Assert.That(hudText, Is.Not.Null);
             Assert.That(hudText.font, Is.Not.Null);
             Assert.That(hudText.font.name, Is.Not.Empty);
             Assert.That(hudText.font.HasCharacter('生'), Is.True);
             Assert.That(hudText.font.HasCharacter('探'), Is.True);
+            Assert.That(hudText.font.HasCharacter('感'), Is.True);
+            Assert.That(hudText.font.HasCharacter('知'), Is.True);
             Assert.That(hudText.font.HasCharacter('震'), Is.True);
             Assert.That(hudText.font.HasCharacter('机'), Is.True);
+            Assert.That(radarKeyText, Is.Not.Null);
+            Assert.That(radarNameText, Is.Not.Null);
+            Assert.That(radarKeyText.text, Is.Not.EqualTo("Q"));
+            Assert.That(radarNameText.text, Does.Contain("感知"));
             Assert.That(hud.GetComponentsInChildren<Text>().Length, Is.EqualTo(0));
             Image[] hudImages = hud.GetComponentsInChildren<Image>(true);
             Assert.That(hudImages.Length, Is.GreaterThanOrEqualTo(8));
@@ -217,10 +225,10 @@ namespace Minebot.Tests.PlayMode
             Assert.That(HasAnyDisplayTileAroundCell(fogNear, minedPosition), Is.True);
             Assert.That(fogDeep, Is.Not.Null);
 
-            Assert.That(input.ScanCurrentCell(), Is.True);
+            services.Session.RefreshPassiveHazardSense();
             yield return null;
-            Assert.That(presentation.FeedbackMessage, Does.Contain("探测完成"));
-            Assert.That(presentation.WarningSummary, Does.Contain("最近探测"));
+            Assert.That(presentation.FeedbackMessage, Does.Not.Contain("探测完成"));
+            Assert.That(presentation.WarningSummary, Does.Contain("周边感知"));
             Assert.That(ActiveScanLabelCount(), Is.GreaterThan(0));
             Assert.That(GetScanRoot().GetComponentsInChildren<BitmapGlyphLabel>(true).Length, Is.GreaterThan(0));
             Assert.That(GetScanRoot().GetComponentsInChildren<TMP_Text>(true).Length, Is.EqualTo(0));
@@ -671,7 +679,7 @@ namespace Minebot.Tests.PlayMode
             presentation.RefreshAll();
             yield return null;
 
-            Assert.That(input.ScanCurrentCell(), Is.True);
+            services.Session.RefreshPassiveHazardSense();
             yield return null;
             Assert.That(HasScanLabelAboveWall(presentation, scanWall), Is.True);
 

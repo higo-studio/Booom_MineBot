@@ -5,6 +5,7 @@
     "Minebot.Runtime.Bootstrap",
     "Minebot.Runtime.Common",
     "Minebot.Runtime.GridMining",
+    "Minebot.Runtime.HazardInference",
     "Minebot.Runtime.Progression",
     "Minebot.Runtime.Automation",
     "Minebot.Runtime.Presentation",

@@ -82,8 +82,8 @@ namespace Minebot.Presentation
         private BuildingDefinition selectedBuildingDefinition;
         private GridPosition repairStationPosition;
         private GridPosition robotFactoryPosition;
-        private readonly List<ScanReading> lastScanReadings = new List<ScanReading>();
-        private bool hasPerformedScan;
+        private readonly List<ScanReading> lastHazardSenseReadings = new List<ScanReading>();
+        private bool hasHazardSenseSnapshot;
         private GridPosition? buildPreviewOrigin;
         private string feedbackMessage = "准备就绪 | 朝岩壁推进即可自动挖掘";
         private GameplayInteractionMode interactionMode = GameplayInteractionMode.Normal;
@@ -165,9 +165,10 @@ namespace Minebot.Presentation
                 ResolveWave();
             }
 
+            bool hazardSenseUpdated = services.Session.TickPassiveHazardSense(Time.deltaTime);
             bool robotsChanged = services.Session.TickRobots(Time.deltaTime);
             bool pickupRewardsGranted = services.Session.TickWorldPickups(Time.deltaTime, PlayerWorldPosition);
-            if (!robotsChanged && !pickupRewardsGranted)
+            if (!hazardSenseUpdated && !robotsChanged && !pickupRewardsGranted)
             {
                 RefreshHud();
             }
@@ -201,13 +202,6 @@ namespace Minebot.Presentation
                 feedbackMessage = message;
             }
 
-            RefreshAll();
-        }
-
-        public void RecordScan(IReadOnlyList<ScanReading> readings)
-        {
-            ApplyScanReadings(readings);
-            feedbackMessage = DescribeScanFeedback();
             RefreshAll();
         }
 
@@ -802,8 +796,7 @@ namespace Minebot.Presentation
 
             if (index == 3)
             {
-                GameplayInputController input = ResolveGameplayInputController();
-                input?.ScanCurrentCell();
+                ShowFeedback("周边危险值会自动刷新，无需手动探测。");
                 return;
             }
 
@@ -854,12 +847,14 @@ namespace Minebot.Presentation
 
             services.Session.StateChanged += RefreshAll;
             services.Session.RewardGranted += OnRewardGranted;
-            services.Session.ScanCompleted += OnScanCompleted;
+            services.Session.PassiveHazardSenseUpdated += OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted += OnRobotAutomationCompleted;
             if (services.WorldPickups != null)
             {
                 services.WorldPickups.PickupAbsorbed += OnPickupAbsorbed;
             }
+
+            services.Session.RefreshPassiveHazardSense();
             isSubscribed = true;
         }
 
@@ -872,7 +867,7 @@ namespace Minebot.Presentation
 
             services.Session.StateChanged -= RefreshAll;
             services.Session.RewardGranted -= OnRewardGranted;
-            services.Session.ScanCompleted -= OnScanCompleted;
+            services.Session.PassiveHazardSenseUpdated -= OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted -= OnRobotAutomationCompleted;
             if (services.WorldPickups != null)
             {
@@ -889,10 +884,11 @@ namespace Minebot.Presentation
             }
         }
 
-        private void OnScanCompleted(IReadOnlyList<ScanReading> readings)
+        private void OnPassiveHazardSenseUpdated(IReadOnlyList<ScanReading> readings)
         {
-            ApplyScanReadings(readings);
-            feedbackMessage = DescribeScanFeedback();
+            ApplyHazardSenseReadings(readings);
+            scanIndicatorPresenter?.Refresh();
+            RefreshHud();
         }
 
         private void OnRobotAutomationCompleted(RobotAutomationResult result)
@@ -901,7 +897,17 @@ namespace Minebot.Presentation
             {
                 case RobotAutomationResultKind.Mined:
                     feedbackMessage = $"从属机器人挖掘完成：+{result.Reward.Metal} 金属 / +{result.Reward.Energy} 能量 / +{result.Reward.Experience} 经验";
-                    PlayWallBreakFx(result.Target, triggerExplosion: false);
+                    if (result.ClearedCells.Count > 0)
+                    {
+                        for (int i = 0; i < result.ClearedCells.Count; i++)
+                        {
+                            PlayWallBreakFx(result.ClearedCells[i].Position, triggerExplosion: false);
+                        }
+                    }
+                    else
+                    {
+                        PlayWallBreakFx(result.Target, triggerExplosion: false);
+                    }
                     break;
                 case RobotAutomationResultKind.Destroyed:
                     destroyedRobotVisualExpiry[result.Robot] = Time.time + 0.35f;
@@ -951,7 +957,18 @@ namespace Minebot.Presentation
             RefreshMiningCrack(target);
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
             {
-                PlayWallBreakFx(target, result == MineInteractionResult.TriggeredBomb);
+                if (result == MineInteractionResult.Mined && services != null)
+                {
+                    IReadOnlyList<MineClearedCell> clearedCells = services.Session.LastMineResolution.ClearedCells;
+                    for (int i = 0; i < clearedCells.Count; i++)
+                    {
+                        PlayWallBreakFx(clearedCells[i].Position, triggerExplosion: false);
+                    }
+                }
+                else
+                {
+                    PlayWallBreakFx(target, result == MineInteractionResult.TriggeredBomb);
+                }
             }
             else
             {
@@ -1330,7 +1347,7 @@ namespace Minebot.Presentation
 
         private string BuildInteractionText()
         {
-            const string baseHint = "WASD 移动  贴墙即挖掘  Q 探测  E 标记  点击底栏选建筑  R 开关建造  1-3 升级";
+            const string baseHint = "WASD 移动  贴墙即挖掘  自动感知周边风险  E 标记  点击底栏选建筑  R 开关建造  1-3 升级";
             if (services.Experience.HasPendingUpgrade)
             {
                 return "升级可用：按 1/2/3 或点击右下升级卡片";
@@ -1425,7 +1442,7 @@ namespace Minebot.Presentation
 
             if (string.IsNullOrEmpty(feedbackMessage))
             {
-                return "Q / E / R";
+                return "自动感知";
             }
 
             return feedbackMessage.Length <= 10 ? feedbackMessage : feedbackMessage.Substring(0, 10);
@@ -1448,7 +1465,7 @@ namespace Minebot.Presentation
 
         private string BuildWarningText()
         {
-            string scanLine = BuildScanSummaryText();
+            string scanLine = BuildHazardSenseSummaryText();
             string countdown = $"地震波 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s | 下一波厚度 {services.Waves.NextDangerRadius}";
             if (services.Waves.TimeUntilNextWave <= WaveSurvivalService.DangerWarningLeadTime)
             {
@@ -1461,62 +1478,46 @@ namespace Minebot.Presentation
             return $"{countdown}\n{statusLine} | {scanLine}";
         }
 
-        private void ApplyScanReadings(IReadOnlyList<ScanReading> readings)
+        private void ApplyHazardSenseReadings(IReadOnlyList<ScanReading> readings)
         {
-            hasPerformedScan = true;
-            lastScanReadings.Clear();
+            hasHazardSenseSnapshot = true;
+            lastHazardSenseReadings.Clear();
             if (readings != null)
             {
                 for (int i = 0; i < readings.Count; i++)
                 {
-                    lastScanReadings.Add(readings[i]);
+                    lastHazardSenseReadings.Add(readings[i]);
                 }
             }
 
-            scanIndicatorPresenter?.ShowReadings(lastScanReadings);
+            scanIndicatorPresenter?.ShowReadings(lastHazardSenseReadings);
         }
 
-        private string DescribeScanFeedback()
+        private string BuildHazardSenseSummaryText()
         {
-            if (lastScanReadings.Count == 0)
+            if (!hasHazardSenseSnapshot)
             {
-                return "探测完成：附近无可读前沿岩壁";
+                return "周边感知启动中";
             }
 
-            if (lastScanReadings.Count == 1)
+            if (lastHazardSenseReadings.Count == 0)
             {
-                ScanReading reading = lastScanReadings[0];
-                return $"探测完成：{reading.WallPosition} 显示 {reading.BombCount}";
+                return "周边感知：附近无可读前沿岩壁";
             }
 
-            return $"探测完成：{lastScanReadings.Count} 块前沿岩壁已显示数字";
-        }
-
-        private string BuildScanSummaryText()
-        {
-            if (!hasPerformedScan)
+            if (lastHazardSenseReadings.Count == 1)
             {
-                return "按 Q 探测前沿岩壁数字";
-            }
-
-            if (lastScanReadings.Count == 0)
-            {
-                return "最近探测：附近无可读前沿岩壁";
-            }
-
-            if (lastScanReadings.Count == 1)
-            {
-                ScanReading reading = lastScanReadings[0];
-                return $"最近探测：{reading.WallPosition} = {reading.BombCount}";
+                ScanReading reading = lastHazardSenseReadings[0];
+                return $"周边感知：{reading.WallPosition} = {reading.BombCount}";
             }
 
             int highestRisk = 0;
-            for (int i = 0; i < lastScanReadings.Count; i++)
+            for (int i = 0; i < lastHazardSenseReadings.Count; i++)
             {
-                highestRisk = Mathf.Max(highestRisk, lastScanReadings[i].BombCount);
+                highestRisk = Mathf.Max(highestRisk, lastHazardSenseReadings[i].BombCount);
             }
 
-            return $"最近探测：{lastScanReadings.Count} 处，最高风险 {highestRisk}";
+            return $"周边感知：{lastHazardSenseReadings.Count} 处，最高风险 {highestRisk}";
         }
 
         private string BuildRobotStatusText()
@@ -1733,7 +1734,7 @@ namespace Minebot.Presentation
                 else if (i == 3)
                 {
                     selected = false;
-                    label = "Q\n探测\n前沿";
+                    label = "AUTO\n周边\n感知";
                 }
                 else
                 {
@@ -1746,7 +1747,7 @@ namespace Minebot.Presentation
                 {
                     hudView.BuildPanel.SetButton(i, visible, label, selected);
                 }
-                //hudView.SetTemplateBuildButton(i, visible, label, selected);
+                hudView.SetTemplateBuildButton(i, visible, label, selected);
             }
         }
 

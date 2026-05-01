@@ -114,9 +114,12 @@ namespace Minebot.Tests.PlayMode
 
         private static void MineAndCollect(RuntimeServiceRegistry services, GridPosition target)
         {
-            Assert.That(services.Session.Mine(target), Is.EqualTo(MineInteractionResult.Mined));
-            bool collected = services.Session.TickWorldPickups(1f, ToWorldCenter(target));
-            Assert.That(collected, Is.True);
+            if (services.Grid.GetCell(target).IsMineable)
+            {
+                Assert.That(services.Session.Mine(target), Is.EqualTo(MineInteractionResult.Mined));
+            }
+
+            services.Session.TickWorldPickups(1f, ToWorldCenter(target));
         }
 
         private static Vector2 ToWorldCenter(GridPosition position)

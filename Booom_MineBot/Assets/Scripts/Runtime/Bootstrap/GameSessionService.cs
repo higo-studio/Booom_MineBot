@@ -10,18 +10,6 @@ using UnityEngine;
 
 namespace Minebot.Bootstrap
 {
-    public readonly struct ScanResult
-    {
-        public ScanResult(bool success, IReadOnlyList<ScanReading> readings)
-        {
-            Success = success;
-            Readings = readings ?? Array.Empty<ScanReading>();
-        }
-
-        public bool Success { get; }
-        public IReadOnlyList<ScanReading> Readings { get; }
-    }
-
     public sealed class GameSessionService
     {
         private readonly PlayerMiningState player;
@@ -38,6 +26,8 @@ namespace Minebot.Bootstrap
         private readonly ResourceAmount robotRecycleDrop;
         private readonly bool robotUsesPlayerDrillTier;
         private readonly HardnessTier robotFixedDrillTier;
+        private readonly List<ScanReading> lastPassiveHazardSenseReadings = new List<ScanReading>();
+        private float passiveHazardSenseElapsed;
 
         public GameSessionService(
             PlayerMiningState player,
@@ -73,8 +63,9 @@ namespace Minebot.Bootstrap
 
         public event Action StateChanged;
         public event Action<ResourceAmount> RewardGranted;
-        public event Action<IReadOnlyList<ScanReading>> ScanCompleted;
+        public event Action<IReadOnlyList<ScanReading>> PassiveHazardSenseUpdated;
         public event Action<RobotAutomationResult> RobotAutomationCompleted;
+        public MineResolution LastMineResolution { get; private set; }
         public RobotAutomationResult LastRobotAutomationResult { get; private set; }
         public WorldPickupService WorldPickups => worldPickups;
 
@@ -91,18 +82,18 @@ namespace Minebot.Bootstrap
 
         public MineInteractionResult Mine(GridPosition target)
         {
-            MineInteractionResult result = mining.TryMine(player, target, out ResourceAmount reward);
+            MineResolution resolution = mining.TryMineDetailed(player, target);
+            LastMineResolution = resolution;
+            MineInteractionResult result = resolution.Result;
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
             {
-                SpawnWorldPickupReward(target, reward, WorldPickupSource.PlayerMining);
+                SpawnWorldPickupRewards(resolution.ClearedCells, WorldPickupSource.PlayerMining);
             }
 
             if (result == MineInteractionResult.TriggeredBomb)
             {
-                int radius = hazardRules != null ? hazardRules.ExplosionRadius : HazardRules.DefaultExplosionRadius;
                 int damage = hazardRules != null ? hazardRules.DirectBombDamage : HazardRules.DefaultDirectBombDamage;
-                ExplosionResolution resolution = hazards.ResolveExplosion(target, radius, damage);
-                vitals.Damage(resolution.DirectDamage);
+                vitals.Damage(damage);
             }
 
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
@@ -113,19 +104,38 @@ namespace Minebot.Bootstrap
             return result;
         }
 
-        public ScanResult Scan(GridPosition origin)
+        public IReadOnlyList<ScanReading> RefreshPassiveHazardSense()
         {
-            int cost = hazardRules != null ? hazardRules.ScanEnergyCost : HazardRules.DefaultScanEnergyCost;
-            if (!economy.TrySpend(new ResourceAmount(0, cost, 0)))
+            int frontierRange = hazardRules != null ? hazardRules.ScanFrontierRange : HazardRules.DefaultScanFrontierRange;
+            IReadOnlyList<ScanReading> readings = hazards.ScanFrontierWalls(player.Position, frontierRange);
+            lastPassiveHazardSenseReadings.Clear();
+            if (readings != null)
             {
-                return new ScanResult(false, Array.Empty<ScanReading>());
+                for (int i = 0; i < readings.Count; i++)
+                {
+                    lastPassiveHazardSenseReadings.Add(readings[i]);
+                }
             }
 
-            int frontierRange = hazardRules != null ? hazardRules.ScanFrontierRange : HazardRules.DefaultScanFrontierRange;
-            IReadOnlyList<ScanReading> readings = hazards.ScanFrontierWalls(origin, frontierRange);
-            ScanCompleted?.Invoke(readings);
-            StateChanged?.Invoke();
-            return new ScanResult(true, readings);
+            passiveHazardSenseElapsed = 0f;
+            PassiveHazardSenseUpdated?.Invoke(lastPassiveHazardSenseReadings);
+            return lastPassiveHazardSenseReadings;
+        }
+
+        public bool TickPassiveHazardSense(float deltaTime)
+        {
+            float interval = hazardRules != null
+                ? hazardRules.PassiveHazardSenseIntervalSeconds
+                : HazardRules.DefaultPassiveHazardSenseIntervalSeconds;
+            passiveHazardSenseElapsed += Mathf.Max(0f, deltaTime);
+            if (passiveHazardSenseElapsed < interval)
+            {
+                return false;
+            }
+
+            passiveHazardSenseElapsed = Mathf.Max(0f, passiveHazardSenseElapsed - interval);
+            RefreshPassiveHazardSense();
+            return true;
         }
 
         public bool ToggleMarker(GridPosition position)
@@ -168,12 +178,11 @@ namespace Minebot.Bootstrap
 
                 if (result.Kind == RobotAutomationResultKind.Mined)
                 {
-                    SpawnWorldPickupReward(result.Target, result.Reward, WorldPickupSource.HelperRobotMining);
+                    SpawnWorldPickupRewards(result.ClearedCells, WorldPickupSource.HelperRobotMining);
                 }
                 else if (result.Kind == RobotAutomationResultKind.TriggeredBomb)
                 {
-                    int radius = hazardRules != null ? hazardRules.ExplosionRadius : HazardRules.DefaultExplosionRadius;
-                    hazards.ResolveExplosion(result.Target, radius, 0);
+                    SpawnWorldPickupRewards(result.ClearedCells, WorldPickupSource.HelperRobotMining);
                     robot.Destroy("误挖炸药损毁");
                     if (robotRecycleDrop.Metal > 0 || robotRecycleDrop.Energy > 0 || robotRecycleDrop.Experience > 0)
                     {
@@ -233,6 +242,19 @@ namespace Minebot.Bootstrap
             }
 
             worldPickups.SpawnReward(origin, reward, source);
+        }
+
+        private void SpawnWorldPickupRewards(IReadOnlyList<MineClearedCell> clearedCells, WorldPickupSource source)
+        {
+            if (clearedCells == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < clearedCells.Count; i++)
+            {
+                SpawnWorldPickupReward(clearedCells[i].Position, clearedCells[i].Reward, source);
+            }
         }
 
         private void GrantCollectedReward(ResourceAmount reward)
