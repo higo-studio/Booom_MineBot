@@ -72,11 +72,11 @@ namespace Minebot.Presentation
         private Transform pickupRoot;
         private Transform cellFxRoot;
         private Transform buildingRoot;
+        private MinebotPickupRenderer pickupRenderer;
         private MinebotActorView playerActorView;
         private SpriteRenderer playerView;
         private FreeformActorController playerFreeform;
         private readonly List<MinebotActorView> robotViews = new List<MinebotActorView>();
-        private readonly Dictionary<int, MinebotPickupView> pickupViews = new Dictionary<int, MinebotPickupView>();
         private readonly Dictionary<GridPosition, MinebotCellFxView> miningCrackViews = new Dictionary<GridPosition, MinebotCellFxView>();
         private readonly Dictionary<RobotState, float> destroyedRobotVisualExpiry = new Dictionary<RobotState, float>();
         private readonly List<GameObject> buildingViews = new List<GameObject>();
@@ -100,6 +100,7 @@ namespace Minebot.Presentation
         private bool defaultFacilitiesRegistered;
 
         public TilemapGridPresentation GridPresentation => gridPresentation;
+        public MinebotPickupRenderer PickupRenderer => pickupRenderer;
         public GridPosition RepairStationPosition => repairStationPosition;
         public GridPosition RobotFactoryPosition => robotFactoryPosition;
         public string HudSummary => services != null ? BuildLegacyHudSummary() : string.Empty;
@@ -546,6 +547,8 @@ namespace Minebot.Presentation
             pickupRoot = EnsureChild(presentationRoot, PickupRootName);
             cellFxRoot = EnsureChild(presentationRoot, CellFxRootName);
             buildingRoot = EnsureChild(presentationRoot, "Building Root");
+            pickupRenderer = EnsurePickupRenderer(pickupRoot);
+            pickupRenderer.Configure(assets);
 
             var unityGrid = gridRoot.GetComponent<UnityEngine.Grid>();
             if (unityGrid == null)
@@ -751,6 +754,17 @@ namespace Minebot.Presentation
             }
 
             return presenter;
+        }
+
+        private static MinebotPickupRenderer EnsurePickupRenderer(Transform root)
+        {
+            MinebotPickupRenderer renderer = root.GetComponent<MinebotPickupRenderer>();
+            if (renderer == null)
+            {
+                renderer = root.gameObject.AddComponent<MinebotPickupRenderer>();
+            }
+
+            return renderer;
         }
 
         private static SpriteRenderer EnsureSpriteRenderer(Transform parent, string objectName, Sprite sprite, int sortingOrder)
@@ -1027,10 +1041,7 @@ namespace Minebot.Presentation
 
         private void OnPickupAbsorbed(WorldPickupAbsorption absorption)
         {
-            if (pickupViews.TryGetValue(absorption.Pickup.Id, out MinebotPickupView view) && view != null)
-            {
-                view.BeginAbsorb(PlayerWorldPosition);
-            }
+            pickupRenderer?.BeginAbsorb(absorption.Pickup, PlayerWorldPosition);
         }
 
         private void RefreshAfterRobotAutomationTick()
@@ -1176,62 +1187,18 @@ namespace Minebot.Presentation
 
         private void RefreshPickups()
         {
-            if (services == null || services.WorldPickups == null || pickupRoot == null)
+            if (pickupRenderer == null)
             {
                 return;
             }
 
-            var activeIds = new HashSet<int>();
-            IReadOnlyList<WorldPickupState> activePickups = services.WorldPickups.ActivePickups;
-            for (int i = 0; i < activePickups.Count; i++)
+            if (services == null || services.WorldPickups == null || pickupRoot == null)
             {
-                WorldPickupState pickup = activePickups[i];
-                activeIds.Add(pickup.Id);
-                MinebotPickupView view = EnsurePickupView(pickup);
-                view.Bind(pickup, assets.PickupIconFor(pickup.Type), GridToWorld(pickup.Origin), 34);
+                pickupRenderer.ClearAll();
+                return;
             }
 
-            var staleIds = new List<int>();
-            foreach (KeyValuePair<int, MinebotPickupView> pair in pickupViews)
-            {
-                if (pair.Value == null)
-                {
-                    staleIds.Add(pair.Key);
-                    continue;
-                }
-
-                if (!activeIds.Contains(pair.Key) && !pair.Value.IsAbsorbingVisual)
-                {
-                    Destroy(pair.Value.gameObject);
-                    staleIds.Add(pair.Key);
-                }
-            }
-
-            for (int i = 0; i < staleIds.Count; i++)
-            {
-                pickupViews.Remove(staleIds[i]);
-            }
-        }
-
-        private MinebotPickupView EnsurePickupView(WorldPickupState pickup)
-        {
-            if (pickupViews.TryGetValue(pickup.Id, out MinebotPickupView existing) && existing != null)
-            {
-                return existing;
-            }
-
-            GameObject prefab = assets.PickupPrefabFor(pickup.Type);
-            GameObject instance = prefab != null ? Instantiate(prefab, pickupRoot, false) : new GameObject($"Pickup {pickup.Id}", typeof(MinebotPickupView));
-            instance.name = $"Pickup {pickup.Id} - {pickup.Type}";
-            instance.transform.SetParent(pickupRoot, false);
-            MinebotPickupView view = instance.GetComponent<MinebotPickupView>();
-            if (view == null)
-            {
-                view = instance.AddComponent<MinebotPickupView>();
-            }
-
-            pickupViews[pickup.Id] = view;
-            return view;
+            pickupRenderer.SyncActivePickups(services.WorldPickups.ActivePickups, GridToWorld);
         }
 
         private void RefreshMiningCrack(GridPosition target)

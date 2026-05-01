@@ -1,24 +1,19 @@
-using Minebot.Progression;
 using UnityEngine;
 
 namespace Minebot.Presentation
 {
     public sealed class MinebotPickupView : MonoBehaviour
     {
+        private const float HoverScale = 0.72f;
+        private const float AbsorbRootScale = 0.25f;
+        private const float AbsorbDurationSeconds = 0.16f;
+
         [SerializeField]
         private SpriteRenderer bodyRenderer;
 
-        private int pickupId;
-        private bool absorbing;
         private float absorbElapsed;
         private Vector3 absorbStart;
         private Vector3 absorbTarget;
-        private float age;
-        private Vector2 drift;
-        private Vector3 originWorld;
-
-        public int PickupId => pickupId;
-        public bool IsAbsorbingVisual => absorbing;
 
         public void EnsureDefaultStructure(Sprite sprite, int sortingOrder)
         {
@@ -38,49 +33,48 @@ namespace Minebot.Presentation
             bodyRenderer.sprite = sprite;
             bodyRenderer.sortingOrder = sortingOrder;
             bodyRenderer.color = Color.white;
-            visual.localScale = new Vector3(0.72f, 0.72f, 1f);
+            visual.localScale = new Vector3(HoverScale, HoverScale, 1f);
         }
 
-        public void Bind(WorldPickupState pickup, Sprite icon, Vector3 baseWorldPosition, int sortingOrder)
+        public void ShowHoverVisual(Sprite icon, Vector3 worldPosition, int sortingOrder)
         {
-            pickupId = pickup.Id;
-            age = pickup.Age;
-            drift = pickup.Drift;
-            originWorld = baseWorldPosition;
+            gameObject.SetActive(true);
             EnsureDefaultStructure(icon, sortingOrder);
-            bodyRenderer.sortingOrder = sortingOrder;
-            bodyRenderer.sprite = icon;
-            if (!absorbing)
+            if (bodyRenderer != null)
             {
-                transform.position = ComputeHoverPosition();
+                bodyRenderer.sprite = icon;
+                bodyRenderer.sortingOrder = sortingOrder;
+                bodyRenderer.color = Color.white;
             }
+
+            transform.position = worldPosition;
+            transform.localScale = Vector3.one;
         }
 
-        public void BeginAbsorb(Vector3 playerWorldPosition)
+        public void BeginAbsorbVisual(Sprite icon, Vector3 startWorldPosition, Vector3 targetWorldPosition, int sortingOrder)
         {
-            if (absorbing)
+            gameObject.SetActive(true);
+            EnsureDefaultStructure(icon, sortingOrder);
+            if (bodyRenderer != null)
             {
-                return;
+                bodyRenderer.sprite = icon;
+                bodyRenderer.sortingOrder = sortingOrder;
+                bodyRenderer.color = Color.white;
             }
 
-            absorbing = true;
             absorbElapsed = 0f;
-            absorbStart = transform.position;
-            absorbTarget = playerWorldPosition;
+            absorbStart = startWorldPosition;
+            absorbTarget = targetWorldPosition;
+            transform.position = startWorldPosition;
+            transform.localScale = Vector3.one;
         }
 
-        private void Update()
+        public bool TickAbsorb(float deltaTime)
         {
-            if (!absorbing)
-            {
-                transform.position = ComputeHoverPosition();
-                return;
-            }
-
-            absorbElapsed += Time.deltaTime;
-            float progress = Mathf.Clamp01(absorbElapsed / 0.16f);
+            absorbElapsed += Mathf.Max(0f, deltaTime);
+            float progress = Mathf.Clamp01(absorbElapsed / AbsorbDurationSeconds);
             transform.position = Vector3.Lerp(absorbStart, absorbTarget, progress);
-            transform.localScale = Vector3.Lerp(new Vector3(0.72f, 0.72f, 1f), new Vector3(0.18f, 0.18f, 1f), progress);
+            transform.localScale = Vector3.Lerp(Vector3.one, new Vector3(AbsorbRootScale, AbsorbRootScale, 1f), progress);
             if (bodyRenderer != null)
             {
                 Color color = bodyRenderer.color;
@@ -88,17 +82,17 @@ namespace Minebot.Presentation
                 bodyRenderer.color = color;
             }
 
-            if (progress >= 1f)
-            {
-                Destroy(gameObject);
-            }
+            return progress >= 1f;
         }
 
-        private Vector3 ComputeHoverPosition()
+        public void HideForPool()
         {
-            float launch = Mathf.Clamp01(age / 0.24f);
-            float hover = 0.16f + Mathf.Sin((age + pickupId * 0.17f) * 6.2f) * 0.04f;
-            return originWorld + new Vector3(drift.x, Mathf.Lerp(0.02f, 0.28f, launch) + hover, 0f);
+            if (bodyRenderer != null)
+            {
+                bodyRenderer.color = Color.white;
+            }
+
+            gameObject.SetActive(false);
         }
     }
 }

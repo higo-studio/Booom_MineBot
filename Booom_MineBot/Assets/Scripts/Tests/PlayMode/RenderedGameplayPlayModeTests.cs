@@ -255,7 +255,8 @@ namespace Minebot.Tests.PlayMode
             Assert.That(GetTerrainSignature(terrainFamilies, minedPosition), Is.Not.EqualTo(beforeTerrainSignature));
             Assert.That(GetTilemapSignature(fogNear, minedPosition), Is.Not.EqualTo(beforeFogSignature));
             Assert.That(services.WorldPickups.ActivePickups.Count, Is.GreaterThan(0));
-            Assert.That(GetPickupRoot().GetComponentsInChildren<MinebotPickupView>(true).Length, Is.GreaterThan(0));
+            Assert.That(presentation.PickupRenderer, Is.Not.Null);
+            Assert.That(presentation.PickupRenderer.TotalVisualCount, Is.GreaterThan(0));
             Assert.That(GetCellFxRoot().GetComponentsInChildren<MinebotCellFxView>(true).Length, Is.GreaterThan(0));
 
             bool collected = services.Session.TickWorldPickups(1f, ToWorldCenter(minedPosition));
@@ -657,7 +658,8 @@ namespace Minebot.Tests.PlayMode
                 Is.True);
             if (services.WorldPickups.ActivePickups.Count > 0)
             {
-                Assert.That(GetPickupRoot().GetComponentsInChildren<MinebotPickupView>(true).Length, Is.GreaterThan(0));
+                Assert.That(presentation.PickupRenderer, Is.Not.Null);
+                Assert.That(presentation.PickupRenderer.TotalVisualCount, Is.GreaterThan(0));
             }
 
             if (services.Session.LastRobotAutomationResult.Kind == RobotAutomationResultKind.Mined
