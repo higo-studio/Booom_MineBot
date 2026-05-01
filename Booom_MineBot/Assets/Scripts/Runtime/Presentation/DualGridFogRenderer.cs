@@ -8,32 +8,40 @@ namespace Minebot.Presentation
 {
     public sealed class DualGridFogRenderer
     {
-        public void RebuildAll(LogicalGridState grid, Tilemap fogNearTilemap, Tilemap fogDeepTilemap, MinebotPresentationAssets assets)
+        public void RebuildAll(
+            Vector2Int gridSize,
+            bool[] fogNearMask,
+            bool[] fogDeepMask,
+            Tilemap fogNearTilemap,
+            Tilemap fogDeepTilemap,
+            MinebotPresentationAssets assets)
         {
-            if (grid == null || assets == null)
+            if (assets == null || fogNearMask == null || fogDeepMask == null)
             {
                 return;
             }
 
             fogNearTilemap?.ClearAllTiles();
             fogDeepTilemap?.ClearAllTiles();
-            for (int y = 0; y <= grid.Size.y; y++)
+            for (int y = 0; y <= gridSize.y; y++)
             {
-                for (int x = 0; x <= grid.Size.x; x++)
+                for (int x = 0; x <= gridSize.x; x++)
                 {
-                    WriteDisplayCell(grid, fogNearTilemap, fogDeepTilemap, assets, new Vector3Int(x, y, 0));
+                    WriteDisplayCell(gridSize, fogNearMask, fogDeepMask, fogNearTilemap, fogDeepTilemap, assets, new Vector3Int(x, y, 0));
                 }
             }
         }
 
         public void RefreshChanged(
-            LogicalGridState grid,
+            Vector2Int gridSize,
+            bool[] fogNearMask,
+            bool[] fogDeepMask,
             Tilemap fogNearTilemap,
             Tilemap fogDeepTilemap,
             MinebotPresentationAssets assets,
             ICollection<GridPosition> changedCells)
         {
-            if (grid == null || assets == null)
+            if (assets == null || fogNearMask == null || fogDeepMask == null)
             {
                 return;
             }
@@ -55,19 +63,21 @@ namespace Minebot.Presentation
 
             foreach (Vector3Int displayPosition in affectedDisplayCells)
             {
-                WriteDisplayCell(grid, fogNearTilemap, fogDeepTilemap, assets, displayPosition);
+                WriteDisplayCell(gridSize, fogNearMask, fogDeepMask, fogNearTilemap, fogDeepTilemap, assets, displayPosition);
             }
         }
 
         private static void WriteDisplayCell(
-            LogicalGridState grid,
+            Vector2Int gridSize,
+            bool[] fogNearMask,
+            bool[] fogDeepMask,
             Tilemap fogNearTilemap,
             Tilemap fogDeepTilemap,
             MinebotPresentationAssets assets,
             Vector3Int displayPosition)
         {
-            int nearIndex = DualGridFog.ComputeIndex(grid, displayPosition.x, displayPosition.y, DualGridFogBandKind.Near);
-            int deepIndex = DualGridFog.ComputeIndex(grid, displayPosition.x, displayPosition.y, DualGridFogBandKind.Deep);
+            int nearIndex = DualGridFog.ComputeIndex(gridSize, fogNearMask, displayPosition.x, displayPosition.y);
+            int deepIndex = DualGridFog.ComputeIndex(gridSize, fogDeepMask, displayPosition.x, displayPosition.y);
             fogNearTilemap?.SetTile(displayPosition, nearIndex != 0 ? assets.FogNearDualGridTileForIndex(nearIndex) : null);
             fogDeepTilemap?.SetTile(displayPosition, deepIndex != 0 ? assets.FogDeepDualGridTileForIndex(deepIndex) : null);
         }

@@ -10,6 +10,9 @@
     "Minebot.Runtime.Automation",
     "Minebot.Runtime.WaveSurvival",
     "Minebot.Runtime.UI",
+    "Unity.Burst",
+    "Unity.Collections",
+    "Unity.Jobs",
     "Unity.InputSystem",
     "UnityEngine.UI",
     "Unity.TextMeshPro"

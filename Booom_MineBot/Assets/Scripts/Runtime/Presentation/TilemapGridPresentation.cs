@@ -4,6 +4,7 @@ using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
 using Minebot.Progression;
+using Unity.Collections;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -17,6 +18,7 @@ namespace Minebot.Presentation
         private static readonly ProfilerMarker RefreshOverlaysProfilerMarker = new("Minebot.TilemapGridPresentation.Refresh.Overlays");
         private static readonly ProfilerMarker RefreshTerrainProfilerMarker = new("Minebot.TilemapGridPresentation.Refresh.Terrain");
         private static readonly ProfilerMarker RefreshFogProfilerMarker = new("Minebot.TilemapGridPresentation.Refresh.Fog");
+        private static readonly ProfilerMarker RefreshFogMaskJobProfilerMarker = new("Minebot.TilemapGridPresentation.Refresh.FogMaskJob");
         private static readonly ProfilerMarker CompressBoundsProfilerMarker = new("Minebot.TilemapGridPresentation.Refresh.CompressBounds");
 
         private const float DangerFlashThreshold = 3f;
@@ -32,6 +34,10 @@ namespace Minebot.Presentation
         private TerrainMaterialId[] terrainMaterialCache;
         private bool[] fogNearMaskCache;
         private bool[] fogDeepMaskCache;
+        private NativeArray<byte> fogSolidInput;
+        private NativeArray<byte> fogRevealedInput;
+        private NativeArray<byte> fogNearOutput;
+        private NativeArray<byte> fogDeepOutput;
         
         // Caches for overlay tilemaps to preserve animated tile state
         private Dictionary<Vector3Int, TileBase> facilityTileCache = new Dictionary<Vector3Int, TileBase>();
@@ -79,6 +85,11 @@ namespace Minebot.Presentation
             buildPreviewDefinition = definition;
             buildPreviewOrigin = origin;
             buildPreviewIsValid = isValid;
+        }
+
+        private void OnDestroy()
+        {
+            DisposeFogNativeBuffers();
         }
 
         public void SetWaveCountdownPaused(bool paused)
@@ -287,15 +298,13 @@ namespace Minebot.Presentation
                             changedTerrainCells.Add(position);
                         }
 
-                        bool fogNear = DualGridFog.IsNear(grid, position);
-                        bool fogDeep = DualGridFog.IsDeep(grid, position);
-                        if (fullRebuild || fogNearMaskCache[cellIndex] != fogNear || fogDeepMaskCache[cellIndex] != fogDeep)
-                        {
-                            fogNearMaskCache[cellIndex] = fogNear;
-                            fogDeepMaskCache[cellIndex] = fogDeep;
-                            changedFogCells.Add(position);
-                        }
+                        PopulateFogInputs(cell, cellIndex);
                     }
+                }
+
+                using (RefreshFogMaskJobProfilerMarker.Auto())
+                {
+                    UpdateFullFogCache(grid.Size, fullRebuild, changedFogCells);
                 }
 
                 using (RefreshOverlaysProfilerMarker.Auto())
@@ -478,8 +487,9 @@ namespace Minebot.Presentation
             foreach (GridPosition position in changedCells)
             {
                 int cellIndex = ToMaterialIndex(grid.Size, position);
-                fogNearMaskCache[cellIndex] = DualGridFog.IsNear(grid, position);
-                fogDeepMaskCache[cellIndex] = DualGridFog.IsDeep(grid, position);
+                DualGridFog.ClassifyCell(grid, position, out bool fogNear, out bool fogDeep);
+                fogNearMaskCache[cellIndex] = fogNear;
+                fogDeepMaskCache[cellIndex] = fogDeep;
             }
         }
 
@@ -536,11 +546,11 @@ namespace Minebot.Presentation
 
             if (fullRebuild)
             {
-                fogRenderer.RebuildAll(grid, FogNearTilemap, FogDeepTilemap, assets);
+                fogRenderer.RebuildAll(grid.Size, fogNearMaskCache, fogDeepMaskCache, FogNearTilemap, FogDeepTilemap, assets);
                 return;
             }
 
-            fogRenderer.RefreshChanged(grid, FogNearTilemap, FogDeepTilemap, assets, changedFogCells);
+            fogRenderer.RefreshChanged(grid.Size, fogNearMaskCache, fogDeepMaskCache, FogNearTilemap, FogDeepTilemap, assets, changedFogCells);
         }
 
         private static System.Collections.Generic.IEnumerable<GridPosition> FootprintCells(BuildingDefinition definition, GridPosition origin)
@@ -557,7 +567,14 @@ namespace Minebot.Presentation
 
         private bool EnsureGridCaches(Vector2Int size)
         {
-            if (terrainMaterialCache != null && fogNearMaskCache != null && fogDeepMaskCache != null && cachedGridSize == size)
+            if (terrainMaterialCache != null
+                && fogNearMaskCache != null
+                && fogDeepMaskCache != null
+                && fogSolidInput.IsCreated
+                && fogRevealedInput.IsCreated
+                && fogNearOutput.IsCreated
+                && fogDeepOutput.IsCreated
+                && cachedGridSize == size)
             {
                 return false;
             }
@@ -567,12 +584,83 @@ namespace Minebot.Presentation
             terrainMaterialCache = new TerrainMaterialId[cellCount];
             fogNearMaskCache = new bool[cellCount];
             fogDeepMaskCache = new bool[cellCount];
+            EnsureFogNativeBuffers(cellCount);
             return true;
         }
 
         private static int ToMaterialIndex(Vector2Int size, GridPosition position)
         {
             return position.Y * size.x + position.X;
+        }
+
+        private void PopulateFogInputs(GridCellState cell, int cellIndex)
+        {
+            fogSolidInput[cellIndex] = DualGridFog.IsSolid(cell) ? (byte)1 : (byte)0;
+            fogRevealedInput[cellIndex] = cell.IsRevealed ? (byte)1 : (byte)0;
+        }
+
+        private void UpdateFullFogCache(Vector2Int gridSize, bool fullRebuild, ISet<GridPosition> changedFogCells)
+        {
+            DualGridFogBurst.ClassifyAll(gridSize.x, gridSize.y, fogSolidInput, fogRevealedInput, fogNearOutput, fogDeepOutput);
+
+            int width = gridSize.x;
+            int cellCount = gridSize.x * gridSize.y;
+            for (int cellIndex = 0; cellIndex < cellCount; cellIndex++)
+            {
+                bool fogNear = fogNearOutput[cellIndex] != 0;
+                bool fogDeep = fogDeepOutput[cellIndex] != 0;
+                if (!fullRebuild && fogNearMaskCache[cellIndex] == fogNear && fogDeepMaskCache[cellIndex] == fogDeep)
+                {
+                    continue;
+                }
+
+                fogNearMaskCache[cellIndex] = fogNear;
+                fogDeepMaskCache[cellIndex] = fogDeep;
+                changedFogCells.Add(new GridPosition(cellIndex % width, cellIndex / width));
+            }
+        }
+
+        private void EnsureFogNativeBuffers(int cellCount)
+        {
+            if (cellCount <= 0)
+            {
+                DisposeFogNativeBuffers();
+                return;
+            }
+
+            if (fogSolidInput.IsCreated && fogSolidInput.Length == cellCount)
+            {
+                return;
+            }
+
+            DisposeFogNativeBuffers();
+            fogSolidInput = new NativeArray<byte>(cellCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            fogRevealedInput = new NativeArray<byte>(cellCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            fogNearOutput = new NativeArray<byte>(cellCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            fogDeepOutput = new NativeArray<byte>(cellCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+        }
+
+        private void DisposeFogNativeBuffers()
+        {
+            if (fogSolidInput.IsCreated)
+            {
+                fogSolidInput.Dispose();
+            }
+
+            if (fogRevealedInput.IsCreated)
+            {
+                fogRevealedInput.Dispose();
+            }
+
+            if (fogNearOutput.IsCreated)
+            {
+                fogNearOutput.Dispose();
+            }
+
+            if (fogDeepOutput.IsCreated)
+            {
+                fogDeepOutput.Dispose();
+            }
         }
     }
 }
