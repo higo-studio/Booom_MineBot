@@ -9,6 +9,7 @@ using Minebot.Progression;
 using Minebot.UI;
 using Minebot.WaveSurvival;
 using TMPro;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Tilemaps;
@@ -19,6 +20,11 @@ namespace Minebot.Presentation
     [DefaultExecutionOrder(-50)]
     public sealed class MinebotGameplayPresentation : MonoBehaviour
     {
+        private static readonly ProfilerMarker RefreshAfterTerrainChangedProfilerMarker = new("Minebot.GameplayPresentation.RefreshAfterTerrainChanged");
+        private static readonly ProfilerMarker RefreshAfterTerrainChangedDangerProfilerMarker = new("Minebot.GameplayPresentation.RefreshAfterTerrainChanged.DangerZones");
+        private static readonly ProfilerMarker RefreshAfterTerrainChangedGridProfilerMarker = new("Minebot.GameplayPresentation.RefreshAfterTerrainChanged.GridRefresh");
+        private static readonly ProfilerMarker RefreshAfterTerrainChangedViewProfilerMarker = new("Minebot.GameplayPresentation.RefreshAfterTerrainChanged.Views");
+
         public const string PresentationRootName = "Presentation Root";
         public static readonly string DgFloorTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Floor);
         public static readonly string DgWallTilemapName = DualGridTerrain.GetTilemapName(TerrainRenderLayerId.Soil);
@@ -83,7 +89,9 @@ namespace Minebot.Presentation
         private GridPosition robotFactoryPosition;
         private readonly List<ScanReading> lastHazardSenseReadings = new List<ScanReading>();
         private bool hasHazardSenseSnapshot;
+        private BuildingDefinition buildPreviewDefinition;
         private GridPosition? buildPreviewOrigin;
+        private bool buildPreviewIsValid;
         private string feedbackMessage = "准备就绪 | 朝岩壁推进即可自动挖掘";
         private GameplayInteractionMode interactionMode = GameplayInteractionMode.Normal;
         private PresentationActorState playerVisualState = PresentationActorState.Idle;
@@ -157,6 +165,14 @@ namespace Minebot.Presentation
 
             UpdatePlayerVisualState(Time.deltaTime);
             UpdateCameraFraming();
+            bool pauseSimulation = IsSimulationPausedByUpgradePanel();
+            gridPresentation?.SetWaveCountdownPaused(pauseSimulation);
+
+            if (pauseSimulation)
+            {
+                RefreshHud();
+                return;
+            }
 
             if (enableWaveTick && !services.Vitals.IsDead && services.Waves.Tick(Time.deltaTime))
             {
@@ -242,29 +258,52 @@ namespace Minebot.Presentation
             RefreshHud();
         }
 
-        public void RefreshAfterMarkerChanged()
+        public void RefreshAfterMarkerChanged(GridPosition changedCell)
         {
             if (services == null)
             {
                 return;
             }
 
-            gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
+            gridPresentation.RefreshMarkerCellsOnly(services.Grid, new[] { changedCell });
             RefreshHud();
         }
 
-        public void RefreshAfterTerrainChanged()
+        public void RefreshAfterTerrainChanged(IReadOnlyList<MineClearedCell> clearedCells)
         {
-            if (services == null)
+            using (RefreshAfterTerrainChangedProfilerMarker.Auto())
             {
-                return;
-            }
+                if (services == null)
+                {
+                    return;
+                }
 
-            EvaluateDangerZones();
-            gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
-            RefreshActors();
-            RefreshPickups();
-            RefreshHud();
+                using (RefreshAfterTerrainChangedDangerProfilerMarker.Auto())
+                {
+                    EvaluateDangerZones();
+                }
+
+                using (RefreshAfterTerrainChangedGridProfilerMarker.Auto())
+                {
+                    HashSet<GridPosition> changedCells = CollectClearedPositions(clearedCells);
+                    if (changedCells.Count > 0)
+                    {
+                        gridPresentation.RefreshLocalTerrainChange(services, repairStationPosition, robotFactoryPosition, changedCells);
+                        gridPresentation.RefreshDangerOverlayOnly(services);
+                    }
+                    else
+                    {
+                        gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
+                    }
+                }
+
+                using (RefreshAfterTerrainChangedViewProfilerMarker.Auto())
+                {
+                    RefreshActors();
+                    RefreshPickups();
+                    RefreshHud();
+                }
+            }
         }
 
         public bool TryRepairAtStation(int metalCost)
@@ -313,12 +352,14 @@ namespace Minebot.Presentation
 
             if (!services.Buildings.TryPlace(definition, origin, out BuildingInstance instance, out BuildingPlacementFailure failure))
             {
+                UpdateBuildPreviewState(definition, origin);
                 ShowFeedback($"无法建造：{ToChinesePlacementFailure(failure)}");
                 return false;
             }
 
+            RefreshBuildings();
+            UpdateBuildPreviewState(definition, origin);
             ShowFeedback($"已建造 {instance.Definition.DisplayName}。");
-            RefreshAll();
             return true;
         }
 
@@ -334,11 +375,7 @@ namespace Minebot.Presentation
             interactionMode = mode;
             if (mode != GameplayInteractionMode.Build)
             {
-                buildPreviewOrigin = null;
-                if (gridPresentation != null)
-                {
-                    gridPresentation.ShowBuildPreview(null, null, false);
-                }
+                UpdateBuildPreviewState(null, null);
             }
 
             RefreshHud();
@@ -346,12 +383,13 @@ namespace Minebot.Presentation
 
         public void SetSelectedBuilding(BuildingDefinition definition)
         {
-            selectedBuildingDefinition = definition;
-            if (buildPreviewOrigin.HasValue && gridPresentation != null)
+            if (selectedBuildingDefinition == definition)
             {
-                gridPresentation.ShowBuildPreview(selectedBuildingDefinition, buildPreviewOrigin, CanPlaceBuildingAt(selectedBuildingDefinition, buildPreviewOrigin.Value));
+                return;
             }
 
+            selectedBuildingDefinition = definition;
+            UpdateBuildPreviewState(selectedBuildingDefinition, buildPreviewOrigin);
             RefreshHud();
         }
 
@@ -372,16 +410,10 @@ namespace Minebot.Presentation
 
         public void SetBuildPreview(GridPosition? origin)
         {
-            buildPreviewOrigin = origin;
             BuildingDefinition definition = GetSelectedBuildingOrDefault();
-            if (gridPresentation != null)
+            if (!UpdateBuildPreviewState(definition, origin))
             {
-                bool isValid = origin.HasValue && CanPlaceBuildingAt(definition, origin.Value);
-                gridPresentation.ShowBuildPreview(definition, origin, isValid);
-                if (services != null)
-                {
-                    gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
-                }
+                return;
             }
 
             RefreshHud();
@@ -626,9 +658,8 @@ namespace Minebot.Presentation
             Vector2 interiorMax = new Vector2(
                 Mathf.Max(interiorMin.x + 1f, size.x - boardInset),
                 Mathf.Max(interiorMin.y + 1f, size.y - boardInset));
-            Vector2 interiorCenter = (interiorMin + interiorMax) * 0.5f;
             Vector2 playerFocus = PlayerWorldPosition;
-            Vector2 focusCenter = Vector2.Lerp(interiorCenter, playerFocus, 0.18f);
+            Vector2 focusCenter = playerFocus;
             float halfHeight = Mathf.Max(2.5f, (interiorMax.y - interiorMin.y) * 0.5f + 0.2f);
             float halfWidth = Mathf.Max(2.5f, (interiorMax.x - interiorMin.x) * 0.5f + 0.2f);
             float aspect = Mathf.Max(1f, camera.aspect);
@@ -862,12 +893,6 @@ namespace Minebot.Presentation
                 return;
             }
 
-            if (index == 3)
-            {
-                ShowFeedback("周边危险值会自动刷新，无需手动探测。");
-                return;
-            }
-
             if (index >= availableBuildingDefinitions.Length)
             {
                 return;
@@ -1018,8 +1043,8 @@ namespace Minebot.Presentation
             RobotAutomationResultKind kind = services.Session.LastRobotAutomationResult.Kind;
             if (kind == RobotAutomationResultKind.Mined || kind == RobotAutomationResultKind.TriggeredBomb)
             {
-                EvaluateDangerZones();
-                gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
+                RefreshAfterTerrainChanged(services.Session.LastRobotAutomationResult.ClearedCells);
+                return;
             }
 
             RefreshActors();
@@ -1479,7 +1504,7 @@ namespace Minebot.Presentation
             {
                 string selected = GetSelectedBuildingOrDefault() != null ? GetSelectedBuildingOrDefault().DisplayName : "未选择";
                 string preview = buildPreviewOrigin.HasValue
-                    ? (CanPlaceBuildingAt(GetSelectedBuildingOrDefault(), buildPreviewOrigin.Value) ? "当前位置可建" : "当前位置不可建")
+                    ? (buildPreviewIsValid ? "当前位置可建" : "当前位置不可建")
                     : "移动鼠标选空地";
                 return $"建筑模式：{selected} | {preview} | 点击底栏切换，R / 右键 / Esc 退出";
             }
@@ -1619,13 +1644,13 @@ namespace Minebot.Presentation
 
             if (lastHazardSenseReadings.Count == 0)
             {
-                return "周边感知：附近无可读前沿岩壁";
+                return "周边感知：九宫格内没有贴岩体的空地";
             }
 
             if (lastHazardSenseReadings.Count == 1)
             {
                 ScanReading reading = lastHazardSenseReadings[0];
-                return $"周边感知：{reading.WallPosition} = {reading.BombCount}";
+                return $"周边感知：{reading.CellPosition} = {reading.BombCount}";
             }
 
             int highestRisk = 0;
@@ -1848,11 +1873,6 @@ namespace Minebot.Presentation
                     selected = interactionMode == GameplayInteractionMode.Marker;
                     label = selected ? "E\n退出\n标记" : "E\n标记\n风险";
                 }
-                else if (i == 3)
-                {
-                    selected = false;
-                    label = "AUTO\n周边\n感知";
-                }
                 else
                 {
                     visible = false;
@@ -1866,6 +1886,13 @@ namespace Minebot.Presentation
                 }
                 hudView.SetTemplateBuildButton(i, visible, label, selected);
             }
+        }
+
+        private bool IsSimulationPausedByUpgradePanel()
+        {
+            return services != null
+                && !services.Vitals.IsDead
+                && (services.Experience.HasPendingUpgrade || IsUpgradePanelShowing);
         }
 
         private void RefreshBuildingInteractionPanel()
@@ -1937,6 +1964,31 @@ namespace Minebot.Presentation
             services.Waves.EvaluateDangerZones();
         }
 
+        private bool UpdateBuildPreviewState(BuildingDefinition definition, GridPosition? origin)
+        {
+            bool isValid = definition != null
+                && origin.HasValue
+                && CanPlaceBuildingAt(definition, origin.Value);
+            bool changed = !Nullable.Equals(buildPreviewOrigin, origin)
+                || buildPreviewIsValid != isValid
+                || !ReferenceEquals(buildPreviewDefinition, definition);
+
+            buildPreviewDefinition = definition;
+            buildPreviewOrigin = origin;
+            buildPreviewIsValid = isValid;
+
+            if (gridPresentation != null)
+            {
+                gridPresentation.ShowBuildPreview(definition, origin, isValid);
+                if (services != null)
+                {
+                    gridPresentation.RefreshBuildPreviewOnly(services.Grid);
+                }
+            }
+
+            return changed;
+        }
+
         private void ResolveWave()
         {
             IList<RobotState> mutableRobots = services.Robots as IList<RobotState>;
@@ -1951,6 +2003,22 @@ namespace Minebot.Presentation
                 ? "地震波吞没了主机器人。"
                 : $"地震波结算：存活到第 {resolution.SurvivedWave} 波，损失机器人 {resolution.RobotsDestroyed}。";
             RefreshAll();
+        }
+
+        private static HashSet<GridPosition> CollectClearedPositions(IReadOnlyList<MineClearedCell> clearedCells)
+        {
+            var positions = new HashSet<GridPosition>();
+            if (clearedCells == null)
+            {
+                return positions;
+            }
+
+            for (int i = 0; i < clearedCells.Count; i++)
+            {
+                positions.Add(clearedCells[i].Position);
+            }
+
+            return positions;
         }
 
         private GridPosition PickFacilityPosition(GridPosition direction)

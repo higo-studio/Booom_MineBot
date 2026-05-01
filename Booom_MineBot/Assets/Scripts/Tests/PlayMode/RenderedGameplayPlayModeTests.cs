@@ -73,22 +73,18 @@ namespace Minebot.Tests.PlayMode
             Assert.That(hud.transform.Find("Upper Center/WaveText"), Is.Not.Null);
             Assert.That(hud.transform.Find("Lower Left/Resources/Metal/Count"), Is.Not.Null);
             Assert.That(hud.transform.Find("Lower Right/Layout/Building"), Is.Not.Null);
-            TMP_Text radarKeyText = hud.transform.Find("Lower Right/Layout/Radar/Key/Text (TMP)")?.GetComponent<TMP_Text>();
-            TMP_Text radarNameText = hud.transform.Find("Lower Right/Layout/Radar/Name")?.GetComponent<TMP_Text>();
+            Transform radarButton = hud.transform.Find("Lower Right/Layout/Radar");
             TMP_Text hudText = hud.GetComponentInChildren<TMP_Text>();
             Assert.That(hudText, Is.Not.Null);
             Assert.That(hudText.font, Is.Not.Null);
             Assert.That(hudText.font.name, Is.Not.Empty);
             Assert.That(hudText.font.HasCharacter('生'), Is.True);
-            Assert.That(hudText.font.HasCharacter('探'), Is.True);
             Assert.That(hudText.font.HasCharacter('感'), Is.True);
             Assert.That(hudText.font.HasCharacter('知'), Is.True);
             Assert.That(hudText.font.HasCharacter('震'), Is.True);
             Assert.That(hudText.font.HasCharacter('机'), Is.True);
-            Assert.That(radarKeyText, Is.Not.Null);
-            Assert.That(radarNameText, Is.Not.Null);
-            Assert.That(radarKeyText.text, Is.Not.EqualTo("Q"));
-            Assert.That(radarNameText.text, Does.Contain("感知"));
+            Assert.That(radarButton, Is.Not.Null);
+            Assert.That(radarButton.gameObject.activeSelf, Is.False);
             Assert.That(hud.GetComponentsInChildren<Text>().Length, Is.EqualTo(0));
             Image[] hudImages = hud.GetComponentsInChildren<Image>(true);
             Assert.That(hudImages.Length, Is.GreaterThanOrEqualTo(8));
@@ -184,7 +180,9 @@ namespace Minebot.Tests.PlayMode
             Assert.That(hudView.UpgradePanel, Is.Not.Null);
             Assert.That(hudView.BuildingInteractionPanel, Is.Not.Null);
             Assert.That(hudView.transform.Find("Upper Left"), Is.Not.Null);
-            Assert.That(hudView.transform.Find("Lower Right/Layout/Radar"), Is.Not.Null);
+            Transform radarButton = hudView.transform.Find("Lower Right/Layout/Radar");
+            Assert.That(radarButton, Is.Not.Null);
+            Assert.That(radarButton.gameObject.activeSelf, Is.False);
             Assert.That(hudView.transform.Find(MinebotHudView.BuildingInteractionSlotName), Is.Not.Null);
             Assert.That(CountImagesWithAssignedSprite(hudView.GetComponentsInChildren<Image>(true)), Is.GreaterThanOrEqualTo(8));
         }
@@ -267,6 +265,29 @@ namespace Minebot.Tests.PlayMode
             Assert.That(collected, Is.True);
             Assert.That(services.WorldPickups.ActivePickups, Is.Empty);
             Assert.That(presentation.HudSummary, Does.Contain("经验"));
+        }
+
+        [UnityTest]
+        public IEnumerator CameraFramingFollowsPlayerTowardLargeMapBottomEdge()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            RuntimeServiceRegistry services = MinebotServices.Current;
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            Camera camera = Camera.main;
+            Assert.That(camera, Is.Not.Null);
+
+            GridPosition target = new GridPosition(services.Grid.PlayerSpawn.X, 2);
+            SetEmpty(services, target);
+            services.PlayerMiningState.Teleport(target);
+            presentation.SnapPlayerToLogicalPosition();
+            presentation.RefreshAll();
+            yield return null;
+
+            float expectedPlayerY = presentation.GridToWorld(target).y;
+            Assert.That(camera.transform.position.y, Is.LessThan(20f));
+            Assert.That(Mathf.Abs(camera.transform.position.y - expectedPlayerY), Is.LessThanOrEqualTo(camera.orthographicSize + 0.01f));
         }
 
         [UnityTest]
@@ -659,6 +680,38 @@ namespace Minebot.Tests.PlayMode
             yield return null;
             Assert.That(services.Vitals.CurrentHealth, Is.EqualTo(healthBeforeGameOverClick));
             Assert.That(services.Robots.Count, Is.EqualTo(robotsBeforeGameOverClick));
+        }
+
+        [UnityTest]
+        public IEnumerator UpgradePanelPausesWaveCountdownUntilSelection()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            RuntimeServiceRegistry services = MinebotServices.Current;
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+
+            float countdownBeforeUpgrade = services.Waves.TimeUntilNextWave;
+            services.Experience.AddExperience(services.Experience.NextThreshold);
+            presentation.RefreshAll();
+            yield return null;
+
+            Assert.That(presentation.IsUpgradePanelShowing, Is.True);
+            float pausedWaveCountdown = services.Waves.TimeUntilNextWave;
+            float pausedOverlayCountdown = presentation.GridPresentation.TimeUntilNextWave;
+
+            yield return new WaitForSeconds(0.25f);
+
+            Assert.That(services.Waves.TimeUntilNextWave, Is.EqualTo(pausedWaveCountdown).Within(0.001f));
+            Assert.That(presentation.GridPresentation.TimeUntilNextWave, Is.EqualTo(pausedOverlayCountdown).Within(0.001f));
+            Assert.That(pausedWaveCountdown, Is.EqualTo(countdownBeforeUpgrade).Within(0.001f));
+
+            Assert.That(presentation.SelectUpgradeIndex(0), Is.True);
+            yield return new WaitForSeconds(0.25f);
+
+            Assert.That(presentation.IsUpgradePanelShowing, Is.False);
+            Assert.That(services.Waves.TimeUntilNextWave, Is.LessThan(pausedWaveCountdown - 0.05f));
+            Assert.That(presentation.GridPresentation.TimeUntilNextWave, Is.LessThan(pausedOverlayCountdown - 0.05f));
         }
 
         [UnityTest]

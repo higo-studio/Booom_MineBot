@@ -8,6 +8,7 @@
     "Minebot.Runtime.HazardInference",
     "Minebot.Runtime.Progression",
     "Minebot.Runtime.Automation",
+    "Minebot.Runtime.WaveSurvival",
     "Minebot.Runtime.Presentation",
     "Minebot.Runtime.UI",
     "Unity.TextMeshPro",

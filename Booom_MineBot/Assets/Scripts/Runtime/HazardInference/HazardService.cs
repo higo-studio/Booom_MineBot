@@ -6,13 +6,14 @@ namespace Minebot.HazardInference
 {
     public readonly struct ScanReading
     {
-        public ScanReading(GridPosition wallPosition, int bombCount)
+        public ScanReading(GridPosition cellPosition, int bombCount)
         {
-            WallPosition = wallPosition;
+            CellPosition = cellPosition;
             BombCount = bombCount;
         }
 
-        public GridPosition WallPosition { get; }
+        public GridPosition CellPosition { get; }
+        public GridPosition WallPosition => CellPosition;
         public int BombCount { get; }
     }
 
@@ -61,18 +62,21 @@ namespace Minebot.HazardInference
             }
         }
 
-        public IReadOnlyList<ScanReading> ScanFrontierWalls(GridPosition playerPosition, int frontierRange)
+        public IReadOnlyList<ScanReading> ScanNearbyEmptyCells(GridPosition playerPosition)
         {
             var results = new List<ScanReading>();
-            int maxFrontierRange = UnityEngine.Mathf.Max(0, frontierRange);
-            foreach (GridPosition position in grid.Positions())
+            for (int y = -1; y <= 1; y++)
             {
-                if (!IsScannableFrontierWall(position, playerPosition, maxFrontierRange))
+                for (int x = -1; x <= 1; x++)
                 {
-                    continue;
-                }
+                    GridPosition position = new GridPosition(playerPosition.X + x, playerPosition.Y + y);
+                    if (!IsScannableEmptyCell(position))
+                    {
+                        continue;
+                    }
 
-                results.Add(new ScanReading(position, GridBombCounter.CountBombsInScanSquare(grid, position)));
+                    results.Add(new ScanReading(position, GridBombCounter.CountBombsInScanSquare(grid, position)));
+                }
             }
 
             return results;
@@ -151,34 +155,34 @@ namespace Minebot.HazardInference
             return new ExplosionResolution(destroyed, directDamage);
         }
 
-        private bool IsScannableFrontierWall(GridPosition wallPosition, GridPosition playerPosition, int frontierRange)
+        private bool IsScannableEmptyCell(GridPosition position)
         {
-            if (!grid.IsInside(wallPosition))
+            if (!grid.IsInside(position))
             {
                 return false;
             }
 
-            GridCellState wallCell = grid.GetCell(wallPosition);
-            if (!wallCell.IsMineable)
+            GridCellState cell = grid.GetCell(position);
+            if (cell.TerrainKind != TerrainKind.Empty || cell.IsOccupiedByBuilding)
             {
                 return false;
             }
 
-            int nearestFrontierDistance = int.MaxValue;
-            foreach (GridPosition neighbor in grid.Neighbors(wallPosition, GridDirections.Cardinal))
+            foreach (GridPosition direction in GridDirections.EightWay)
             {
-                GridCellState neighborCell = grid.GetCell(neighbor);
-                if (neighborCell.TerrainKind != TerrainKind.Empty || neighborCell.IsOccupiedByBuilding)
+                GridPosition neighbor = position + direction;
+                if (!grid.IsInside(neighbor))
                 {
                     continue;
                 }
 
-                nearestFrontierDistance = UnityEngine.Mathf.Min(
-                    nearestFrontierDistance,
-                    playerPosition.ManhattanDistance(neighbor));
+                if (grid.GetCell(neighbor).IsMineable)
+                {
+                    return true;
+                }
             }
 
-            return nearestFrontierDistance != int.MaxValue && nearestFrontierDistance <= frontierRange;
+            return false;
         }
 
         private static IEnumerable<GridPosition> PositionsInRadius(GridPosition origin, int radius)
