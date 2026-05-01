@@ -119,8 +119,8 @@ namespace Minebot.Presentation
         private Tile[] perIndexOverrides16 = Array.Empty<Tile>();
 
         [SerializeField]
-        [InspectorLabel("缺失时允许自动补全")]
-        private bool allowGeneratedFallbackForMissing = true;
+        [HideInInspector]
+        private bool allowGeneratedFallbackForMissing;
 
         [SerializeField]
         [InspectorLabel("允许规范 6 格自动旋转")]
@@ -137,7 +137,7 @@ namespace Minebot.Presentation
         public Tile[] Explicit16Tiles => explicit16Tiles ?? Array.Empty<Tile>();
         public Tile[] Canonical6Tiles => canonical6Tiles ?? Array.Empty<Tile>();
         public Tile[] PerIndexOverrides16 => perIndexOverrides16 ?? Array.Empty<Tile>();
-        public bool AllowGeneratedFallbackForMissing => allowGeneratedFallbackForMissing;
+        public bool AllowGeneratedFallbackForMissing => false;
         public bool AllowAutoRotateCanonical => allowAutoRotateCanonical;
         public Tile[] Resolved16Tiles => resolved16Tiles ?? Array.Empty<Tile>();
 
@@ -164,11 +164,6 @@ namespace Minebot.Presentation
             if (legacyTiles != null && legacyTiles.Length > 0)
             {
                 FillMissingFromTileBase(resolved, legacyTiles);
-            }
-
-            if (allowGeneratedFallbackForMissing)
-            {
-                FillMissing(resolved, DualGridTerrainFallbackTiles.CreateTileSet(layerId));
             }
 
             return resolved;
@@ -220,7 +215,7 @@ namespace Minebot.Presentation
             explicit16Tiles = source.explicit16Tiles ?? Array.Empty<Tile>();
             canonical6Tiles = source.canonical6Tiles ?? Array.Empty<Tile>();
             perIndexOverrides16 = source.perIndexOverrides16 ?? Array.Empty<Tile>();
-            allowGeneratedFallbackForMissing = source.allowGeneratedFallbackForMissing;
+            allowGeneratedFallbackForMissing = false;
             allowAutoRotateCanonical = source.allowAutoRotateCanonical;
             resolved16Tiles = source.resolved16Tiles ?? Array.Empty<Tile>();
         }
@@ -256,7 +251,7 @@ namespace Minebot.Presentation
                     layerId = materialFamilies[i],
                     enabled = true,
                     authoringMode = DualGridAuthoringMode.Explicit16,
-                    allowGeneratedFallbackForMissing = true,
+                    allowGeneratedFallbackForMissing = false,
                     allowAutoRotateCanonical = true,
                     explicit16Tiles = Array.Empty<Tile>(),
                     canonical6Tiles = Array.Empty<Tile>(),
@@ -294,23 +289,6 @@ namespace Minebot.Presentation
                 if (overrides[i] != null)
                 {
                     destination[i] = overrides[i];
-                }
-            }
-        }
-
-        private static void FillMissing(Tile[] destination, Tile[] fallback)
-        {
-            if (fallback == null)
-            {
-                return;
-            }
-
-            int count = Mathf.Min(destination.Length, fallback.Length);
-            for (int i = 0; i < count; i++)
-            {
-                if (destination[i] == null)
-                {
-                    destination[i] = fallback[i];
                 }
             }
         }
@@ -437,7 +415,7 @@ namespace Minebot.Presentation
             }
 
             Tile[] resolved = family.ResolveTiles(allowLegacyArtSetFallback ? legacyTiles : null);
-            return resolved.Length > 0 ? resolved : ResolveFallbackTiles(layerId, legacyTiles);
+            return HasAnyResolvedTile(resolved) ? resolved : ResolveFallbackTiles(layerId, legacyTiles);
         }
 
         public TileBase[] ResolveWallContourTiles(TileBase[] legacyTiles)
@@ -528,11 +506,11 @@ namespace Minebot.Presentation
                     normalized[i] = i < legacyTiles.Length ? legacyTiles[i] : null;
                 }
 
-                FillMissingBase(normalized, DualGridTerrainFallbackTiles.CreateTileSet(layerId));
                 return normalized;
             }
 
-            return DualGridTerrainFallbackTiles.CreateTileSet(layerId);
+            Debug.LogWarning($"Dual Grid 地形族 {layerId} 缺少离线瓦片资源。运行时不会再自动生成 fallback。");
+            return new TileBase[DualGridTerrain.TileCount];
         }
 
         private static TileBase[] ResolveLegacyTiles(Tile[] profileLegacyTiles, TileBase[] artSetLegacyTiles)
@@ -657,28 +635,22 @@ namespace Minebot.Presentation
             destinationFamily.CopyFrom(wallSource);
         }
 
-        private static void FillMissing(Tile[] destination, Tile[] fallback)
+        private static bool HasAnyResolvedTile(Tile[] tiles)
         {
-            int count = Mathf.Min(destination.Length, fallback.Length);
-            for (int i = 0; i < count; i++)
+            if (tiles == null)
             {
-                if (destination[i] == null)
-                {
-                    destination[i] = fallback[i];
-                }
+                return false;
             }
-        }
 
-        private static void FillMissingBase(TileBase[] destination, Tile[] fallback)
-        {
-            int count = Mathf.Min(destination.Length, fallback.Length);
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < tiles.Length; i++)
             {
-                if (destination[i] == null && fallback[i] != null)
+                if (tiles[i] != null)
                 {
-                    destination[i] = fallback[i];
+                    return true;
                 }
             }
+
+            return false;
         }
 
         private static void FillMissingFromTileBase(Tile[] destination, TileBase[] fallback)

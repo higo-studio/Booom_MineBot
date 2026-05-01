@@ -192,30 +192,6 @@ namespace Minebot.Presentation
         [InspectorLabel("界面资源")]
         private MinebotPresentationHudResources hudResources = new MinebotPresentationHudResources();
 
-        [NonSerialized]
-        private TileBase[] generatedFloorDualGridTiles;
-
-        [NonSerialized]
-        private TileBase[] generatedSoilDualGridTiles;
-
-        [NonSerialized]
-        private TileBase[] generatedStoneDualGridTiles;
-
-        [NonSerialized]
-        private TileBase[] generatedHardRockDualGridTiles;
-
-        [NonSerialized]
-        private TileBase[] generatedUltraHardDualGridTiles;
-
-        [NonSerialized]
-        private TileBase[] generatedBoundaryDualGridTiles;
-
-        [NonSerialized]
-        private TileBase[] generatedFogNearDualGridTiles;
-
-        [NonSerialized]
-        private TileBase[] generatedFogDeepDualGridTiles;
-
         public TileBase EmptyTile => emptyTile;
         public TileBase SoilWallTile => soilWallTile;
         public TileBase StoneWallTile => stoneWallTile;
@@ -224,14 +200,14 @@ namespace Minebot.Presentation
         public TileBase BoundaryTile => boundaryTile;
         public DualGridTerrainProfile DualGridTerrainProfile => dualGridTerrainProfile;
         public DualGridTerrainLayoutSettings TerrainLayoutSettings => dualGridTerrainProfile != null ? dualGridTerrainProfile.LayoutSettings : DualGridTerrainLayoutSettings.CreateDefault();
-        public TileBase[] FloorDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Floor, floorDualGridTiles, ref generatedFloorDualGridTiles);
-        public TileBase[] SoilDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Soil, soilDualGridTiles, ref generatedSoilDualGridTiles);
-        public TileBase[] StoneDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Stone, stoneDualGridTiles, ref generatedStoneDualGridTiles);
-        public TileBase[] HardRockDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.HardRock, hardRockDualGridTiles, ref generatedHardRockDualGridTiles);
-        public TileBase[] UltraHardDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.UltraHard, ultraHardDualGridTiles, ref generatedUltraHardDualGridTiles);
-        public TileBase[] BoundaryDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Boundary, boundaryDualGridTiles, ref generatedBoundaryDualGridTiles);
-        public TileBase[] FogNearDualGridTiles => ResolveFogDualGridTiles(fogNearDualGridTiles, ref generatedFogNearDualGridTiles, DualGridFogBandKind.Near);
-        public TileBase[] FogDeepDualGridTiles => ResolveFogDualGridTiles(fogDeepDualGridTiles, ref generatedFogDeepDualGridTiles, DualGridFogBandKind.Deep);
+        public TileBase[] FloorDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Floor, floorDualGridTiles);
+        public TileBase[] SoilDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Soil, soilDualGridTiles);
+        public TileBase[] StoneDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Stone, stoneDualGridTiles);
+        public TileBase[] HardRockDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.HardRock, hardRockDualGridTiles);
+        public TileBase[] UltraHardDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.UltraHard, ultraHardDualGridTiles);
+        public TileBase[] BoundaryDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Boundary, boundaryDualGridTiles);
+        public TileBase[] FogNearDualGridTiles => ResolveFogDualGridTiles(fogNearDualGridTiles);
+        public TileBase[] FogDeepDualGridTiles => ResolveFogDualGridTiles(fogDeepDualGridTiles);
         public TileBase DangerTile => dangerTile;
         public TileBase MarkerTile => markerTile;
         public TileBase ScanHintTile => scanHintTile;
@@ -266,7 +242,7 @@ namespace Minebot.Presentation
         public MinebotPresentationCellFxResources CellFxResources => cellFxResources ?? new MinebotPresentationCellFxResources();
         public MinebotPresentationHudResources HudResources => hudResources ?? new MinebotPresentationHudResources();
 
-        private TileBase[] ResolveDualGridTiles(TerrainRenderLayerId layerId, TileBase[] configuredTiles, ref TileBase[] generatedTiles)
+        private TileBase[] ResolveDualGridTiles(TerrainRenderLayerId layerId, TileBase[] configuredTiles)
         {
             if (dualGridTerrainProfile != null)
             {
@@ -278,17 +254,17 @@ namespace Minebot.Presentation
                 return configuredTiles;
             }
 
-            return generatedTiles ??= DualGridTerrainFallbackTiles.CreateTileSet(layerId);
+            return Array.Empty<TileBase>();
         }
 
-        private TileBase[] ResolveFogDualGridTiles(TileBase[] configuredTiles, ref TileBase[] generatedTiles, DualGridFogBandKind bandKind)
+        private TileBase[] ResolveFogDualGridTiles(TileBase[] configuredTiles)
         {
             if (configuredTiles != null && configuredTiles.Length > 0)
             {
                 return configuredTiles;
             }
 
-            return generatedTiles ??= DualGridFogFallbackTiles.CreateTileSet(bandKind);
+            return Array.Empty<TileBase>();
         }
 
 #if UNITY_EDITOR

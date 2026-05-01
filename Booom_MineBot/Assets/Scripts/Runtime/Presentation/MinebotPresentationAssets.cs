@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Minebot.Progression;
 using Minebot.UI;
 using UnityEngine;
@@ -8,6 +10,8 @@ namespace Minebot.Presentation
 {
     public sealed class MinebotPresentationAssets
     {
+        public const string DefaultArtSetResourcePath = "Minebot/MinebotPresentationArtSet_Default";
+
         public TileBase EmptyTile { get; private set; }
         public TileBase SoilWallTile { get; private set; }
         public TileBase StoneWallTile { get; private set; }
@@ -80,101 +84,110 @@ namespace Minebot.Presentation
             return Create(artSet, null);
         }
 
+        public static MinebotPresentationArtSet LoadDefaultArtSet()
+        {
+            return Resources.Load<MinebotPresentationArtSet>(DefaultArtSetResourcePath);
+        }
+
         public static MinebotPresentationAssets Create(MinebotPresentationArtSet artSet, DualGridTerrainProfile dualGridProfileOverride)
         {
-            MinebotPresentationAssets fallback = CreateFallback();
-            if (artSet == null && dualGridProfileOverride == null)
+            MinebotPresentationArtSet resolvedArtSet = artSet ?? LoadDefaultArtSet();
+            MinebotPresentationAssets missingDefaults = CreateMissingDefaults();
+            if (resolvedArtSet == null && dualGridProfileOverride == null)
             {
-                return fallback;
+                Debug.LogError("缺少默认 MinebotPresentationArtSet 资源，且未提供运行时 art set 覆盖。表现层不会再自动生成临时纹理。");
             }
 
-            TileBase[] floorTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Floor, fallback.FloorDualGridTiles);
-            TileBase[] soilTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Soil, fallback.SoilDualGridTiles);
-            TileBase[] stoneTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Stone, fallback.StoneDualGridTiles);
-            TileBase[] hardRockTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.HardRock, fallback.HardRockDualGridTiles);
-            TileBase[] ultraHardTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.UltraHard, fallback.UltraHardDualGridTiles);
-            TileBase[] boundaryTiles = ResolveDualGridTiles(artSet, dualGridProfileOverride, TerrainRenderLayerId.Boundary, fallback.BoundaryDualGridTiles);
-            TileBase[] fogNearTiles = artSet != null ? artSet.FogNearDualGridTiles : fallback.FogNearDualGridTiles;
-            TileBase[] fogDeepTiles = artSet != null ? artSet.FogDeepDualGridTiles : fallback.FogDeepDualGridTiles;
+            TileBase[] floorTiles = ResolveDualGridTiles(resolvedArtSet, dualGridProfileOverride, TerrainRenderLayerId.Floor, missingDefaults.FloorDualGridTiles);
+            TileBase[] soilTiles = ResolveDualGridTiles(resolvedArtSet, dualGridProfileOverride, TerrainRenderLayerId.Soil, missingDefaults.SoilDualGridTiles);
+            TileBase[] stoneTiles = ResolveDualGridTiles(resolvedArtSet, dualGridProfileOverride, TerrainRenderLayerId.Stone, missingDefaults.StoneDualGridTiles);
+            TileBase[] hardRockTiles = ResolveDualGridTiles(resolvedArtSet, dualGridProfileOverride, TerrainRenderLayerId.HardRock, missingDefaults.HardRockDualGridTiles);
+            TileBase[] ultraHardTiles = ResolveDualGridTiles(resolvedArtSet, dualGridProfileOverride, TerrainRenderLayerId.UltraHard, missingDefaults.UltraHardDualGridTiles);
+            TileBase[] boundaryTiles = ResolveDualGridTiles(resolvedArtSet, dualGridProfileOverride, TerrainRenderLayerId.Boundary, missingDefaults.BoundaryDualGridTiles);
+            TileBase[] fogNearTiles = resolvedArtSet != null ? resolvedArtSet.FogNearDualGridTiles : missingDefaults.FogNearDualGridTiles;
+            TileBase[] fogDeepTiles = resolvedArtSet != null ? resolvedArtSet.FogDeepDualGridTiles : missingDefaults.FogDeepDualGridTiles;
             TileBase[] wallContours = ResolveLegacyContourTiles(
-                dualGridProfileOverride != null ? dualGridProfileOverride.ResolveWallContourTiles(artSet != null ? artSet.WallContourTiles : null) : artSet != null ? artSet.WallContourTiles : null,
-                fallback.WallContourTiles);
+                dualGridProfileOverride != null ? dualGridProfileOverride.ResolveWallContourTiles(resolvedArtSet != null ? resolvedArtSet.WallContourTiles : null) : resolvedArtSet != null ? resolvedArtSet.WallContourTiles : null,
+                missingDefaults.WallContourTiles);
             TileBase[] dangerContours = ResolveLegacyContourTiles(
-                dualGridProfileOverride != null ? dualGridProfileOverride.ResolveDangerContourTiles(artSet != null ? artSet.DangerContourTiles : null) : artSet != null ? artSet.DangerContourTiles : null,
-                fallback.DangerContourTiles);
+                dualGridProfileOverride != null ? dualGridProfileOverride.ResolveDangerContourTiles(resolvedArtSet != null ? resolvedArtSet.DangerContourTiles : null) : resolvedArtSet != null ? resolvedArtSet.DangerContourTiles : null,
+                missingDefaults.DangerContourTiles);
             DualGridTerrainLayoutSettings layoutSettings = dualGridProfileOverride != null
                 ? dualGridProfileOverride.LayoutSettings
-                : artSet != null ? artSet.TerrainLayoutSettings : DualGridTerrainLayoutSettings.CreateDefault();
+                : resolvedArtSet != null ? resolvedArtSet.TerrainLayoutSettings : DualGridTerrainLayoutSettings.CreateDefault();
 
-            return new MinebotPresentationAssets
+            var assets = new MinebotPresentationAssets
             {
-                EmptyTile = artSet != null && artSet.EmptyTile != null ? artSet.EmptyTile : fallback.EmptyTile,
-                SoilWallTile = artSet != null && artSet.SoilWallTile != null ? artSet.SoilWallTile : fallback.SoilWallTile,
-                StoneWallTile = artSet != null && artSet.StoneWallTile != null ? artSet.StoneWallTile : fallback.StoneWallTile,
-                HardRockWallTile = artSet != null && artSet.HardRockWallTile != null ? artSet.HardRockWallTile : fallback.HardRockWallTile,
-                UltraHardWallTile = artSet != null && artSet.UltraHardWallTile != null ? artSet.UltraHardWallTile : fallback.UltraHardWallTile,
-                BoundaryTile = artSet != null && artSet.BoundaryTile != null ? artSet.BoundaryTile : fallback.BoundaryTile,
-                FloorDualGridTiles = NormalizeIndexedTiles(floorTiles, fallback.FloorDualGridTiles),
-                SoilDualGridTiles = NormalizeIndexedTiles(soilTiles, fallback.SoilDualGridTiles),
-                StoneDualGridTiles = NormalizeIndexedTiles(stoneTiles, fallback.StoneDualGridTiles),
-                HardRockDualGridTiles = NormalizeIndexedTiles(hardRockTiles, fallback.HardRockDualGridTiles),
-                UltraHardDualGridTiles = NormalizeIndexedTiles(ultraHardTiles, fallback.UltraHardDualGridTiles),
-                BoundaryDualGridTiles = NormalizeIndexedTiles(boundaryTiles, fallback.BoundaryDualGridTiles),
-                FogNearDualGridTiles = NormalizeIndexedTiles(fogNearTiles, fallback.FogNearDualGridTiles),
-                FogDeepDualGridTiles = NormalizeIndexedTiles(fogDeepTiles, fallback.FogDeepDualGridTiles),
-                DangerTile = artSet != null && artSet.DangerTile != null ? artSet.DangerTile : fallback.DangerTile,
-                MarkerTile = artSet != null && artSet.MarkerTile != null ? artSet.MarkerTile : fallback.MarkerTile,
-                RepairStationTile = artSet != null && artSet.RepairStationTile != null ? artSet.RepairStationTile : fallback.RepairStationTile,
-                RobotFactoryTile = artSet != null && artSet.RobotFactoryTile != null ? artSet.RobotFactoryTile : fallback.RobotFactoryTile,
-                ScanHintTile = artSet != null && artSet.ScanHintTile != null ? artSet.ScanHintTile : fallback.ScanHintTile,
-                BuildPreviewValidTile = artSet != null && artSet.BuildPreviewValidTile != null ? artSet.BuildPreviewValidTile : fallback.BuildPreviewValidTile,
-                BuildPreviewInvalidTile = artSet != null && artSet.BuildPreviewInvalidTile != null ? artSet.BuildPreviewInvalidTile : fallback.BuildPreviewInvalidTile,
+                EmptyTile = resolvedArtSet != null ? resolvedArtSet.EmptyTile : missingDefaults.EmptyTile,
+                SoilWallTile = resolvedArtSet != null ? resolvedArtSet.SoilWallTile : missingDefaults.SoilWallTile,
+                StoneWallTile = resolvedArtSet != null ? resolvedArtSet.StoneWallTile : missingDefaults.StoneWallTile,
+                HardRockWallTile = resolvedArtSet != null ? resolvedArtSet.HardRockWallTile : missingDefaults.HardRockWallTile,
+                UltraHardWallTile = resolvedArtSet != null ? resolvedArtSet.UltraHardWallTile : missingDefaults.UltraHardWallTile,
+                BoundaryTile = resolvedArtSet != null ? resolvedArtSet.BoundaryTile : missingDefaults.BoundaryTile,
+                FloorDualGridTiles = NormalizeIndexedTiles(floorTiles, missingDefaults.FloorDualGridTiles),
+                SoilDualGridTiles = NormalizeIndexedTiles(soilTiles, missingDefaults.SoilDualGridTiles),
+                StoneDualGridTiles = NormalizeIndexedTiles(stoneTiles, missingDefaults.StoneDualGridTiles),
+                HardRockDualGridTiles = NormalizeIndexedTiles(hardRockTiles, missingDefaults.HardRockDualGridTiles),
+                UltraHardDualGridTiles = NormalizeIndexedTiles(ultraHardTiles, missingDefaults.UltraHardDualGridTiles),
+                BoundaryDualGridTiles = NormalizeIndexedTiles(boundaryTiles, missingDefaults.BoundaryDualGridTiles),
+                FogNearDualGridTiles = NormalizeIndexedTiles(fogNearTiles, missingDefaults.FogNearDualGridTiles),
+                FogDeepDualGridTiles = NormalizeIndexedTiles(fogDeepTiles, missingDefaults.FogDeepDualGridTiles),
+                DangerTile = resolvedArtSet != null ? resolvedArtSet.DangerTile : missingDefaults.DangerTile,
+                MarkerTile = resolvedArtSet != null ? resolvedArtSet.MarkerTile : missingDefaults.MarkerTile,
+                RepairStationTile = resolvedArtSet != null ? resolvedArtSet.RepairStationTile : missingDefaults.RepairStationTile,
+                RobotFactoryTile = resolvedArtSet != null ? resolvedArtSet.RobotFactoryTile : missingDefaults.RobotFactoryTile,
+                ScanHintTile = resolvedArtSet != null ? resolvedArtSet.ScanHintTile : missingDefaults.ScanHintTile,
+                BuildPreviewValidTile = resolvedArtSet != null ? resolvedArtSet.BuildPreviewValidTile : missingDefaults.BuildPreviewValidTile,
+                BuildPreviewInvalidTile = resolvedArtSet != null ? resolvedArtSet.BuildPreviewInvalidTile : missingDefaults.BuildPreviewInvalidTile,
                 WallContourTiles = wallContours,
                 DangerContourTiles = dangerContours,
-                DangerOutlineTiles = NormalizeDangerOutlineTiles(artSet != null ? artSet.DangerOutlineTiles : null, fallback.DangerOutlineTiles),
-                HologramOverlayAtlas = artSet != null && artSet.HologramOverlayAtlas != null ? artSet.HologramOverlayAtlas : fallback.HologramOverlayAtlas,
-                BitmapGlyphAtlas = artSet != null && artSet.BitmapGlyphAtlas != null ? artSet.BitmapGlyphAtlas : fallback.BitmapGlyphAtlas,
-                BitmapGlyphDescriptor = artSet != null && artSet.BitmapGlyphDescriptor != null ? artSet.BitmapGlyphDescriptor : fallback.BitmapGlyphDescriptor,
-                BitmapGlyphFont = artSet != null && artSet.BitmapGlyphFont != null ? artSet.BitmapGlyphFont : fallback.BitmapGlyphFont,
-                SoilDetailTile = artSet != null && artSet.SoilDetailTile != null ? artSet.SoilDetailTile : fallback.SoilDetailTile,
-                StoneDetailTile = artSet != null && artSet.StoneDetailTile != null ? artSet.StoneDetailTile : fallback.StoneDetailTile,
-                HardRockDetailTile = artSet != null && artSet.HardRockDetailTile != null ? artSet.HardRockDetailTile : fallback.HardRockDetailTile,
-                UltraHardDetailTile = artSet != null && artSet.UltraHardDetailTile != null ? artSet.UltraHardDetailTile : fallback.UltraHardDetailTile,
-                PlayerSprite = artSet != null && artSet.PlayerSprite != null ? artSet.PlayerSprite : fallback.PlayerSprite,
-                RobotSprite = artSet != null && artSet.RobotSprite != null ? artSet.RobotSprite : fallback.RobotSprite,
-                PlayerActorPrefab = artSet != null && artSet.ActorResources.PlayerPrefab != null ? artSet.ActorResources.PlayerPrefab : fallback.PlayerActorPrefab,
-                HelperRobotPrefab = artSet != null && artSet.ActorResources.HelperRobotPrefab != null ? artSet.ActorResources.HelperRobotPrefab : fallback.HelperRobotPrefab,
-                PlayerActorStates = artSet != null ? artSet.ActorResources.PlayerStates ?? fallback.PlayerActorStates : fallback.PlayerActorStates,
-                HelperRobotStates = artSet != null ? artSet.ActorResources.HelperRobotStates ?? fallback.HelperRobotStates : fallback.HelperRobotStates,
-                MetalPickupPrefab = artSet != null && artSet.PickupResources.MetalPickupPrefab != null ? artSet.PickupResources.MetalPickupPrefab : fallback.MetalPickupPrefab,
-                EnergyPickupPrefab = artSet != null && artSet.PickupResources.EnergyPickupPrefab != null ? artSet.PickupResources.EnergyPickupPrefab : fallback.EnergyPickupPrefab,
-                ExperiencePickupPrefab = artSet != null && artSet.PickupResources.ExperiencePickupPrefab != null ? artSet.PickupResources.ExperiencePickupPrefab : fallback.ExperiencePickupPrefab,
-                MetalPickupIcon = artSet != null && artSet.PickupResources.MetalIcon != null ? artSet.PickupResources.MetalIcon : fallback.MetalPickupIcon,
-                EnergyPickupIcon = artSet != null && artSet.PickupResources.EnergyIcon != null ? artSet.PickupResources.EnergyIcon : fallback.EnergyPickupIcon,
-                ExperiencePickupIcon = artSet != null && artSet.PickupResources.ExperienceIcon != null ? artSet.PickupResources.ExperienceIcon : fallback.ExperiencePickupIcon,
-                MiningCrackPrefab = artSet != null && artSet.CellFxResources.MiningCrackPrefab != null ? artSet.CellFxResources.MiningCrackPrefab : fallback.MiningCrackPrefab,
-                WallBreakPrefab = artSet != null && artSet.CellFxResources.WallBreakPrefab != null ? artSet.CellFxResources.WallBreakPrefab : fallback.WallBreakPrefab,
-                ExplosionPrefab = artSet != null && artSet.CellFxResources.ExplosionPrefab != null ? artSet.CellFxResources.ExplosionPrefab : fallback.ExplosionPrefab,
-                MiningCrackSequence = artSet != null && artSet.CellFxResources.MiningCrackSequence != null ? artSet.CellFxResources.MiningCrackSequence : fallback.MiningCrackSequence,
-                WallBreakSequence = artSet != null && artSet.CellFxResources.WallBreakSequence != null ? artSet.CellFxResources.WallBreakSequence : fallback.WallBreakSequence,
-                ExplosionSequence = artSet != null && artSet.CellFxResources.ExplosionSequence != null ? artSet.CellFxResources.ExplosionSequence : fallback.ExplosionSequence,
-                HudPrefab = artSet != null && artSet.HudResources.HudPrefab != null ? artSet.HudResources.HudPrefab : fallback.HudPrefab,
-                HudPanelBackground = artSet != null && artSet.HudResources.PanelBackground != null ? artSet.HudResources.PanelBackground : fallback.HudPanelBackground,
-                HudStatusIcon = artSet != null && artSet.HudResources.StatusIcon != null ? artSet.HudResources.StatusIcon : fallback.HudStatusIcon,
-                HudInteractionIcon = artSet != null && artSet.HudResources.InteractionIcon != null ? artSet.HudResources.InteractionIcon : fallback.HudInteractionIcon,
-                HudFeedbackIcon = artSet != null && artSet.HudResources.FeedbackIcon != null ? artSet.HudResources.FeedbackIcon : fallback.HudFeedbackIcon,
-                HudWarningIcon = artSet != null && artSet.HudResources.WarningIcon != null ? artSet.HudResources.WarningIcon : fallback.HudWarningIcon,
-                HudUpgradeIcon = artSet != null && artSet.HudResources.UpgradeIcon != null ? artSet.HudResources.UpgradeIcon : fallback.HudUpgradeIcon,
-                HudBuildIcon = artSet != null && artSet.HudResources.BuildIcon != null ? artSet.HudResources.BuildIcon : fallback.HudBuildIcon,
-                HudBuildingInteractionIcon = artSet != null && artSet.HudResources.BuildingInteractionIcon != null ? artSet.HudResources.BuildingInteractionIcon : fallback.HudBuildingInteractionIcon,
-                ScanLabelOffset = artSet != null ? artSet.ScanLabelOffset : fallback.ScanLabelOffset,
-                ScanLabelColor = artSet != null ? artSet.ScanLabelColor : fallback.ScanLabelColor,
-                ScanLabelFontSize = artSet != null ? artSet.ScanLabelFontSize : fallback.ScanLabelFontSize,
-                ScanLabelSortingOrder = artSet != null ? artSet.ScanLabelSortingOrder : fallback.ScanLabelSortingOrder,
-                PlayerColliderRadius = artSet != null ? artSet.PlayerColliderRadius : fallback.PlayerColliderRadius,
+                DangerOutlineTiles = NormalizeDangerOutlineTiles(resolvedArtSet != null ? resolvedArtSet.DangerOutlineTiles : null, missingDefaults.DangerOutlineTiles),
+                HologramOverlayAtlas = resolvedArtSet != null ? resolvedArtSet.HologramOverlayAtlas : missingDefaults.HologramOverlayAtlas,
+                BitmapGlyphAtlas = resolvedArtSet != null ? resolvedArtSet.BitmapGlyphAtlas : missingDefaults.BitmapGlyphAtlas,
+                BitmapGlyphDescriptor = resolvedArtSet != null ? resolvedArtSet.BitmapGlyphDescriptor : missingDefaults.BitmapGlyphDescriptor,
+                BitmapGlyphFont = resolvedArtSet != null ? resolvedArtSet.BitmapGlyphFont : missingDefaults.BitmapGlyphFont,
+                SoilDetailTile = resolvedArtSet != null ? resolvedArtSet.SoilDetailTile : missingDefaults.SoilDetailTile,
+                StoneDetailTile = resolvedArtSet != null ? resolvedArtSet.StoneDetailTile : missingDefaults.StoneDetailTile,
+                HardRockDetailTile = resolvedArtSet != null ? resolvedArtSet.HardRockDetailTile : missingDefaults.HardRockDetailTile,
+                UltraHardDetailTile = resolvedArtSet != null ? resolvedArtSet.UltraHardDetailTile : missingDefaults.UltraHardDetailTile,
+                PlayerSprite = resolvedArtSet != null ? resolvedArtSet.PlayerSprite : missingDefaults.PlayerSprite,
+                RobotSprite = resolvedArtSet != null ? resolvedArtSet.RobotSprite : missingDefaults.RobotSprite,
+                PlayerActorPrefab = resolvedArtSet != null ? resolvedArtSet.ActorResources.PlayerPrefab : missingDefaults.PlayerActorPrefab,
+                HelperRobotPrefab = resolvedArtSet != null ? resolvedArtSet.ActorResources.HelperRobotPrefab : missingDefaults.HelperRobotPrefab,
+                PlayerActorStates = resolvedArtSet != null ? resolvedArtSet.ActorResources.PlayerStates ?? missingDefaults.PlayerActorStates : missingDefaults.PlayerActorStates,
+                HelperRobotStates = resolvedArtSet != null ? resolvedArtSet.ActorResources.HelperRobotStates ?? missingDefaults.HelperRobotStates : missingDefaults.HelperRobotStates,
+                MetalPickupPrefab = resolvedArtSet != null ? resolvedArtSet.PickupResources.MetalPickupPrefab : missingDefaults.MetalPickupPrefab,
+                EnergyPickupPrefab = resolvedArtSet != null ? resolvedArtSet.PickupResources.EnergyPickupPrefab : missingDefaults.EnergyPickupPrefab,
+                ExperiencePickupPrefab = resolvedArtSet != null ? resolvedArtSet.PickupResources.ExperiencePickupPrefab : missingDefaults.ExperiencePickupPrefab,
+                MetalPickupIcon = resolvedArtSet != null ? resolvedArtSet.PickupResources.MetalIcon : missingDefaults.MetalPickupIcon,
+                EnergyPickupIcon = resolvedArtSet != null ? resolvedArtSet.PickupResources.EnergyIcon : missingDefaults.EnergyPickupIcon,
+                ExperiencePickupIcon = resolvedArtSet != null ? resolvedArtSet.PickupResources.ExperienceIcon : missingDefaults.ExperiencePickupIcon,
+                MiningCrackPrefab = resolvedArtSet != null ? resolvedArtSet.CellFxResources.MiningCrackPrefab : missingDefaults.MiningCrackPrefab,
+                WallBreakPrefab = resolvedArtSet != null ? resolvedArtSet.CellFxResources.WallBreakPrefab : missingDefaults.WallBreakPrefab,
+                ExplosionPrefab = resolvedArtSet != null ? resolvedArtSet.CellFxResources.ExplosionPrefab : missingDefaults.ExplosionPrefab,
+                MiningCrackSequence = resolvedArtSet != null ? resolvedArtSet.CellFxResources.MiningCrackSequence : missingDefaults.MiningCrackSequence,
+                WallBreakSequence = resolvedArtSet != null ? resolvedArtSet.CellFxResources.WallBreakSequence : missingDefaults.WallBreakSequence,
+                ExplosionSequence = resolvedArtSet != null ? resolvedArtSet.CellFxResources.ExplosionSequence : missingDefaults.ExplosionSequence,
+                HudPrefab = resolvedArtSet != null ? resolvedArtSet.HudResources.HudPrefab : missingDefaults.HudPrefab,
+                HudPanelBackground = resolvedArtSet != null ? resolvedArtSet.HudResources.PanelBackground : missingDefaults.HudPanelBackground,
+                HudStatusIcon = resolvedArtSet != null ? resolvedArtSet.HudResources.StatusIcon : missingDefaults.HudStatusIcon,
+                HudInteractionIcon = resolvedArtSet != null ? resolvedArtSet.HudResources.InteractionIcon : missingDefaults.HudInteractionIcon,
+                HudFeedbackIcon = resolvedArtSet != null ? resolvedArtSet.HudResources.FeedbackIcon : missingDefaults.HudFeedbackIcon,
+                HudWarningIcon = resolvedArtSet != null ? resolvedArtSet.HudResources.WarningIcon : missingDefaults.HudWarningIcon,
+                HudUpgradeIcon = resolvedArtSet != null ? resolvedArtSet.HudResources.UpgradeIcon : missingDefaults.HudUpgradeIcon,
+                HudBuildIcon = resolvedArtSet != null ? resolvedArtSet.HudResources.BuildIcon : missingDefaults.HudBuildIcon,
+                HudBuildingInteractionIcon = resolvedArtSet != null ? resolvedArtSet.HudResources.BuildingInteractionIcon : missingDefaults.HudBuildingInteractionIcon,
+                ScanLabelOffset = resolvedArtSet != null ? resolvedArtSet.ScanLabelOffset : missingDefaults.ScanLabelOffset,
+                ScanLabelColor = resolvedArtSet != null ? resolvedArtSet.ScanLabelColor : missingDefaults.ScanLabelColor,
+                ScanLabelFontSize = resolvedArtSet != null ? resolvedArtSet.ScanLabelFontSize : missingDefaults.ScanLabelFontSize,
+                ScanLabelSortingOrder = resolvedArtSet != null ? resolvedArtSet.ScanLabelSortingOrder : missingDefaults.ScanLabelSortingOrder,
+                PlayerColliderRadius = resolvedArtSet != null ? resolvedArtSet.PlayerColliderRadius : missingDefaults.PlayerColliderRadius,
                 TerrainLayoutSettings = layoutSettings,
-                IsUsingConfiguredArtSet = artSet != null || dualGridProfileOverride != null
+                IsUsingConfiguredArtSet = resolvedArtSet != null || dualGridProfileOverride != null
             };
+
+            ReportMissingResources(assets, resolvedArtSet, dualGridProfileOverride);
+            return assets;
         }
 
         public TileBase ResolveDangerOverlayTile(DangerOverlayGeometryKind geometryKind, int variant)
@@ -281,62 +294,23 @@ namespace Minebot.Presentation
             }
         }
 
-        private static MinebotPresentationAssets CreateFallback()
+        private static MinebotPresentationAssets CreateMissingDefaults()
         {
             return new MinebotPresentationAssets
             {
-                EmptyTile = CreateTile("Empty Tile", new Color(0.13f, 0.18f, 0.19f, 1f), new Color(0.07f, 0.09f, 0.1f, 1f)),
-                SoilWallTile = CreateTile("Soil Wall Tile", new Color(0.43f, 0.34f, 0.24f, 1f), new Color(0.24f, 0.19f, 0.15f, 1f)),
-                StoneWallTile = CreateTile("Stone Wall Tile", new Color(0.36f, 0.36f, 0.34f, 1f), new Color(0.18f, 0.18f, 0.17f, 1f)),
-                HardRockWallTile = CreateTile("Hard Rock Wall Tile", new Color(0.24f, 0.26f, 0.28f, 1f), new Color(0.1f, 0.11f, 0.13f, 1f)),
-                UltraHardWallTile = CreateTile("Ultra Hard Wall Tile", new Color(0.18f, 0.16f, 0.23f, 1f), new Color(0.08f, 0.07f, 0.11f, 1f)),
-                BoundaryTile = CreateTile("Boundary Tile", new Color(0.05f, 0.05f, 0.06f, 1f), new Color(0.17f, 0.17f, 0.18f, 1f)),
-                FloorDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.Floor),
-                SoilDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.Soil),
-                StoneDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.Stone),
-                HardRockDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.HardRock),
-                UltraHardDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.UltraHard),
-                BoundaryDualGridTiles = DualGridTerrainFallbackTiles.CreateTileSet(TerrainRenderLayerId.Boundary),
-                FogNearDualGridTiles = DualGridFogFallbackTiles.CreateTileSet(DualGridFogBandKind.Near),
-                FogDeepDualGridTiles = DualGridFogFallbackTiles.CreateTileSet(DualGridFogBandKind.Deep),
-                DangerTile = CreateTile("Danger Tile", new Color(1f, 0.16f, 0.2f, 0.28f), new Color(1f, 0.38f, 0.24f, 0.92f)),
-                MarkerTile = CreateTile("Marker Tile", new Color(0.2f, 0.84f, 1f, 0.32f), new Color(0.86f, 1f, 0.98f, 0.92f)),
-                RepairStationTile = CreateTile("Repair Station Tile", new Color(0.1f, 0.38f, 0.85f, 1f), new Color(0.62f, 0.88f, 1f, 1f)),
-                RobotFactoryTile = CreateTile("Robot Factory Tile", new Color(0.88f, 0.42f, 0.09f, 1f), new Color(1f, 0.78f, 0.2f, 1f)),
-                ScanHintTile = CreateTile("Scan Hint Tile", new Color(0.18f, 0.82f, 1f, 0.28f), new Color(0.9f, 1f, 1f, 0.92f)),
-                BuildPreviewValidTile = CreateTile("Build Preview Valid Tile", new Color(0.18f, 0.72f, 1f, 0.42f), new Color(0.82f, 0.96f, 1f, 0.92f)),
-                BuildPreviewInvalidTile = CreateTile("Build Preview Invalid Tile", new Color(1f, 0.14f, 0.18f, 0.24f), new Color(1f, 0.34f, 0.24f, 0.9f)),
-                WallContourTiles = CreateContourTileSet("Wall Contour", new Color(0.92f, 0.9f, 0.82f, 0.95f), 2),
-                DangerContourTiles = CreateContourTileSet("Danger Contour", new Color(1f, 0.44f, 0.36f, 0.95f), 2),
-                DangerOutlineTiles = new[]
-                {
-                    CreateOutlineTile("Danger Outline Thin Tile", new Color(1f, 0.62f, 0.54f, 0.95f), 1),
-                    CreateOutlineTile("Danger Outline Medium Tile", new Color(1f, 0.46f, 0.36f, 0.95f), 2),
-                    CreateOutlineTile("Danger Outline Thick Tile", new Color(1f, 0.28f, 0.22f, 0.95f), 3)
-                },
-                HologramOverlayAtlas = CreateTexture("Hologram Overlay Atlas Texture", 16, 16, new Color(0.18f, 0.82f, 1f, 0.4f), new Color(0.9f, 1f, 1f, 0.95f)),
-                BitmapGlyphAtlas = CreateTexture("Bitmap Glyph Atlas Texture", 64, 16, new Color(0f, 0f, 0f, 0f), new Color(0.7f, 1f, 0.96f, 0.95f)),
-                BitmapGlyphDescriptor = new TextAsset("fallback bitmap glyph descriptor"),
-                BitmapGlyphFont = CreateFallbackBitmapGlyphFont(),
-                SoilDetailTile = CreateDetailTile("Soil Detail Tile", new Color(0.43f, 0.34f, 0.24f, 1f), new Color(0.5f, 0.4f, 0.29f, 1f)),
-                StoneDetailTile = CreateDetailTile("Stone Detail Tile", new Color(0.36f, 0.36f, 0.34f, 1f), new Color(0.54f, 0.54f, 0.51f, 1f)),
-                HardRockDetailTile = CreateDetailTile("Hard Rock Detail Tile", new Color(0.24f, 0.26f, 0.28f, 1f), new Color(0.34f, 0.38f, 0.41f, 1f)),
-                UltraHardDetailTile = CreateDetailTile("Ultra Hard Detail Tile", new Color(0.18f, 0.16f, 0.23f, 1f), new Color(0.28f, 0.24f, 0.35f, 1f)),
-                PlayerSprite = CreateSprite("Player Sprite", new Color(1f, 0.86f, 0.22f, 1f), new Color(0.1f, 0.75f, 0.95f, 1f)),
-                RobotSprite = CreateSprite("Robot Sprite", new Color(0.34f, 0.94f, 0.38f, 1f), new Color(0.05f, 0.28f, 0.12f, 1f)),
+                FloorDualGridTiles = CreateEmptyIndexedTiles(DualGridTerrain.TileCount),
+                SoilDualGridTiles = CreateEmptyIndexedTiles(DualGridTerrain.TileCount),
+                StoneDualGridTiles = CreateEmptyIndexedTiles(DualGridTerrain.TileCount),
+                HardRockDualGridTiles = CreateEmptyIndexedTiles(DualGridTerrain.TileCount),
+                UltraHardDualGridTiles = CreateEmptyIndexedTiles(DualGridTerrain.TileCount),
+                BoundaryDualGridTiles = CreateEmptyIndexedTiles(DualGridTerrain.TileCount),
+                FogNearDualGridTiles = CreateEmptyIndexedTiles(DualGridFog.TileCount),
+                FogDeepDualGridTiles = CreateEmptyIndexedTiles(DualGridFog.TileCount),
+                WallContourTiles = CreateEmptyIndexedTiles(DualGridContour.TileCount),
+                DangerContourTiles = CreateEmptyIndexedTiles(DualGridContour.TileCount),
+                DangerOutlineTiles = Array.Empty<TileBase>(),
                 PlayerActorStates = new ActorStateSequenceSet(),
                 HelperRobotStates = new ActorStateSequenceSet(),
-                MetalPickupIcon = CreateSprite("Metal Pickup Icon", new Color(0.9f, 0.84f, 0.62f, 1f), new Color(0.52f, 0.44f, 0.18f, 1f)),
-                EnergyPickupIcon = CreateSprite("Energy Pickup Icon", new Color(0.4f, 0.95f, 1f, 1f), new Color(0.08f, 0.46f, 0.78f, 1f)),
-                ExperiencePickupIcon = CreateSprite("Experience Pickup Icon", new Color(0.72f, 0.96f, 0.4f, 1f), new Color(0.2f, 0.5f, 0.12f, 1f)),
-                HudPanelBackground = CreateSprite("HUD Panel Background", new Color(0.07f, 0.1f, 0.12f, 0.92f), new Color(0.32f, 0.7f, 0.78f, 0.96f)),
-                HudStatusIcon = CreateSprite("HUD Status Icon", new Color(0.84f, 0.93f, 1f, 1f), new Color(0.2f, 0.64f, 0.76f, 1f)),
-                HudInteractionIcon = CreateSprite("HUD Interaction Icon", new Color(0.92f, 0.86f, 0.64f, 1f), new Color(0.76f, 0.46f, 0.18f, 1f)),
-                HudFeedbackIcon = CreateSprite("HUD Feedback Icon", new Color(0.78f, 0.96f, 1f, 1f), new Color(0.16f, 0.72f, 0.92f, 1f)),
-                HudWarningIcon = CreateSprite("HUD Warning Icon", new Color(1f, 0.82f, 0.72f, 1f), new Color(0.98f, 0.34f, 0.24f, 1f)),
-                HudUpgradeIcon = CreateSprite("HUD Upgrade Icon", new Color(0.84f, 1f, 0.62f, 1f), new Color(0.3f, 0.68f, 0.18f, 1f)),
-                HudBuildIcon = CreateSprite("HUD Build Icon", new Color(0.94f, 0.9f, 0.7f, 1f), new Color(0.74f, 0.54f, 0.22f, 1f)),
-                HudBuildingInteractionIcon = CreateSprite("HUD Building Interaction Icon", new Color(0.9f, 0.86f, 1f, 1f), new Color(0.46f, 0.4f, 0.82f, 1f)),
                 ScanLabelOffset = new Vector2(0f, 0.62f),
                 ScanLabelColor = new Color(0.62f, 1f, 0.96f, 1f),
                 ScanLabelFontSize = 4f,
@@ -419,7 +393,9 @@ namespace Minebot.Presentation
             var normalized = new TileBase[configuredTiles.Length];
             for (int i = 0; i < configuredTiles.Length; i++)
             {
-                TileBase fallback = fallbackTiles[Mathf.Min(i, fallbackTiles.Length - 1)];
+                TileBase fallback = fallbackTiles != null && fallbackTiles.Length > 0
+                    ? fallbackTiles[Mathf.Min(i, fallbackTiles.Length - 1)]
+                    : null;
                 normalized[i] = configuredTiles[i] ?? fallback;
             }
 
@@ -437,291 +413,71 @@ namespace Minebot.Presentation
             return contourTiles[safeIndex];
         }
 
-        private static Tile CreateTile(string name, Color fill, Color border)
+        private static TileBase[] CreateEmptyIndexedTiles(int count)
         {
-            var tile = ScriptableObject.CreateInstance<Tile>();
-            tile.name = name;
-            tile.sprite = CreateSprite(name + " Sprite", fill, border);
-            tile.colliderType = Tile.ColliderType.None;
-            return tile;
+            return count <= 0 ? Array.Empty<TileBase>() : new TileBase[count];
         }
 
-        private static Tile CreateDetailTile(string name, Color fill, Color accent)
+        private static void ReportMissingResources(
+            MinebotPresentationAssets assets,
+            MinebotPresentationArtSet artSet,
+            DualGridTerrainProfile profileOverride)
         {
-            var tile = ScriptableObject.CreateInstance<Tile>();
-            tile.name = name;
-            tile.sprite = CreateDetailSprite(name + " Sprite", fill, accent);
-            tile.colliderType = Tile.ColliderType.None;
-            return tile;
+            var missing = new List<string>();
+            bool terrainOnlyOverride = artSet == null && profileOverride != null;
+            if (artSet == null && profileOverride == null)
+            {
+                missing.Add("默认 MinebotPresentationArtSet");
+            }
+
+            AppendMissingIndexedTiles(missing, "DG Floor", assets.FloorDualGridTiles);
+            AppendMissingIndexedTiles(missing, "DG Soil", assets.SoilDualGridTiles);
+            AppendMissingIndexedTiles(missing, "DG Stone", assets.StoneDualGridTiles);
+            AppendMissingIndexedTiles(missing, "DG HardRock", assets.HardRockDualGridTiles);
+            AppendMissingIndexedTiles(missing, "DG UltraHard", assets.UltraHardDualGridTiles);
+            AppendMissingIndexedTiles(missing, "DG Boundary", assets.BoundaryDualGridTiles);
+            if (!terrainOnlyOverride)
+            {
+                AppendMissingIndexedTiles(missing, "DG Fog Near", assets.FogNearDualGridTiles);
+                AppendMissingIndexedTiles(missing, "DG Fog Deep", assets.FogDeepDualGridTiles);
+                if (assets.BitmapGlyphFont == null)
+                {
+                    missing.Add("BitmapGlyphFont");
+                }
+            }
+
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            Debug.LogWarning($"Minebot 表现资源存在缺失：{string.Join("、", missing)}。运行时不会再自动生成临时纹理，请先补齐离线资源。");
         }
 
-        private static Tile[] CreateContourTileSet(string namePrefix, Color outlineColor, int thickness)
+        private static void AppendMissingIndexedTiles(ICollection<string> missing, string label, TileBase[] tiles)
         {
-            var tiles = new Tile[DualGridContour.TileCount];
+            if (!HasAnyTile(tiles))
+            {
+                missing.Add(label);
+            }
+        }
+
+        private static bool HasAnyTile(TileBase[] tiles)
+        {
+            if (tiles == null)
+            {
+                return false;
+            }
+
             for (int i = 0; i < tiles.Length; i++)
             {
-                tiles[i] = CreateContourTile($"{namePrefix} {i:X1}", i, outlineColor, thickness);
-            }
-
-            return tiles;
-        }
-
-        private static Tile CreateContourTile(string name, int contourIndex, Color outlineColor, int thickness)
-        {
-            const int size = 16;
-            const int halfSize = size / 2;
-            int safeThickness = Mathf.Clamp(thickness, 1, halfSize);
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                name = name + " Texture",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp
-            };
-
-            bool topLeft = (contourIndex & (1 << 3)) != 0;
-            bool topRight = (contourIndex & (1 << 2)) != 0;
-            bool bottomLeft = (contourIndex & (1 << 1)) != 0;
-            bool bottomRight = (contourIndex & 1) != 0;
-            Color clear = new Color(0f, 0f, 0f, 0f);
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
+                if (tiles[i] != null)
                 {
-                    bool isTop = y >= halfSize;
-                    bool isLeft = x < halfSize;
-                    int xWithin = isLeft ? x : x - halfSize;
-                    int yWithin = isTop ? y - halfSize : y;
-
-                    bool isFilled = isTop
-                        ? (isLeft ? topLeft : topRight)
-                        : (isLeft ? bottomLeft : bottomRight);
-
-                    if (!isFilled)
-                    {
-                        texture.SetPixel(x, y, clear);
-                        continue;
-                    }
-
-                    bool draw = false;
-                    if (isTop && isLeft)
-                    {
-                        draw = (topLeft != topRight && xWithin >= halfSize - safeThickness)
-                            || (topLeft != bottomLeft && yWithin < safeThickness);
-                    }
-                    else if (isTop)
-                    {
-                        draw = (topRight != topLeft && xWithin < safeThickness)
-                            || (topRight != bottomRight && yWithin < safeThickness);
-                    }
-                    else if (isLeft)
-                    {
-                        draw = (bottomLeft != bottomRight && xWithin >= halfSize - safeThickness)
-                            || (bottomLeft != topLeft && yWithin >= halfSize - safeThickness);
-                    }
-                    else
-                    {
-                        draw = (bottomRight != bottomLeft && xWithin < safeThickness)
-                            || (bottomRight != topRight && yWithin >= halfSize - safeThickness);
-                    }
-
-                    texture.SetPixel(x, y, draw ? outlineColor : clear);
+                    return true;
                 }
             }
 
-            texture.Apply(false, true);
-            var tile = ScriptableObject.CreateInstance<Tile>();
-            tile.name = name;
-            tile.sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
-            tile.colliderType = Tile.ColliderType.None;
-            return tile;
-        }
-
-        private static Tile CreateOutlineTile(string name, Color outlineColor, int thickness)
-        {
-            const int size = 16;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                name = name + " Texture",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp
-            };
-
-            Color clear = new Color(0f, 0f, 0f, 0f);
-            int safeThickness = Mathf.Clamp(thickness, 1, size / 2);
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    bool isOutline = x < safeThickness
-                        || y < safeThickness
-                        || x >= size - safeThickness
-                        || y >= size - safeThickness;
-                    texture.SetPixel(x, y, isOutline ? outlineColor : clear);
-                }
-            }
-
-            texture.Apply(false, true);
-            var tile = ScriptableObject.CreateInstance<Tile>();
-            tile.name = name;
-            tile.sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
-            tile.colliderType = Tile.ColliderType.None;
-            return tile;
-        }
-
-        private static BitmapGlyphFontDefinition CreateFallbackBitmapGlyphFont()
-        {
-            var definition = ScriptableObject.CreateInstance<BitmapGlyphFontDefinition>();
-            var glyphs = new BitmapGlyphFontDefinition.GlyphDefinition[10];
-            for (int i = 0; i < glyphs.Length; i++)
-            {
-                Sprite sprite = CreateDigitSprite($"Fallback Glyph {i}", (char)('0' + i), new Color(0.7f, 1f, 0.96f, 0.95f), new Color(0.2f, 0.85f, 1f, 0.28f));
-                glyphs[i] = new BitmapGlyphFontDefinition.GlyphDefinition((char)('0' + i), sprite, 10f);
-            }
-
-            definition.Configure(null, new TextAsset("fallback bitmap glyph descriptor"), 16f, 4f, glyphs);
-            return definition;
-        }
-
-        private static Texture2D CreateTexture(string name, int width, int height, Color fill, Color accent)
-        {
-            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
-            {
-                name = name,
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp
-            };
-
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    bool edge = x == 0 || y == 0 || x == width - 1 || y == height - 1;
-                    texture.SetPixel(x, y, edge ? accent : fill);
-                }
-            }
-
-            texture.Apply(false, true);
-            return texture;
-        }
-
-        private static Sprite CreateDigitSprite(string name, char digit, Color core, Color glow)
-        {
-            const int width = 10;
-            const int height = 16;
-            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
-            {
-                name = name + " Texture",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp
-            };
-
-            bool[] segments = SevenSegmentMaskFor(digit);
-            Color clear = new Color(0f, 0f, 0f, 0f);
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    bool lit = IsSevenSegmentPixelLit(segments, x, y, width, height);
-                    if (!lit)
-                    {
-                        texture.SetPixel(x, y, clear);
-                        continue;
-                    }
-
-                    bool border = x <= 1 || x >= width - 2 || y <= 1 || y >= height - 2;
-                    texture.SetPixel(x, y, border ? glow : core);
-                }
-            }
-
-            texture.Apply(false, true);
-            var sprite = Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 32f);
-            sprite.name = name;
-            return sprite;
-        }
-
-        private static bool[] SevenSegmentMaskFor(char digit)
-        {
-            switch (digit)
-            {
-                case '0': return new[] { true, true, true, false, true, true, true };
-                case '1': return new[] { false, false, true, false, false, true, false };
-                case '2': return new[] { true, false, true, true, true, false, true };
-                case '3': return new[] { true, false, true, true, false, true, true };
-                case '4': return new[] { false, true, true, true, false, true, false };
-                case '5': return new[] { true, true, false, true, false, true, true };
-                case '6': return new[] { true, true, false, true, true, true, true };
-                case '7': return new[] { true, false, true, false, false, true, false };
-                case '8': return new[] { true, true, true, true, true, true, true };
-                case '9': return new[] { true, true, true, true, false, true, true };
-                default: return new[] { false, false, false, false, false, false, false };
-            }
-        }
-
-        private static bool IsSevenSegmentPixelLit(bool[] segments, int x, int y, int width, int height)
-        {
-            bool top = segments[0] && y >= height - 3 && x >= 2 && x <= width - 3;
-            bool upperLeft = segments[1] && x <= 2 && y >= height / 2 && y <= height - 4;
-            bool upperRight = segments[2] && x >= width - 3 && y >= height / 2 && y <= height - 4;
-            bool middle = segments[3] && y >= height / 2 - 1 && y <= height / 2 && x >= 2 && x <= width - 3;
-            bool lowerLeft = segments[4] && x <= 2 && y >= 2 && y < height / 2 - 1;
-            bool lowerRight = segments[5] && x >= width - 3 && y >= 2 && y < height / 2 - 1;
-            bool bottom = segments[6] && y <= 2 && x >= 2 && x <= width - 3;
-            return top || upperLeft || upperRight || middle || lowerLeft || lowerRight || bottom;
-        }
-
-        private static Sprite CreateSprite(string name, Color fill, Color border)
-        {
-            const int size = 16;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                name = name + " Texture",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp
-            };
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    bool isBorder = x == 0 || y == 0 || x == size - 1 || y == size - 1;
-                    texture.SetPixel(x, y, isBorder ? border : fill);
-                }
-            }
-
-            texture.Apply(false, true);
-            var sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
-            sprite.name = name;
-            return sprite;
-        }
-
-        private static Sprite CreateDetailSprite(string name, Color fill, Color accent)
-        {
-            const int size = 16;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                name = name + " Texture",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp
-            };
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    bool accentPixel = x > 1
-                        && y > 1
-                        && x < size - 2
-                        && y < size - 2
-                        && ((x * 5 + y * 3) % 11 == 0 || (x * 7 + y * 2) % 13 == 0);
-                    texture.SetPixel(x, y, accentPixel ? accent : fill);
-                }
-            }
-
-            texture.Apply(false, true);
-            var sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
-            sprite.name = name;
-            return sprite;
+            return false;
         }
     }
 }

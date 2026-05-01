@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -131,3 +132,4 @@ namespace Minebot.Presentation
         }
     }
 }
+#endif
