@@ -6,26 +6,38 @@ namespace Minebot.GridMining
 {
     public enum TerrainKind
     {
+        [InspectorName("空地")]
         Empty = 0,
+        [InspectorName("可挖墙体")]
         MineableWall = 1,
+        [InspectorName("不可破坏")]
         Indestructible = 2
     }
 
     public enum HardnessTier
     {
+        [InspectorName("土层")]
         Soil = 0,
+        [InspectorName("石层")]
         Stone = 1,
+        [InspectorName("硬岩")]
         HardRock = 2,
+        [InspectorName("超硬岩")]
         UltraHard = 3
     }
 
     [Flags]
     public enum CellStaticFlags
     {
+        [InspectorName("无")]
         None = 0,
+        [InspectorName("炸药")]
         Bomb = 1 << 0,
+        [InspectorName("保留安全通路")]
         PreserveSafePath = 1 << 1,
+        [InspectorName("坍塌阻塞")]
         CollapseBlocked = 1 << 2,
+        [InspectorName("特殊探测规则")]
         SpecialScanRule = 1 << 3
     }
 

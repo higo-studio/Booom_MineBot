@@ -7,145 +7,189 @@ using TileBase = UnityEngine.Tilemaps.TileBase;
 
 namespace Minebot.Presentation
 {
-    [CreateAssetMenu(menuName = "Minebot/Presentation/Presentation Art Set")]
+    [CreateAssetMenu(menuName = "Minebot/表现/表现美术集")]
     public sealed class MinebotPresentationArtSet : ScriptableObject
     {
-        [Header("Terrain")]
+        [Header("地形")]
         [SerializeField]
+        [InspectorLabel("空地瓦片")]
         private TileBase emptyTile;
 
         [SerializeField]
+        [InspectorLabel("土层墙瓦片")]
         private TileBase soilWallTile;
 
         [SerializeField]
+        [InspectorLabel("石层墙瓦片")]
         private TileBase stoneWallTile;
 
         [SerializeField]
+        [InspectorLabel("硬岩墙瓦片")]
         private TileBase hardRockWallTile;
 
         [SerializeField]
+        [InspectorLabel("超硬岩墙瓦片")]
         private TileBase ultraHardWallTile;
 
         [SerializeField]
+        [InspectorLabel("边界瓦片")]
         private TileBase boundaryTile;
 
         [SerializeField]
+        [InspectorLabel("双网格地形配置")]
         private DualGridTerrainProfile dualGridTerrainProfile;
 
         [SerializeField]
+        [InspectorLabel("双网格地板瓦片")]
         private TileBase[] floorDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("双网格土层瓦片")]
         private TileBase[] soilDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("双网格石层瓦片")]
         private TileBase[] stoneDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("双网格硬岩瓦片")]
         private TileBase[] hardRockDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("双网格超硬岩瓦片")]
         private TileBase[] ultraHardDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("双网格边界瓦片")]
         private TileBase[] boundaryDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("近雾双网格瓦片")]
         private TileBase[] fogNearDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("深雾双网格瓦片")]
         private TileBase[] fogDeepDualGridTiles = Array.Empty<TileBase>();
 
-        [Header("Overlay")]
+        [Header("覆盖层")]
         [SerializeField]
+        [InspectorLabel("危险覆盖瓦片")]
         private TileBase dangerTile;
 
         [SerializeField]
+        [InspectorLabel("标记瓦片")]
         private TileBase markerTile;
 
         [SerializeField]
+        [InspectorLabel("探测提示瓦片")]
         private TileBase scanHintTile;
 
         [SerializeField]
+        [InspectorLabel("危险描边瓦片")]
         private TileBase[] dangerOutlineTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("墙体轮廓瓦片")]
         private TileBase[] wallContourTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("危险轮廓瓦片")]
         private TileBase[] dangerContourTiles = Array.Empty<TileBase>();
 
         [SerializeField]
+        [InspectorLabel("土层细节瓦片")]
         private TileBase soilDetailTile;
 
         [SerializeField]
+        [InspectorLabel("石层细节瓦片")]
         private TileBase stoneDetailTile;
 
         [SerializeField]
+        [InspectorLabel("硬岩细节瓦片")]
         private TileBase hardRockDetailTile;
 
         [SerializeField]
+        [InspectorLabel("超硬岩细节瓦片")]
         private TileBase ultraHardDetailTile;
 
         [SerializeField]
+        [InspectorLabel("建造有效预览瓦片")]
         private TileBase buildPreviewValidTile;
 
         [SerializeField]
+        [InspectorLabel("建造无效预览瓦片")]
         private TileBase buildPreviewInvalidTile;
 
-        [Header("Hologram Overlay")]
+        [Header("全息覆盖层")]
         [SerializeField]
+        [InspectorLabel("全息覆盖图集")]
         private Texture2D hologramOverlayAtlas;
 
         [SerializeField]
+        [InspectorLabel("位图字形图集")]
         private Texture2D bitmapGlyphAtlas;
 
         [SerializeField]
+        [InspectorLabel("位图字形描述文件")]
         private TextAsset bitmapGlyphDescriptor;
 
         [SerializeField]
+        [InspectorLabel("位图字形字体")]
         private BitmapGlyphFontDefinition bitmapGlyphFont;
 
         [SerializeField]
+        [InspectorLabel("探测标签偏移")]
         private Vector2 scanLabelOffset = new Vector2(0f, 0.62f);
 
         [SerializeField]
+        [InspectorLabel("探测标签颜色")]
         private Color scanLabelColor = new Color(0.62f, 1f, 0.96f, 1f);
 
         [SerializeField]
+        [InspectorLabel("探测标签字号")]
         private float scanLabelFontSize = 4f;
 
         [SerializeField]
+        [InspectorLabel("探测标签排序层级")]
         private int scanLabelSortingOrder = 35;
 
-        [Header("Facilities")]
+        [Header("设施")]
         [SerializeField]
+        [InspectorLabel("维修站瓦片")]
         private TileBase repairStationTile;
 
         [SerializeField]
+        [InspectorLabel("机器人工厂瓦片")]
         private TileBase robotFactoryTile;
 
-        [Header("Actors")]
+        [Header("角色")]
         [SerializeField]
+        [InspectorLabel("玩家精灵")]
         private Sprite playerSprite;
 
         [SerializeField]
+        [InspectorLabel("机器人精灵")]
         private Sprite robotSprite;
 
         [SerializeField]
+        [InspectorLabel("玩家碰撞半径")]
         private float playerColliderRadius = 0.42f;
 
-        [Header("Prefab Gameplay Art")]
+        [Header("预制体玩法美术")]
         [SerializeField]
+        [InspectorLabel("角色资源")]
         private MinebotPresentationActorResources actorResources = new MinebotPresentationActorResources();
 
         [SerializeField]
+        [InspectorLabel("拾取物资源")]
         private MinebotPresentationPickupResources pickupResources = new MinebotPresentationPickupResources();
 
         [SerializeField]
+        [InspectorLabel("格子特效资源")]
         private MinebotPresentationCellFxResources cellFxResources = new MinebotPresentationCellFxResources();
 
         [SerializeField]
+        [InspectorLabel("界面资源")]
         private MinebotPresentationHudResources hudResources = new MinebotPresentationHudResources();
 
         [NonSerialized]

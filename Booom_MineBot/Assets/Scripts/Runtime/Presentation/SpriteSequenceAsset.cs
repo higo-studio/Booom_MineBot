@@ -3,16 +3,19 @@ using UnityEngine;
 
 namespace Minebot.Presentation
 {
-    [CreateAssetMenu(menuName = "Minebot/Presentation/Sprite Sequence")]
+    [CreateAssetMenu(menuName = "Minebot/表现/精灵序列")]
     public sealed class SpriteSequenceAsset : ScriptableObject
     {
         [SerializeField]
+        [InspectorLabel("帧列表")]
         private Sprite[] frames = Array.Empty<Sprite>();
 
         [SerializeField]
+        [InspectorLabel("帧时长")]
         private float frameDuration = 0.12f;
 
         [SerializeField]
+        [InspectorLabel("循环")]
         private bool loop = true;
 
         public Sprite[] Frames => frames ?? Array.Empty<Sprite>();

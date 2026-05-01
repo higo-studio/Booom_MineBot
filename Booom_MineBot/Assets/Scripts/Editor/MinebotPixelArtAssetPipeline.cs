@@ -74,7 +74,7 @@ namespace Minebot.Editor
             new("Assets/Art/Minebot/Sprites/Actors/actor_helper_robot.png", ActorPixelsPerUnit)
         };
 
-        [MenuItem("Minebot/Art/Rebuild Pixel Art Assets")]
+        [MenuItem("Minebot/美术/重建像素美术资源")]
         public static void EnsureDefaultAssets()
         {
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
@@ -96,7 +96,7 @@ namespace Minebot.Editor
             AssetDatabase.SaveAssets();
         }
 
-        [MenuItem("Minebot/Art/Validate Pixel Art Import Settings")]
+        [MenuItem("Minebot/美术/校验像素美术导入配置")]
         public static void ValidateImportSettings()
         {
             var errors = new List<string>();
@@ -130,21 +130,21 @@ namespace Minebot.Editor
 
             if (AssetDatabase.LoadAssetAtPath<TextAsset>(BitmapGlyphDescriptorPath) == null)
             {
-                errors.Add($"{BitmapGlyphDescriptorPath}: missing descriptor");
+                errors.Add($"{BitmapGlyphDescriptorPath}：缺少描述文件");
             }
 
             if (AssetDatabase.LoadAssetAtPath<BitmapGlyphFontDefinition>(BitmapGlyphFontAssetPath) == null)
             {
-                errors.Add($"{BitmapGlyphFontAssetPath}: missing bitmap glyph font asset");
+                errors.Add($"{BitmapGlyphFontAssetPath}：缺少位图字形字体资源");
             }
 
             if (errors.Count == 0)
             {
-                Debug.Log("Minebot pixel art import settings are valid.");
+                Debug.Log("Minebot 像素美术导入配置校验通过。");
                 return;
             }
 
-            Debug.LogError("Minebot pixel art import settings failed:\n" + string.Join("\n", errors));
+            Debug.LogError("Minebot 像素美术导入配置校验失败：\n" + string.Join("\n", errors));
         }
 
         private static void EnsureTextureImporters()
@@ -698,28 +698,28 @@ namespace Minebot.Editor
             var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
             if (importer == null)
             {
-                errors.Add($"{assetPath}: missing TextureImporter");
+                errors.Add($"{assetPath}：缺少纹理导入器");
                 return;
             }
 
             if (importer.textureType != TextureImporterType.Sprite)
             {
-                errors.Add($"{assetPath}: Texture Type must be Sprite");
+                errors.Add($"{assetPath}：纹理类型必须为 Sprite");
             }
 
             if (importer.filterMode != FilterMode.Point)
             {
-                errors.Add($"{assetPath}: Filter Mode must be Point");
+                errors.Add($"{assetPath}：过滤模式必须为 Point");
             }
 
             if (importer.mipmapEnabled)
             {
-                errors.Add($"{assetPath}: Mipmap must be disabled");
+                errors.Add($"{assetPath}：必须关闭 Mipmap");
             }
 
             if (!Mathf.Approximately(importer.spritePixelsPerUnit, pixelsPerUnit))
             {
-                errors.Add($"{assetPath}: Pixels Per Unit must be {pixelsPerUnit}");
+                errors.Add($"{assetPath}：每单位像素必须为 {pixelsPerUnit}");
             }
         }
 

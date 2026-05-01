@@ -7,8 +7,11 @@ namespace Minebot.Presentation
 {
     public enum DualGridPreviewRefreshMode : byte
     {
+        [InspectorName("手动")]
         Manual = 0,
+        [InspectorName("启用时")]
         OnEnable = 1,
+        [InspectorName("参数变更时")]
         OnValidate = 2
     }
 
@@ -16,24 +19,31 @@ namespace Minebot.Presentation
     public sealed class DualGridPreviewHost : MonoBehaviour
     {
         [SerializeField]
+        [InspectorLabel("源地形瓦片地图")]
         private Tilemap sourceTerrainTilemap;
 
         [SerializeField]
+        [InspectorLabel("烘焙配置")]
         private TilemapBakeProfile bakeProfile;
 
         [SerializeField]
+        [InspectorLabel("美术集")]
         private MinebotPresentationArtSet artSet;
 
         [SerializeField]
+        [InspectorLabel("覆盖地形配置")]
         private DualGridTerrainProfile profileOverride;
 
         [SerializeField]
+        [InspectorLabel("预览根节点")]
         private Transform previewRoot;
 
         [SerializeField]
+        [InspectorLabel("刷新时机")]
         private DualGridPreviewRefreshMode refreshMode = DualGridPreviewRefreshMode.Manual;
 
         [SerializeField]
+        [InspectorLabel("自动创建缺失图层")]
         private bool createMissingLayers = true;
 
         private readonly DualGridRenderer renderer = new DualGridRenderer(new LayeredBinaryTerrainResolver());
@@ -108,17 +118,17 @@ namespace Minebot.Presentation
             var issues = new List<string>();
             if (sourceTerrainTilemap == null)
             {
-                issues.Add("Missing source terrain tilemap.");
+                issues.Add("缺少源地形瓦片地图。");
             }
 
             if (bakeProfile == null)
             {
-                issues.Add("Missing tilemap bake profile.");
+                issues.Add("缺少瓦片地图烘焙配置。");
             }
 
             if (artSet == null && profileOverride == null)
             {
-                issues.Add("Missing presentation art set or dual-grid profile override.");
+                issues.Add("缺少表现美术集或双网格配置覆盖项。");
             }
 
             DualGridTerrainProfile profile = profileOverride != null
@@ -150,7 +160,7 @@ namespace Minebot.Presentation
             tilemaps = createMissingLayers ? EnsureTerrainFamilyLayers(root, assets.TerrainLayoutSettings) : GetPreviewTilemaps();
             if (tilemaps == null || tilemaps.Length == 0)
             {
-                message = "Unable to resolve preview tilemaps.";
+                message = "无法解析预览瓦片地图。";
                 return false;
             }
 

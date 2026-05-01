@@ -25,7 +25,7 @@ namespace Minebot.Editor
         {
             if (issues == null || issues.Count == 0)
             {
-                EditorGUILayout.HelpBox("Dual-grid preview configuration is valid.", MessageType.Info);
+                EditorGUILayout.HelpBox("双网格预览配置有效。", MessageType.Info);
                 return;
             }
 
@@ -39,34 +39,34 @@ namespace Minebot.Editor
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Refresh Preview"))
+                if (GUILayout.Button("刷新预览"))
                 {
                     bool rebuilt = host.RebuildPreview();
                     MarkDirty(host);
                     Debug.Log(rebuilt
-                        ? $"Dual-grid preview refreshed for '{host.name}'."
-                        : $"Dual-grid preview refresh skipped for '{host.name}'. Check the inspector warnings.",
+                        ? $"已刷新 '{host.name}' 的双网格预览。"
+                        : $"已跳过 '{host.name}' 的双网格预览刷新，请先检查 Inspector 中的警告。",
                         host);
                 }
 
-                if (GUILayout.Button("Clear Preview"))
+                if (GUILayout.Button("清空预览"))
                 {
                     host.ClearPreview();
                     MarkDirty(host);
                 }
             }
 
-            if (GUILayout.Button("Validate Configuration"))
+            if (GUILayout.Button("校验配置"))
             {
                 IReadOnlyList<string> issues = host.ValidateConfiguration();
                 if (issues.Count == 0)
                 {
-                    Debug.Log($"Dual-grid preview configuration is valid for '{host.name}'.", host);
+                    Debug.Log($"'{host.name}' 的双网格预览配置有效。", host);
                     return;
                 }
 
                 Debug.LogWarning(
-                    $"Dual-grid preview configuration has {issues.Count} issue(s) for '{host.name}':\n{string.Join("\n", issues)}",
+                    $"'{host.name}' 的双网格预览配置有 {issues.Count} 个问题：\n{string.Join("\n", issues)}",
                     host);
             }
         }

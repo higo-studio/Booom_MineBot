@@ -9,7 +9,7 @@ namespace Minebot.Editor
 {
     public static class MinebotHudPrefabBuilder
     {
-        private const string MenuPath = "Minebot/UI/Rebuild HUD Prefabs";
+        private const string MenuPath = "Minebot/界面/重建界面预制体";
         private const string DefaultArtSetPath = "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset";
         private const string HudTemplateAssetPath = "Assets/Resources/Minebot/UI/HUD.prefab";
         private const string HudBackgroundPath = "Assets/Art/Minebot/Sprites/UI/HUD/hud_panel_background.png";

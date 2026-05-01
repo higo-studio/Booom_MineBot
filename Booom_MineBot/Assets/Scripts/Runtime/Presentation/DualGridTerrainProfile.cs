@@ -7,8 +7,11 @@ namespace Minebot.Presentation
 {
     public enum DualGridAuthoringMode : byte
     {
+        [InspectorName("16 格图集")]
         Atlas16 = 0,
+        [InspectorName("显式 16 格")]
         Explicit16 = 1,
+        [InspectorName("规范 6 格")]
         Canonical6 = 2
     }
 
@@ -16,21 +19,27 @@ namespace Minebot.Presentation
     public struct DualGridAtlas16Source
     {
         [SerializeField]
+        [InspectorLabel("图集纹理")]
         private Texture2D atlasTexture;
 
         [SerializeField]
+        [InspectorLabel("列数")]
         private int columns;
 
         [SerializeField]
+        [InspectorLabel("行数")]
         private int rows;
 
         [SerializeField]
+        [InspectorLabel("单格尺寸")]
         private Vector2Int tileSize;
 
         [SerializeField]
+        [InspectorLabel("内边距")]
         private Vector2Int padding;
 
         [SerializeField]
+        [InspectorLabel("按行排列")]
         private bool rowMajor;
 
         public Texture2D AtlasTexture => atlasTexture;
@@ -57,9 +66,11 @@ namespace Minebot.Presentation
     public sealed class DualGridLegacyTopologyAssets
     {
         [SerializeField]
+        [InspectorLabel("墙体轮廓瓦片")]
         private Tile[] wallContourTiles = Array.Empty<Tile>();
 
         [SerializeField]
+        [InspectorLabel("危险轮廓瓦片")]
         private Tile[] dangerContourTiles = Array.Empty<Tile>();
 
         public Tile[] WallContourTiles => wallContourTiles ?? Array.Empty<Tile>();
@@ -80,33 +91,43 @@ namespace Minebot.Presentation
         private const int CanonicalTileCount = 6;
 
         [SerializeField]
+        [InspectorLabel("图层")]
         private TerrainRenderLayerId layerId;
 
         [SerializeField]
+        [InspectorLabel("启用")]
         private bool enabled = true;
 
         [SerializeField]
+        [InspectorLabel("制作模式")]
         private DualGridAuthoringMode authoringMode = DualGridAuthoringMode.Explicit16;
 
         [SerializeField]
+        [InspectorLabel("16 格图集源")]
         private DualGridAtlas16Source atlas16Source;
 
         [SerializeField]
+        [InspectorLabel("显式 16 格瓦片")]
         private Tile[] explicit16Tiles = Array.Empty<Tile>();
 
         [SerializeField]
+        [InspectorLabel("规范 6 格瓦片")]
         private Tile[] canonical6Tiles = Array.Empty<Tile>();
 
         [SerializeField]
+        [InspectorLabel("按索引覆盖 16 格瓦片")]
         private Tile[] perIndexOverrides16 = Array.Empty<Tile>();
 
         [SerializeField]
+        [InspectorLabel("缺失时允许自动补全")]
         private bool allowGeneratedFallbackForMissing = true;
 
         [SerializeField]
+        [InspectorLabel("允许规范 6 格自动旋转")]
         private bool allowAutoRotateCanonical = true;
 
         [SerializeField]
+        [InspectorLabel("最终 16 格瓦片")]
         private Tile[] resolved16Tiles = Array.Empty<Tile>();
 
         public TerrainRenderLayerId LayerId => layerId;
@@ -155,24 +176,25 @@ namespace Minebot.Presentation
 
         public IEnumerable<string> GetValidationIssues()
         {
+            string layerLabel = GetLayerLabel(layerId);
             if (resolved16Tiles != null && resolved16Tiles.Length > 0 && resolved16Tiles.Length != DualGridTerrain.TileCount)
             {
-                yield return $"{layerId}: resolved16Tiles length must be {DualGridTerrain.TileCount}.";
+                yield return $"{layerLabel}：最终 16 格瓦片数量必须为 {DualGridTerrain.TileCount}。";
             }
 
             if (explicit16Tiles != null && explicit16Tiles.Length > 0 && explicit16Tiles.Length != DualGridTerrain.TileCount)
             {
-                yield return $"{layerId}: explicit16Tiles length must be {DualGridTerrain.TileCount}.";
+                yield return $"{layerLabel}：显式 16 格瓦片数量必须为 {DualGridTerrain.TileCount}。";
             }
 
             if (perIndexOverrides16 != null && perIndexOverrides16.Length > 0 && perIndexOverrides16.Length != DualGridTerrain.TileCount)
             {
-                yield return $"{layerId}: perIndexOverrides16 length must be {DualGridTerrain.TileCount}.";
+                yield return $"{layerLabel}：按索引覆盖 16 格数量必须为 {DualGridTerrain.TileCount}。";
             }
 
             if (canonical6Tiles != null && canonical6Tiles.Length > 0 && canonical6Tiles.Length != CanonicalTileCount)
             {
-                yield return $"{layerId}: canonical6Tiles length must be {CanonicalTileCount}.";
+                yield return $"{layerLabel}：规范 6 格瓦片数量必须为 {CanonicalTileCount}。";
             }
 
             Tile[] resolved = ResolveTiles(null);
@@ -180,7 +202,7 @@ namespace Minebot.Presentation
             {
                 if (resolved[i] == null)
                 {
-                    yield return $"{layerId}: missing resolved tile at index {i:00}.";
+                    yield return $"{layerLabel}：缺少索引 {i:00} 的最终瓦片。";
                 }
             }
         }
@@ -352,6 +374,20 @@ namespace Minebot.Presentation
             }
         }
 
+        private static string GetLayerLabel(TerrainRenderLayerId layerId)
+        {
+            return layerId switch
+            {
+                TerrainRenderLayerId.Floor => "地板层",
+                TerrainRenderLayerId.Soil => "土层",
+                TerrainRenderLayerId.Stone => "石层",
+                TerrainRenderLayerId.HardRock => "硬岩层",
+                TerrainRenderLayerId.UltraHard => "超硬岩层",
+                TerrainRenderLayerId.Boundary => "边界层",
+                _ => "未知图层"
+            };
+        }
+
         private static void FillMissingFromTileBase(Tile[] destination, TileBase[] fallback)
         {
             int count = Mathf.Min(destination.Length, fallback.Length);
@@ -365,19 +401,23 @@ namespace Minebot.Presentation
         }
     }
 
-    [CreateAssetMenu(menuName = "Minebot/Presentation/Dual Grid Terrain Profile")]
+    [CreateAssetMenu(menuName = "Minebot/表现/双网格地形配置")]
     public sealed class DualGridTerrainProfile : ScriptableObject
     {
         [SerializeField]
+        [InspectorLabel("布局设置")]
         private DualGridTerrainLayoutSettings layoutSettings = default;
 
         [SerializeField]
+        [InspectorLabel("地形族配置")]
         private DualGridTerrainFamilyProfile[] families = Array.Empty<DualGridTerrainFamilyProfile>();
 
         [SerializeField]
+        [InspectorLabel("旧拓扑资源")]
         private DualGridLegacyTopologyAssets legacyTopology = new DualGridLegacyTopologyAssets();
 
         [SerializeField]
+        [InspectorLabel("允许回退到旧美术集")]
         private bool allowLegacyArtSetFallback = true;
 
         public DualGridTerrainLayoutSettings LayoutSettings => layoutSettings.DisplayOffset == default && layoutSettings.SortingOrderStep == 0
@@ -416,7 +456,7 @@ namespace Minebot.Presentation
             {
                 if (family == null)
                 {
-                    yield return "Dual-grid profile has a missing family entry.";
+                    yield return "双网格配置中存在缺失的地形族条目。";
                     continue;
                 }
 
