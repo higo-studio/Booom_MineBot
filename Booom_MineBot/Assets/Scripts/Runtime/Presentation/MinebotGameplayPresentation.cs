@@ -599,12 +599,12 @@ namespace Minebot.Presentation
 
             Tilemap[] terrainFamilies = EnsureTerrainFamilyLayers(gridRoot);
             Vector3 fogOffset = assets != null ? assets.TerrainLayoutSettings.DisplayOffset : DualGridFog.DisplayOffset;
-            Tilemap fogDeep = EnsureTilemapLayer(gridRoot, FogDeepTilemapName, 8, fogOffset);
-            Tilemap fogNear = EnsureTilemapLayer(gridRoot, FogNearTilemapName, 9, fogOffset);
-            Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, 10);
-            Tilemap facility = EnsureTilemapLayer(gridRoot, FacilityTilemapName, 15);
-            Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, 20);
-            Tilemap buildPreview = EnsureTilemapLayer(gridRoot, BuildPreviewTilemapName, 25);
+            Tilemap fogDeep = EnsureTilemapLayer(gridRoot, FogDeepTilemapName, assets?.FogDeepSortingOrder ?? 8, fogOffset);
+            Tilemap fogNear = EnsureTilemapLayer(gridRoot, FogNearTilemapName, assets?.FogNearSortingOrder ?? 9, fogOffset);
+            Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, assets?.DangerSortingOrder ?? 10);
+            Tilemap facility = EnsureTilemapLayer(gridRoot, FacilityTilemapName, assets?.FacilitySortingOrder ?? 15);
+            Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, assets?.MarkerSortingOrder ?? 20);
+            Tilemap buildPreview = EnsureTilemapLayer(gridRoot, BuildPreviewTilemapName, assets?.BuildPreviewSortingOrder ?? 25);
             scanIndicatorPresenter = EnsureScanIndicatorPresenter(EnsureChild(gridRoot, ScanIndicatorRootName));
             scanIndicatorPresenter.Configure(assets);
 
@@ -615,7 +615,7 @@ namespace Minebot.Presentation
             }
 
             gridPresentation.Configure(terrainFamilies, fogNear, fogDeep, facility, marker, danger, buildPreview, assets);
-            playerActorView = EnsureActorView(actorRoot, PlayerViewName, assets.PlayerActorPrefab, assets.PlayerSprite, 40);
+            playerActorView = EnsureActorView(actorRoot, PlayerViewName, assets.PlayerActorPrefab, assets.PlayerSprite, assets.PlayerSortingOrder);
             playerView = playerActorView.BodyRenderer;
             playerFreeform = EnsureFreeformActor(playerActorView.gameObject, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
             EnsureCircleCollider(playerActorView.gameObject, assets.PlayerColliderRadius);
@@ -759,6 +759,8 @@ namespace Minebot.Presentation
                 renderer = layer.gameObject.AddComponent<TilemapRenderer>();
             }
 
+            renderer.mode = TilemapRenderer.Mode.Individual;
+            renderer.sortOrder = TilemapRenderer.SortOrder.TopLeft;
             renderer.sortingOrder = sortingOrder;
             return tilemap;
         }
@@ -773,14 +775,44 @@ namespace Minebot.Presentation
             for (int i = 0; i < orderedLayers.Length; i++)
             {
                 TerrainRenderLayerId layerId = orderedLayers[i];
+                int sortingOrder = ResolveTerrainSortingOrder(layerId, layoutSettings);
+                Debug.Log($"[SortOrder] Layer {layerId} -> SortingOrder {sortingOrder} (Floor={assets?.FloorSortingOrder}, Wall={assets?.WallSortingOrder}, Boundary={assets?.BoundarySortingOrder})");
                 terrainTilemaps[i] = EnsureTilemapLayer(
                     gridRoot,
                     DualGridTerrainLayout.GetTilemapName(layerId),
-                    DualGridTerrainLayout.GetSortingOrder(layerId, layoutSettings),
+                    sortingOrder,
                     layoutSettings.DisplayOffset);
             }
 
             return terrainTilemaps;
+        }
+
+        private int ResolveTerrainSortingOrder(TerrainRenderLayerId layerId, DualGridTerrainLayoutSettings settings)
+        {
+            // Always use ArtSet direct sorting order fields if available
+            if (assets != null)
+            {
+                switch (layerId)
+                {
+                    case TerrainRenderLayerId.Floor:
+                        return assets.FloorSortingOrder;
+                    case TerrainRenderLayerId.Soil:
+                    case TerrainRenderLayerId.Stone:
+                    case TerrainRenderLayerId.HardRock:
+                    case TerrainRenderLayerId.UltraHard:
+                        return assets.WallSortingOrder;
+                    case TerrainRenderLayerId.Boundary:
+                        return assets.BoundarySortingOrder;
+                }
+            }
+
+            // Fall back to DualGridTerrainLayoutSettings
+            if (settings.UseManualSortingOrders)
+            {
+                return settings.GetManualSortingOrder(layerId);
+            }
+
+            return DualGridTerrainLayout.GetSortingOrder(layerId, settings);
         }
 
         private static ScanIndicatorPresenter EnsureScanIndicatorPresenter(Transform root)
@@ -1209,7 +1241,7 @@ namespace Minebot.Presentation
             while (robotViews.Count <= index)
             {
                 int displayIndex = robotViews.Count + 1;
-                MinebotActorView view = EnsureActorView(actorRoot, $"Robot View {displayIndex}", assets.HelperRobotPrefab, assets.RobotSprite, 40);
+                MinebotActorView view = EnsureActorView(actorRoot, $"Robot View {displayIndex}", assets.HelperRobotPrefab, assets.RobotSprite, assets.RobotSortingOrder);
                 if (view.GetComponent<HelperRobotMotionController>() == null)
                 {
                     view.gameObject.AddComponent<HelperRobotMotionController>();

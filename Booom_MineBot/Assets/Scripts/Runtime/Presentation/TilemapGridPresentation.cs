@@ -544,6 +544,16 @@ namespace Minebot.Presentation
                 return;
             }
 
+            if (!assets.DebugShowFog)
+            {
+                FogNearTilemap?.gameObject.SetActive(false);
+                FogDeepTilemap?.gameObject.SetActive(false);
+                return;
+            }
+
+            FogNearTilemap?.gameObject.SetActive(true);
+            FogDeepTilemap?.gameObject.SetActive(true);
+
             if (fullRebuild)
             {
                 fogRenderer.RebuildAll(grid.Size, fogNearMaskCache, fogDeepMaskCache, FogNearTilemap, FogDeepTilemap, assets);

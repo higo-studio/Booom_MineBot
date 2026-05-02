@@ -18,9 +18,43 @@ namespace Minebot.Presentation
         [InspectorLabel("排序层级步进")]
         private int sortingOrderStep;
 
+        [SerializeField]
+        [InspectorLabel("手动配置排序层级")]
+        private bool useManualSortingOrders;
+
+        [SerializeField]
+        [InspectorLabel("DG Floor 排序层级")]
+        private int floorSortingOrder;
+
+        [SerializeField]
+        [InspectorLabel("DG Wall 排序层级")]
+        private int wallSortingOrder;
+
+        [SerializeField]
+        [InspectorLabel("DG Boundary 排序层级")]
+        private int boundarySortingOrder;
+
         public Vector3 DisplayOffset => displayOffset == default ? DualGridTerrainLayout.DefaultDisplayOffset : displayOffset;
         public int SortingOrderBase => sortingOrderBase;
         public int SortingOrderStep => sortingOrderStep == 0 ? 1 : sortingOrderStep;
+        public bool UseManualSortingOrders => useManualSortingOrders;
+        public int GetManualSortingOrder(TerrainRenderLayerId layerId)
+        {
+            switch (layerId)
+            {
+                case TerrainRenderLayerId.Floor:
+                    return floorSortingOrder;
+                case TerrainRenderLayerId.Soil:
+                case TerrainRenderLayerId.Stone:
+                case TerrainRenderLayerId.HardRock:
+                case TerrainRenderLayerId.UltraHard:
+                    return wallSortingOrder;
+                case TerrainRenderLayerId.Boundary:
+                    return boundarySortingOrder;
+                default:
+                    return SortingOrderBase;
+            }
+        }
 
         public static DualGridTerrainLayoutSettings CreateDefault()
         {
@@ -28,7 +62,11 @@ namespace Minebot.Presentation
             {
                 displayOffset = DualGridTerrainLayout.DefaultDisplayOffset,
                 sortingOrderBase = 0,
-                sortingOrderStep = 1
+                sortingOrderStep = 1,
+                useManualSortingOrders = false,
+                floorSortingOrder = 0,
+                wallSortingOrder = 10,
+                boundarySortingOrder = 20
             };
         }
     }
@@ -63,6 +101,11 @@ namespace Minebot.Presentation
 
         public static int GetSortingOrder(TerrainRenderLayerId layerId, DualGridTerrainLayoutSettings settings)
         {
+            if (settings.UseManualSortingOrders)
+            {
+                return settings.GetManualSortingOrder(layerId);
+            }
+
             int orderedIndex = GetOrderedLayerIndex(layerId);
             return settings.SortingOrderBase + (Math.Max(0, orderedIndex) * settings.SortingOrderStep);
         }

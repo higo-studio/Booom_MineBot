@@ -206,7 +206,7 @@ MonoBehaviour:
   bitmapGlyphAtlas: {fileID: 2800000, guid: 0756fa162f9f249aab6793f908b5097f, type: 3}
   bitmapGlyphDescriptor: {fileID: 4900000, guid: 9560ad685c4ff44a5bfa09673f9fa52c, type: 3}
   bitmapGlyphFont: {fileID: 11400000, guid: 4ab9e547febc54282a5ceaecb887bfe7, type: 2}
-  scanLabelOffset: {x: 0, y: 0.7}
+  scanLabelOffset: {x: 0, y: 1}
   scanLabelColor: {r: 1, g: 1, b: 1, a: 1}
   scanLabelFontSize: 4
   scanLabelSortingOrder: 35
@@ -254,3 +254,15 @@ MonoBehaviour:
     upgradeIcon: {fileID: 21300000, guid: 6cb0cfede0cfa4084b3cd684b4b2eb63, type: 3}
     buildIcon: {fileID: 21300000, guid: 855fdf92ef49f463687f11ee6acbcaaa, type: 3}
     buildingInteractionIcon: {fileID: 21300000, guid: ce2119b45e7fd4e73b1beaba9e6e9818, type: 3}
+  debugShowFog: 0
+  floorSortingOrder: 0
+  wallSortingOrder: 10
+  boundarySortingOrder: 10
+  fogDeepSortingOrder: 20
+  fogNearSortingOrder: 20
+  dangerSortingOrder: 1
+  facilitySortingOrder: 10
+  markerSortingOrder: 10
+  buildPreviewSortingOrder: 10
+  playerSortingOrder: 10
+  robotSortingOrder: 10

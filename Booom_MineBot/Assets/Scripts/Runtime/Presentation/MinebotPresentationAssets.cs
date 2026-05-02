@@ -78,6 +78,18 @@ namespace Minebot.Presentation
         public float PlayerColliderRadius { get; private set; }
         public DualGridTerrainLayoutSettings TerrainLayoutSettings { get; private set; }
         public bool IsUsingConfiguredArtSet { get; private set; }
+        public bool DebugShowFog { get; private set; }
+        public int FloorSortingOrder { get; private set; }
+        public int WallSortingOrder { get; private set; }
+        public int BoundarySortingOrder { get; private set; }
+        public int FogDeepSortingOrder { get; private set; }
+        public int FogNearSortingOrder { get; private set; }
+        public int DangerSortingOrder { get; private set; }
+        public int FacilitySortingOrder { get; private set; }
+        public int MarkerSortingOrder { get; private set; }
+        public int BuildPreviewSortingOrder { get; private set; }
+        public int PlayerSortingOrder { get; private set; }
+        public int RobotSortingOrder { get; private set; }
 
         public static MinebotPresentationAssets Create(MinebotPresentationArtSet artSet)
         {
@@ -183,7 +195,19 @@ namespace Minebot.Presentation
                 ScanLabelSortingOrder = resolvedArtSet != null ? resolvedArtSet.ScanLabelSortingOrder : missingDefaults.ScanLabelSortingOrder,
                 PlayerColliderRadius = resolvedArtSet != null ? resolvedArtSet.PlayerColliderRadius : missingDefaults.PlayerColliderRadius,
                 TerrainLayoutSettings = layoutSettings,
-                IsUsingConfiguredArtSet = resolvedArtSet != null || dualGridProfileOverride != null
+                IsUsingConfiguredArtSet = resolvedArtSet != null || dualGridProfileOverride != null,
+                DebugShowFog = resolvedArtSet?.DebugShowFog ?? true,
+                FloorSortingOrder = resolvedArtSet?.FloorSortingOrder ?? 0,
+                WallSortingOrder = resolvedArtSet?.WallSortingOrder ?? 10,
+                BoundarySortingOrder = resolvedArtSet?.BoundarySortingOrder ?? 20,
+                FogDeepSortingOrder = resolvedArtSet?.FogDeepSortingOrder ?? 8,
+                FogNearSortingOrder = resolvedArtSet?.FogNearSortingOrder ?? 9,
+                DangerSortingOrder = resolvedArtSet?.DangerSortingOrder ?? 10,
+                FacilitySortingOrder = resolvedArtSet?.FacilitySortingOrder ?? 15,
+                MarkerSortingOrder = resolvedArtSet?.MarkerSortingOrder ?? 20,
+                BuildPreviewSortingOrder = resolvedArtSet?.BuildPreviewSortingOrder ?? 25,
+                PlayerSortingOrder = resolvedArtSet?.PlayerSortingOrder ?? 40,
+                RobotSortingOrder = resolvedArtSet?.RobotSortingOrder ?? 40
             };
 
             ReportMissingResources(assets, resolvedArtSet, dualGridProfileOverride);
