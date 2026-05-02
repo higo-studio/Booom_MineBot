@@ -192,6 +192,58 @@ namespace Minebot.Presentation
         [InspectorLabel("界面资源")]
         private MinebotPresentationHudResources hudResources = new MinebotPresentationHudResources();
 
+        [Header("Debug")]
+        [SerializeField]
+        [InspectorLabel("显示雾层")]
+        private bool debugShowFog = true;
+
+        [Header("地形层排序")]
+        [SerializeField]
+        [InspectorLabel("DG Floor 排序层级")]
+        private int floorSortingOrder = 0;
+
+        [SerializeField]
+        [InspectorLabel("DG Wall 排序层级")]
+        private int wallSortingOrder = 10;
+
+        [SerializeField]
+        [InspectorLabel("DG Boundary 排序层级")]
+        private int boundarySortingOrder = 20;
+
+        [Header("覆盖层排序")]
+        [SerializeField]
+        [InspectorLabel("Fog Deep 排序层级")]
+        private int fogDeepSortingOrder = 8;
+
+        [SerializeField]
+        [InspectorLabel("Fog Near 排序层级")]
+        private int fogNearSortingOrder = 9;
+
+        [SerializeField]
+        [InspectorLabel("Danger 排序层级")]
+        private int dangerSortingOrder = 10;
+
+        [SerializeField]
+        [InspectorLabel("Facility 排序层级")]
+        private int facilitySortingOrder = 15;
+
+        [SerializeField]
+        [InspectorLabel("Marker 排序层级")]
+        private int markerSortingOrder = 20;
+
+        [SerializeField]
+        [InspectorLabel("BuildPreview 排序层级")]
+        private int buildPreviewSortingOrder = 25;
+
+        [Header("角色排序")]
+        [SerializeField]
+        [InspectorLabel("玩家排序层级")]
+        private int playerSortingOrder = 40;
+
+        [SerializeField]
+        [InspectorLabel("从属机器人排序层级")]
+        private int robotSortingOrder = 40;
+
         public TileBase EmptyTile => emptyTile;
         public TileBase SoilWallTile => soilWallTile;
         public TileBase StoneWallTile => stoneWallTile;
@@ -241,6 +293,18 @@ namespace Minebot.Presentation
         public MinebotPresentationPickupResources PickupResources => pickupResources ?? new MinebotPresentationPickupResources();
         public MinebotPresentationCellFxResources CellFxResources => cellFxResources ?? new MinebotPresentationCellFxResources();
         public MinebotPresentationHudResources HudResources => hudResources ?? new MinebotPresentationHudResources();
+        public bool DebugShowFog => debugShowFog;
+        public int FloorSortingOrder => floorSortingOrder;
+        public int WallSortingOrder => wallSortingOrder;
+        public int BoundarySortingOrder => boundarySortingOrder;
+        public int FogDeepSortingOrder => fogDeepSortingOrder;
+        public int FogNearSortingOrder => fogNearSortingOrder;
+        public int DangerSortingOrder => dangerSortingOrder;
+        public int FacilitySortingOrder => facilitySortingOrder;
+        public int MarkerSortingOrder => markerSortingOrder;
+        public int BuildPreviewSortingOrder => buildPreviewSortingOrder;
+        public int PlayerSortingOrder => playerSortingOrder;
+        public int RobotSortingOrder => robotSortingOrder;
 
         private TileBase[] ResolveDualGridTiles(TerrainRenderLayerId layerId, TileBase[] configuredTiles)
         {
