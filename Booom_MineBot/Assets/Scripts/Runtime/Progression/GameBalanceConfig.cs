@@ -43,6 +43,53 @@ namespace Minebot.Progression
         [InspectorLabel("机器人固定钻头等级")]
         private HardnessTier robotFixedDrillTier = HardnessTier.Soil;
 
+        [Header("资源掉落范围配置")]
+        [Tooltip("每种墙壁类型对应三种资源（金属/能量/经验）的掉落范围 (min, max)")]
+        
+        [Header("土层")]
+        [SerializeField]
+        [InspectorLabel("金属")]
+        private Vector2Int soilMetalRange = new Vector2Int(1, 1);
+        [SerializeField]
+        [InspectorLabel("能量")]
+        private Vector2Int soilEnergyRange = new Vector2Int(0, 1);
+        [SerializeField]
+        [InspectorLabel("经验")]
+        private Vector2Int soilExperienceRange = new Vector2Int(1, 1);
+
+        [Header("石层")]
+        [SerializeField]
+        [InspectorLabel("金属")]
+        private Vector2Int stoneMetalRange = new Vector2Int(2, 2);
+        [SerializeField]
+        [InspectorLabel("能量")]
+        private Vector2Int stoneEnergyRange = new Vector2Int(0, 1);
+        [SerializeField]
+        [InspectorLabel("经验")]
+        private Vector2Int stoneExperienceRange = new Vector2Int(2, 2);
+
+        [Header("硬岩")]
+        [SerializeField]
+        [InspectorLabel("金属")]
+        private Vector2Int hardRockMetalRange = new Vector2Int(3, 3);
+        [SerializeField]
+        [InspectorLabel("能量")]
+        private Vector2Int hardRockEnergyRange = new Vector2Int(1, 2);
+        [SerializeField]
+        [InspectorLabel("经验")]
+        private Vector2Int hardRockExperienceRange = new Vector2Int(3, 3);
+
+        [Header("超硬岩")]
+        [SerializeField]
+        [InspectorLabel("金属")]
+        private Vector2Int ultraHardMetalRange = new Vector2Int(4, 4);
+        [SerializeField]
+        [InspectorLabel("能量")]
+        private Vector2Int ultraHardEnergyRange = new Vector2Int(1, 2);
+        [SerializeField]
+        [InspectorLabel("经验")]
+        private Vector2Int ultraHardExperienceRange = new Vector2Int(4, 4);
+
         public int PlayerMaxHealth => Mathf.Max(1, playerMaxHealth);
         public int FirstUpgradeThreshold => Mathf.Max(1, firstUpgradeThreshold);
         public ResourceAmount StartingResources => startingResources;
@@ -52,5 +99,39 @@ namespace Minebot.Progression
         public float RobotActionInterval => Mathf.Max(0f, robotActionInterval);
         public bool RobotUsesPlayerDrillTier => robotUsesPlayerDrillTier;
         public HardnessTier RobotFixedDrillTier => robotFixedDrillTier;
+
+        public Vector2Int GetMetalRange(HardnessTier tier) => tier switch
+        {
+            HardnessTier.Soil => ClampRange(soilMetalRange),
+            HardnessTier.Stone => ClampRange(stoneMetalRange),
+            HardnessTier.HardRock => ClampRange(hardRockMetalRange),
+            HardnessTier.UltraHard => ClampRange(ultraHardMetalRange),
+            _ => ClampRange(soilMetalRange)
+        };
+
+        public Vector2Int GetEnergyRange(HardnessTier tier) => tier switch
+        {
+            HardnessTier.Soil => ClampRange(soilEnergyRange),
+            HardnessTier.Stone => ClampRange(stoneEnergyRange),
+            HardnessTier.HardRock => ClampRange(hardRockEnergyRange),
+            HardnessTier.UltraHard => ClampRange(ultraHardEnergyRange),
+            _ => ClampRange(soilEnergyRange)
+        };
+
+        public Vector2Int GetExperienceRange(HardnessTier tier) => tier switch
+        {
+            HardnessTier.Soil => ClampRange(soilExperienceRange),
+            HardnessTier.Stone => ClampRange(stoneExperienceRange),
+            HardnessTier.HardRock => ClampRange(hardRockExperienceRange),
+            HardnessTier.UltraHard => ClampRange(ultraHardExperienceRange),
+            _ => ClampRange(soilExperienceRange)
+        };
+
+        private static Vector2Int ClampRange(Vector2Int range)
+        {
+            int min = Mathf.Max(0, Mathf.Min(range.x, range.y));
+            int max = Mathf.Max(0, Mathf.Max(range.x, range.y));
+            return new Vector2Int(min, max);
+        }
     }
 }

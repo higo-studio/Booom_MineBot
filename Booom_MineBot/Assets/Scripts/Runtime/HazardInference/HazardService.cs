@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Minebot.Common;
 using Minebot.GridMining;
+using UnityEngine;
 
 namespace Minebot.HazardInference
 {
@@ -47,6 +48,9 @@ namespace Minebot.HazardInference
         {
             var random = new DeterministicRandom(seed);
             float clampedChance = UnityEngine.Mathf.Clamp01(chance);
+            Debug.Log($"[HazardService] 开始生成炸弹 - 概率: {clampedChance:F4}, 安全半径: {safeRadius}");
+            int mineableCount = 0;
+            int bombCount = 0;
             foreach (GridPosition position in grid.Positions())
             {
                 ref GridCellState cell = ref grid.GetCellRef(position);
@@ -55,11 +59,17 @@ namespace Minebot.HazardInference
                     continue;
                 }
 
-                if (cell.IsMineable && !cell.IsRevealed && random.Value() < clampedChance)
+                if (cell.IsMineable)
                 {
-                    cell.StaticFlags |= CellStaticFlags.Bomb;
+                    mineableCount++;
+                    if (!cell.IsRevealed && random.Value() < clampedChance)
+                    {
+                        cell.StaticFlags |= CellStaticFlags.Bomb;
+                        bombCount++;
+                    }
                 }
             }
+            Debug.Log($"[HazardService] 炸弹生成完成 - 可挖墙体: {mineableCount}, 生成炸弹: {bombCount}");
         }
 
         public IReadOnlyList<ScanReading> ScanNearbyEmptyCells(GridPosition playerPosition)

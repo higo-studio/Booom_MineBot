@@ -11,6 +11,8 @@ namespace Minebot.Bootstrap
         [SerializeField]
         private bool loadGameplayScene = true;
 
+        public BootstrapConfig Config => config;
+
         private void Awake()
         {
             DontDestroyOnLoad(gameObject);
