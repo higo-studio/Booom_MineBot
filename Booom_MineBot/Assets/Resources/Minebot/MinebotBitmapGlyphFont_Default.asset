@@ -18,32 +18,32 @@ MonoBehaviour:
   referenceFontSize: 4
   glyphs:
   - character: 0
-    sprite: {fileID: 21300000, guid: 46cb6dc6229754e499d5fdd6ff5b72df, type: 3}
+    sprite: {fileID: -6629531029891648246, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
   - character: 1
-    sprite: {fileID: 21300000, guid: e3e7c02ea22b94184a39355c4964fb49, type: 3}
+    sprite: {fileID: -4217592887472625829, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
   - character: 2
-    sprite: {fileID: 21300000, guid: 0c274ad23392e429f8139bf775574f7d, type: 3}
+    sprite: {fileID: -4412911677491635961, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
   - character: 3
-    sprite: {fileID: 21300000, guid: ddf2dfc12a73f471591e2d571ee9c975, type: 3}
+    sprite: {fileID: -6395529614303463221, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
   - character: 4
-    sprite: {fileID: 21300000, guid: 49152426433f34602a92136060866dad, type: 3}
+    sprite: {fileID: -4417143251372694878, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
   - character: 5
-    sprite: {fileID: 21300000, guid: 8da3803c5e911428c8cba67905f4c6d0, type: 3}
+    sprite: {fileID: 728446850243192315, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
   - character: 6
-    sprite: {fileID: 21300000, guid: 278fc54fc678d41578732e93214d221f, type: 3}
+    sprite: {fileID: 5108088467900000851, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
   - character: 7
-    sprite: {fileID: 21300000, guid: ff9e68fe919a343ee8a0e83248171fca, type: 3}
+    sprite: {fileID: -519400735672398794, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
   - character: 8
-    sprite: {fileID: 21300000, guid: 653191825909e4b21a12d4a0739d8208, type: 3}
+    sprite: {fileID: -1344653293438560547, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
   - character: 9
-    sprite: {fileID: 21300000, guid: 449b8a1199796488ab3b03a2eb97fb48, type: 3}
+    sprite: {fileID: 849386610096671516, guid: 028fa4a2791db314a93be1c66cc9781e, type: 3}
     advance: 10
