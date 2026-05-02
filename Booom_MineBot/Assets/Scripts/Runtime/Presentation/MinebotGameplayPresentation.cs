@@ -56,6 +56,10 @@ namespace Minebot.Presentation
         private bool enableWaveTick = true;
 
         [SerializeField]
+        [InspectorLabel("启动配置（留空则自动查找）")]
+        private BootstrapConfig bootstrapConfig;
+
+        [SerializeField]
         private MinebotPresentationArtSet artSet;
 
         [SerializeField]
@@ -518,21 +522,55 @@ namespace Minebot.Presentation
                 return;
             }
 
-            if (!MinebotServices.IsInitialized && autoInitializeServices)
+            // 如果服务已被 BootstrapSceneLoader 正确初始化，直接使用
+            if (MinebotServices.IsInitialized)
             {
-                MinebotServices.Initialize(null);
-            }
-
-            if (!MinebotServices.IsInitialized)
-            {
+                services = MinebotServices.Current;
+                repairStationPosition = PickFacilityPosition(GridPosition.Left);
+                robotFactoryPosition = PickFacilityPosition(GridPosition.Right);
+                availableBuildingDefinitions = ResolveBuildingDefinitions();
+                selectedBuildingDefinition = availableBuildingDefinitions.Length > 0 ? availableBuildingDefinitions[0] : null;
                 return;
             }
 
-            services = MinebotServices.Current;
-            repairStationPosition = PickFacilityPosition(GridPosition.Left);
-            robotFactoryPosition = PickFacilityPosition(GridPosition.Right);
-            availableBuildingDefinitions = ResolveBuildingDefinitions();
-            selectedBuildingDefinition = availableBuildingDefinitions.Length > 0 ? availableBuildingDefinitions[0] : null;
+            // 只有在允许自动初始化且服务未初始化时才初始化
+            if (autoInitializeServices)
+            {
+                // 优先使用序列化配置的 BootstrapConfig，如果没有则尝试自动查找
+                BootstrapConfig config = ResolveBootstrapConfig();
+                Debug.Log($"[MinebotGameplayPresentation] 自动初始化服务，使用配置: {(config != null ? config.name : "null")}");
+                MinebotServices.Initialize(config);
+                
+                if (MinebotServices.IsInitialized)
+                {
+                    services = MinebotServices.Current;
+                    repairStationPosition = PickFacilityPosition(GridPosition.Left);
+                    robotFactoryPosition = PickFacilityPosition(GridPosition.Right);
+                    availableBuildingDefinitions = ResolveBuildingDefinitions();
+                    selectedBuildingDefinition = availableBuildingDefinitions.Length > 0 ? availableBuildingDefinitions[0] : null;
+                }
+            }
+        }
+
+        private BootstrapConfig ResolveBootstrapConfig()
+        {
+            // 1. 如果已经序列化了配置，优先使用
+            if (bootstrapConfig != null)
+            {
+                Debug.Log("[MinebotGameplayPresentation] 使用序列化的配置");
+                return bootstrapConfig;
+            }
+
+            // 2. 尝试在场景中找到 BootstrapSceneLoader 的配置
+            BootstrapSceneLoader loader = FindAnyObjectByType<BootstrapSceneLoader>();
+            if (loader != null && loader.Config != null)
+            {
+                Debug.Log("[MinebotGameplayPresentation] 找到 BootstrapSceneLoader 配置");
+                return loader.Config;
+            }
+
+            Debug.LogWarning("[MinebotGameplayPresentation] 未能找到 BootstrapConfig，将使用默认配置");
+            return null;
         }
 
         private void EnsureSceneInfrastructure()

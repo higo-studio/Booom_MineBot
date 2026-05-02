@@ -16,19 +16,22 @@ namespace Minebot.Bootstrap
 
         public static RuntimeServiceRegistry Initialize(BootstrapConfig config)
         {
+            Debug.Log($"[MinebotServices.Initialize] 调用 - config: {(config != null ? config.name : "null")}");
             if (Current != null)
             {
+                Debug.Log($"[MinebotServices.Initialize] 服务已存在，直接返回");
                 return Current;
             }
 
             bool usingGeneratedMap = config == null || config.DefaultMap == null;
+            GameBalanceConfig balance = config != null ? config.BalanceConfig : null;
             MapGenerationSettings generatedMapSettings = config != null
                 ? config.GeneratedMapConfig.ToSettings()
                 : MapGenerationSettings.CreateDefault();
+            RewardConfig? rewardConfig = balance != null ? CreateRewardConfig(balance) : null;
             LogicalGridState grid = config != null && config.DefaultMap != null
                 ? config.DefaultMap.CreateGridState()
-                : MapGenerator.Generate(generatedMapSettings);
-            GameBalanceConfig balance = config != null ? config.BalanceConfig : null;
+                : MapGenerator.Generate(generatedMapSettings, rewardConfig);
             int maxHealth = balance != null ? balance.PlayerMaxHealth : 3;
             int firstThreshold = balance != null ? balance.FirstUpgradeThreshold : 4;
             var economy = new PlayerEconomy(balance != null ? balance.StartingResources : new Minebot.Common.ResourceAmount(1, 4, 0));
@@ -43,13 +46,14 @@ namespace Minebot.Bootstrap
             var mining = new MiningService(grid);
             var hazards = new HazardService(grid);
             HazardRules hazardRules = config != null ? config.HazardRules : null;
+            Debug.Log($"[MinebotServices] 配置检查 - HazardRules: {(hazardRules != null ? hazardRules.name : "null")}, BombSpawnChance: {(hazardRules?.BombSpawnChance ?? HazardRules.DefaultBombSpawnChance):F4}, BombSeed: {(hazardRules?.BombSeed ?? HazardRules.DefaultBombSeed)}, BombSafeRadius: {(hazardRules?.BombSafeRadius ?? HazardRules.DefaultBombSafeRadius)}");
             if (usingGeneratedMap)
             {
-                hazards.SeedBombs(
-                    hazardRules != null ? hazardRules.BombSeed : HazardRules.DefaultBombSeed,
-                    hazardRules != null ? hazardRules.BombSpawnChance : HazardRules.DefaultBombSpawnChance,
-                    grid.PlayerSpawn,
-                    hazardRules != null ? hazardRules.BombSafeRadius : HazardRules.DefaultBombSafeRadius);
+                int seed = hazardRules != null ? hazardRules.BombSeed : HazardRules.DefaultBombSeed;
+                float chance = hazardRules != null ? hazardRules.BombSpawnChance : HazardRules.DefaultBombSpawnChance;
+                int safeRadius = hazardRules != null ? hazardRules.BombSafeRadius : HazardRules.DefaultBombSafeRadius;
+                Debug.Log($"[MinebotServices] 正在生成炸弹 - Seed: {seed}, Chance: {chance:F4}, SafeRadius: {safeRadius}");
+                hazards.SeedBombs(seed, chance, grid.PlayerSpawn, safeRadius);
             }
 
             var robotAutomation = new RobotAutomationService(
@@ -110,6 +114,23 @@ namespace Minebot.Bootstrap
         public static void ResetForTests()
         {
             Current = null;
+        }
+
+        private static RewardConfig CreateRewardConfig(GameBalanceConfig balance)
+        {
+            return new RewardConfig(
+                balance.GetMetalRange(HardnessTier.Soil),
+                balance.GetEnergyRange(HardnessTier.Soil),
+                balance.GetExperienceRange(HardnessTier.Soil),
+                balance.GetMetalRange(HardnessTier.Stone),
+                balance.GetEnergyRange(HardnessTier.Stone),
+                balance.GetExperienceRange(HardnessTier.Stone),
+                balance.GetMetalRange(HardnessTier.HardRock),
+                balance.GetEnergyRange(HardnessTier.HardRock),
+                balance.GetExperienceRange(HardnessTier.HardRock),
+                balance.GetMetalRange(HardnessTier.UltraHard),
+                balance.GetEnergyRange(HardnessTier.UltraHard),
+                balance.GetExperienceRange(HardnessTier.UltraHard));
         }
     }
 }

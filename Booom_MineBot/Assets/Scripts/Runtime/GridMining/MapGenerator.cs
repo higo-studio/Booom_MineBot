@@ -82,6 +82,12 @@ namespace Minebot.GridMining
 
         public static LogicalGridState Generate(MapGenerationSettings settings)
         {
+            return Generate(settings, null);
+        }
+
+        public static LogicalGridState Generate(MapGenerationSettings settings, RewardConfig? rewardConfig = null)
+        {
+            var random = rewardConfig.HasValue ? new DeterministicRandom(settings.Spawn.X * 31 + settings.Spawn.Y) : null;
             var cells = new List<GridCellState>(settings.Size.x * settings.Size.y);
             float maxRadialDistance = MaxDistanceToInnerCorner(settings);
             for (int y = 0; y < settings.Size.y; y++)
@@ -97,7 +103,7 @@ namespace Minebot.GridMining
                         ? GetHardness(position, chebyshevDistance, settings, maxRadialDistance)
                         : HardnessTier.Soil;
                     ResourceAmount reward = terrain == TerrainKind.MineableWall
-                        ? GetReward(position, hardness)
+                        ? GetReward(position, hardness, rewardConfig, random)
                         : ResourceAmount.Zero;
                     cells.Add(new GridCellState(terrain, hardness, CellStaticFlags.None, reward));
                 }
@@ -191,20 +197,47 @@ namespace Minebot.GridMining
             return Mathf.Clamp01(((radial01 * radialWeight) + (noise01 * noiseWeight)) / totalWeight);
         }
 
-        private static ResourceAmount GetReward(GridPosition position, HardnessTier hardness)
+        private static ResourceAmount GetReward(GridPosition position, HardnessTier hardness, RewardConfig? rewardConfig, DeterministicRandom random)
         {
-            bool energyPocket = ((position.X * 31 + position.Y * 17) % 5) == 0;
-            switch (hardness)
+            // 如果没有配置，使用默认奖励（保持向后兼容）
+            if (!rewardConfig.HasValue)
             {
-                case HardnessTier.UltraHard:
-                    return new ResourceAmount(4, energyPocket ? 2 : 1, 4);
-                case HardnessTier.HardRock:
-                    return new ResourceAmount(3, energyPocket ? 2 : 1, 3);
-                case HardnessTier.Stone:
-                    return new ResourceAmount(2, energyPocket ? 1 : 0, 2);
-                default:
-                    return new ResourceAmount(1, energyPocket ? 1 : 0, 1);
+                bool energyPocket = ((position.X * 31 + position.Y * 17) % 5) == 0;
+                return hardness switch
+                {
+                    HardnessTier.UltraHard => new ResourceAmount(4, energyPocket ? 2 : 1, 4),
+                    HardnessTier.HardRock => new ResourceAmount(3, energyPocket ? 2 : 1, 3),
+                    HardnessTier.Stone => new ResourceAmount(2, energyPocket ? 1 : 0, 2),
+                    _ => new ResourceAmount(1, energyPocket ? 1 : 0, 1)
+                };
             }
+
+            // 使用配置的范围
+            var config = rewardConfig.Value;
+            int metal = RandomRange(random, position, config.GetMetalRange(hardness));
+            int energy = RandomRange(random, position + new GridPosition(100, 0), config.GetEnergyRange(hardness));
+            int experience = RandomRange(random, position + new GridPosition(0, 100), config.GetExperienceRange(hardness));
+            return new ResourceAmount(metal, energy, experience);
+        }
+
+        private static int RandomRange(DeterministicRandom random, GridPosition position, Vector2Int range)
+        {
+            if (random == null)
+            {
+                // 无随机器时返回范围中间值
+                return (range.x + range.y) / 2;
+            }
+
+            // 使用确定性随机生成器，确保同一位置每次生成相同结果
+            int seed = position.X * 31 + position.Y * 17;
+            int count = range.y - range.x + 1;
+            if (count <= 1)
+            {
+                return range.x;
+            }
+
+            int value = (seed * 12345) % count;
+            return range.x + value;
         }
     }
 }
