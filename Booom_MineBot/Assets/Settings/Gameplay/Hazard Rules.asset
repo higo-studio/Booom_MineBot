@@ -16,7 +16,8 @@ MonoBehaviour:
   bombSeed: 20260425
   bombSafeRadius: 2
   scanEnergyCost: 1
-  scanFrontierRange: 1
+  scanFrontierRange: 10
+  passiveHazardSenseIntervalSeconds: 1
   directBombDamage: 1
   explosionRadius: 1
   scanUsesEightWayNeighbors: 1
