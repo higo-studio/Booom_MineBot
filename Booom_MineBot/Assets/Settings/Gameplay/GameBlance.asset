@@ -30,3 +30,15 @@ MonoBehaviour:
   robotActionInterval: 0.35
   robotUsesPlayerDrillTier: 1
   robotFixedDrillTier: 0
+  soilMetalRange: {x: 0, y: 0}
+  soilEnergyRange: {x: 0, y: 0}
+  soilExperienceRange: {x: 0, y: 1}
+  stoneMetalRange: {x: 0, y: 0}
+  stoneEnergyRange: {x: 0, y: 0}
+  stoneExperienceRange: {x: 1, y: 2}
+  hardRockMetalRange: {x: 0, y: 0}
+  hardRockEnergyRange: {x: 0, y: 0}
+  hardRockExperienceRange: {x: 2, y: 3}
+  ultraHardMetalRange: {x: 0, y: 0}
+  ultraHardEnergyRange: {x: 0, y: 0}
+  ultraHardExperienceRange: {x: 3, y: 4}

@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b44e8d58e66e1407e9f0427838ad0a5c, type: 3}
   m_Name: Hazard Rules
   m_EditorClassIdentifier: 
-  bombSpawnChance: 0.09
-  bombSeed: 20260425
+  bombSpawnChance: 0.2
+  bombSeed: 123456798
   bombSafeRadius: 2
   scanEnergyCost: 1
   scanFrontierRange: 10
-  passiveHazardSenseIntervalSeconds: 1
+  passiveHazardSenseIntervalSeconds: 0.1
   directBombDamage: 1
   explosionRadius: 1
   scanUsesEightWayNeighbors: 1
