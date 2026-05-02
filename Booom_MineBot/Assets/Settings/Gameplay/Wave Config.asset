@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42eb7056449524d5a984a889f0efa395, type: 3}
   m_Name: Wave Config
   m_EditorClassIdentifier: 
-  firstWaveDelay: 30
+  firstWaveDelay: 90
   baseDangerRadius: 1
   radiusGrowthEveryWaves: 2
   robotRecycleDrop:
