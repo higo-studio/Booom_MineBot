@@ -260,7 +260,7 @@ MonoBehaviour:
   floorSortingOrder: 0
   wallSortingOrder: 10
   boundarySortingOrder: 10
-  floorDisplayOffset: {x: 0, y: 0, z: 0}
+  floorDisplayOffset: {x: 0.5, y: 0.5, z: 0}
   fogDeepSortingOrder: 20
   fogNearSortingOrder: 20
   dangerSortingOrder: 1
