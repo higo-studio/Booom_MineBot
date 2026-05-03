@@ -36,6 +36,8 @@ namespace Minebot.Presentation
         [SerializeField]
         private float autoMineInterval = 0.18f;
 
+        public float AutoMineInterval => autoMineInterval;
+
         private void Awake()
         {
             presentation = GetComponent<MinebotGameplayPresentation>();
