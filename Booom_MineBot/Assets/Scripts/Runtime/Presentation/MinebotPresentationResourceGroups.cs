@@ -212,12 +212,22 @@ namespace Minebot.Presentation
         [InspectorLabel("爆炸序列")]
         private SpriteSequenceAsset explosionSequence;
 
+        [SerializeField]
+        [InspectorLabel("挖掘裂纹排序层级")]
+        private int miningCrackSortingOrder = 36;
+
+        [SerializeField]
+        [InspectorLabel("挖掘裂纹偏移")]
+        private Vector2 miningCrackOffset = new Vector2(0f, 0.08f);
+
         public GameObject MiningCrackPrefab => miningCrackPrefab;
         public GameObject WallBreakPrefab => wallBreakPrefab;
         public GameObject ExplosionPrefab => explosionPrefab;
         public SpriteSequenceAsset MiningCrackSequence => miningCrackSequence;
         public SpriteSequenceAsset WallBreakSequence => wallBreakSequence;
         public SpriteSequenceAsset ExplosionSequence => explosionSequence;
+        public int MiningCrackSortingOrder => Mathf.Max(0, miningCrackSortingOrder);
+        public Vector2 MiningCrackOffset => miningCrackOffset;
 
 #if UNITY_EDITOR
         public void Configure(

@@ -42,14 +42,15 @@ namespace Minebot.Presentation
             sequencePlayer.TargetRenderer = bodyRenderer;
         }
 
-        public void RefreshPersistent(SpriteSequenceAsset sequence, Vector3 worldPosition, int sortingOrder)
+        public void RefreshPersistent(SpriteSequenceAsset sequence, Vector3 worldPosition, int sortingOrder, float totalDuration)
         {
             EnsureDefaultStructure(sortingOrder);
             persistent = true;
             transform.position = worldPosition;
             lastRefreshTime = Time.time;
             bodyRenderer.color = Color.white;
-            sequencePlayer.Play(sequence);
+            float frameDuration = ComputeFrameDuration(sequence, totalDuration);
+            sequencePlayer.PlayWithDuration(sequence, frameDuration);
         }
 
         public void PlayOneShot(SpriteSequenceAsset primarySequence, Vector3 worldPosition, int sortingOrder, SpriteSequenceAsset secondarySequence = null, float secondarySequenceDelay = 0.08f)
@@ -62,6 +63,17 @@ namespace Minebot.Presentation
             chainedDelay = Mathf.Max(0f, secondarySequenceDelay);
             chainedElapsed = 0f;
             sequencePlayer.Play(primarySequence, restartIfSame: true);
+        }
+
+        private static float ComputeFrameDuration(SpriteSequenceAsset sequence, float totalDuration)
+        {
+            if (sequence == null || sequence.Frames == null || sequence.Frames.Length == 0)
+            {
+                return 0.1f;
+            }
+
+            int frameCount = sequence.Frames.Length;
+            return totalDuration / frameCount;
         }
 
         private void Update()

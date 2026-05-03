@@ -62,6 +62,8 @@ namespace Minebot.Presentation
         public SpriteSequenceAsset MiningCrackSequence { get; private set; }
         public SpriteSequenceAsset WallBreakSequence { get; private set; }
         public SpriteSequenceAsset ExplosionSequence { get; private set; }
+        public int MiningCrackSortingOrder { get; private set; }
+        public Vector2 MiningCrackOffset { get; private set; }
         public MinebotHudView HudPrefab { get; private set; }
         public Sprite HudPanelBackground { get; private set; }
         public Sprite HudStatusIcon { get; private set; }
@@ -180,6 +182,8 @@ namespace Minebot.Presentation
                 MiningCrackSequence = resolvedArtSet != null ? resolvedArtSet.CellFxResources.MiningCrackSequence : missingDefaults.MiningCrackSequence,
                 WallBreakSequence = resolvedArtSet != null ? resolvedArtSet.CellFxResources.WallBreakSequence : missingDefaults.WallBreakSequence,
                 ExplosionSequence = resolvedArtSet != null ? resolvedArtSet.CellFxResources.ExplosionSequence : missingDefaults.ExplosionSequence,
+                MiningCrackSortingOrder = resolvedArtSet != null ? resolvedArtSet.CellFxResources.MiningCrackSortingOrder : 36,
+                MiningCrackOffset = resolvedArtSet != null ? resolvedArtSet.CellFxResources.MiningCrackOffset : new Vector2(0f, 0.08f),
                 HudPrefab = resolvedArtSet != null ? resolvedArtSet.HudResources.HudPrefab : missingDefaults.HudPrefab,
                 HudPanelBackground = resolvedArtSet != null ? resolvedArtSet.HudResources.PanelBackground : missingDefaults.HudPanelBackground,
                 HudStatusIcon = resolvedArtSet != null ? resolvedArtSet.HudResources.StatusIcon : missingDefaults.HudStatusIcon,

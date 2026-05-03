@@ -10,6 +10,7 @@ namespace Minebot.Presentation
         private SpriteSequenceAsset currentSequence;
         private float elapsed;
         private bool isComplete;
+        private float sequencePlayerFrameDuration;
 
         public SpriteRenderer TargetRenderer
         {
@@ -30,6 +31,27 @@ namespace Minebot.Presentation
             currentSequence = sequence;
             elapsed = 0f;
             isComplete = sequence == null || sequence.Frames.Length == 0;
+            ApplyCurrentFrame(forceFirstFrame: true);
+        }
+
+        public void PlayWithDuration(SpriteSequenceAsset sequence, float frameDuration)
+        {
+            if (sequence == null || sequence.Frames.Length == 0)
+            {
+                currentSequence = sequence;
+                elapsed = 0f;
+                isComplete = true;
+                return;
+            }
+
+            currentSequence = sequence;
+            elapsed = 0f;
+            isComplete = false;
+            if (sequencePlayerFrameDuration != frameDuration)
+            {
+                sequencePlayerFrameDuration = frameDuration;
+            }
+
             ApplyCurrentFrame(forceFirstFrame: true);
         }
 
@@ -60,7 +82,8 @@ namespace Minebot.Presentation
 
             Sprite[] frames = currentSequence.Frames;
             int frameCount = frames.Length;
-            float frameDuration = currentSequence.FrameDuration;
+            // 优先使用动态帧时长，否则使用序列配置的帧时长
+            float frameDuration = sequencePlayerFrameDuration > 0f ? sequencePlayerFrameDuration : currentSequence.FrameDuration;
             int frameIndex = forceFirstFrame ? 0 : Mathf.FloorToInt(elapsed / frameDuration);
 
             if (currentSequence.Loop)

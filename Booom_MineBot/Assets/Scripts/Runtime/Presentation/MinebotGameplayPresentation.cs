@@ -1293,7 +1293,9 @@ namespace Minebot.Presentation
                 miningCrackViews[target] = view;
             }
 
-            view.RefreshPersistent(assets.MiningCrackSequence, GridToWorld(target), 36);
+            Vector3 basePos = GridToWorld(target);
+            Vector3 offsetPos = basePos + new Vector3(assets.MiningCrackOffset.x, assets.MiningCrackOffset.y, 0f);
+            view.RefreshPersistent(assets.MiningCrackSequence, offsetPos, assets.MiningCrackSortingOrder, GetAutoMineInterval());
         }
 
         private void PlayWallBreakFx(GridPosition target, bool triggerExplosion)
@@ -2080,6 +2082,12 @@ namespace Minebot.Presentation
             }
 
             return services.Grid.PlayerSpawn;
+        }
+
+        private float GetAutoMineInterval()
+        {
+            GameplayInputController input = ResolveGameplayInputController();
+            return input != null ? input.AutoMineInterval : 0.18f;
         }
     }
 }
