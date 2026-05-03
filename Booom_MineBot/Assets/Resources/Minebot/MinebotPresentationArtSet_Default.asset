@@ -214,7 +214,7 @@ MonoBehaviour:
   robotFactoryTile: {fileID: 11400000, guid: 5aef70b7533ce463e87d2b3b9871f1bb, type: 2}
   playerSprite: {fileID: 21300000, guid: 40c2b58172c7e4280ab3f722a892e2c6, type: 3}
   robotSprite: {fileID: 21300000, guid: a9f588084d839433782eedf80eae4575, type: 3}
-  playerColliderRadius: 0.8
+  playerColliderRadius: 0.45
   actorResources:
     playerPrefab: {fileID: 5253805810420483157, guid: 34755ea4406724b28bb7ab87ef251c76, type: 3}
     helperRobotPrefab: {fileID: 2014334203746286247, guid: 70d7d087774154c738541b3a5f3e7b65, type: 3}
@@ -245,7 +245,7 @@ MonoBehaviour:
     wallBreakSequence: {fileID: 11400000, guid: 1279dc01e9bac4657919c43780f68804, type: 2}
     explosionSequence: {fileID: 11400000, guid: 8415c791d88674c55bbd5709b37670d3, type: 2}
     miningCrackSortingOrder: 10
-    miningCrackOffset: {x: 0, y: 0.08}
+    miningCrackOffset: {x: 0, y: -0.51}
   hudResources:
     hudPrefab: {fileID: 631047171157477282, guid: 95c13d8ca39848e6b0d0ae66f4602f94, type: 3}
     panelBackground: {fileID: 21300000, guid: 6696ad01759e8463f901b7b1600aaba2, type: 3}

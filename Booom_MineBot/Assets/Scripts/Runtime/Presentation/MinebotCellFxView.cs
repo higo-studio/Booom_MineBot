@@ -33,6 +33,7 @@ namespace Minebot.Presentation
 
             bodyRenderer.sortingOrder = sortingOrder;
             bodyRenderer.color = Color.white;
+            //bodyRenderer.spriteSortPoint = SpriteSortPoint.Pivot;
             sequencePlayer = GetComponent<MinebotSpriteSequencePlayer>();
             if (sequencePlayer == null)
             {

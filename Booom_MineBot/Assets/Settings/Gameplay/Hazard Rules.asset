@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Hazard Rules
   m_EditorClassIdentifier: 
   bombSpawnChance: 0.2
+  useRandomBombSeed: 1
   bombSeed: 123456798
   bombSafeRadius: 2
   scanEnergyCost: 1
