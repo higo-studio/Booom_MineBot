@@ -40,6 +40,10 @@ namespace Minebot.Bootstrap
         private HazardRules hazardRules;
 
         [SerializeField]
+        [InspectorLabel("挖掘规则配置")]
+        private MiningRules miningRules;
+
+        [SerializeField]
         [InspectorLabel("地震波配置")]
         private WaveConfig waveConfig;
 
@@ -54,6 +58,7 @@ namespace Minebot.Bootstrap
         public GameBalanceConfig BalanceConfig => balanceConfig;
         public UpgradePoolConfig UpgradePool => upgradePool;
         public HazardRules HazardRules => hazardRules;
+        public MiningRules MiningRules => miningRules;
         public WaveConfig WaveConfig => waveConfig;
         public IReadOnlyList<BuildingDefinition> BuildingDefinitions => buildingDefinitions;
     }

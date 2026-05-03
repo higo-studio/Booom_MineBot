@@ -259,10 +259,16 @@ namespace Minebot.Tests.EditMode
 
             MineInteractionResult weakResult = registry.Session.Mine(target);
             registry.PlayerMiningState.DrillTier = HardnessTier.UltraHard;
+            MineInteractionResult firstStrongResult = registry.Session.Mine(target);
+            MineInteractionResult secondStrongResult = registry.Session.Mine(target);
+            MineInteractionResult thirdStrongResult = registry.Session.Mine(target);
             MineInteractionResult minedResult = registry.Session.Mine(target);
             registry.Session.TickWorldPickups(1f, new Vector2(target.X + 0.5f, target.Y + 0.5f));
 
             Assert.That(weakResult, Is.EqualTo(MineInteractionResult.DrillTooWeak));
+            Assert.That(firstStrongResult, Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(secondStrongResult, Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(thirdStrongResult, Is.EqualTo(MineInteractionResult.MiningInProgress));
             Assert.That(minedResult, Is.EqualTo(MineInteractionResult.Mined));
             Assert.That(registry.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
             Assert.That(registry.Economy.Resources.Metal, Is.GreaterThanOrEqualTo(3));

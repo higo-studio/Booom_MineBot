@@ -22,6 +22,7 @@ namespace Minebot.Automation
         Idle,
         TargetAcquired,
         Moved,
+        MiningProgressed,
         Mined,
         TriggeredBomb,
         Blocked,
@@ -121,12 +122,19 @@ namespace Minebot.Automation
         public const int DefaultMaxTargetDistance = 7;
 
         private readonly LogicalGridState grid;
+        private readonly MiningRules miningRules;
         private readonly int maxTargetDistance;
         private readonly float actionInterval;
 
         public RobotAutomationService(LogicalGridState grid, int maxTargetDistance = DefaultMaxTargetDistance, float actionInterval = 0.5f)
+            : this(grid, null, maxTargetDistance, actionInterval)
+        {
+        }
+
+        public RobotAutomationService(LogicalGridState grid, MiningRules miningRules, int maxTargetDistance = DefaultMaxTargetDistance, float actionInterval = 0.5f)
         {
             this.grid = grid;
+            this.miningRules = miningRules;
             this.maxTargetDistance = Mathf.Max(1, maxTargetDistance);
             this.actionInterval = Mathf.Max(0f, actionInterval);
         }
@@ -183,9 +191,14 @@ namespace Minebot.Automation
             if (robot.Position.ManhattanDistance(target) == 1 && IsSafeStagingCell(robot.Position, avoidDangerZones))
             {
                 robot.SetActivity(RobotActivity.Mining, $"挖掘 {target}");
-                MineResolution mineResolution = mining.TryMineDetailedFrom(robot.Position, drillTier, target);
+                MineResolution mineResolution = mining.TryMineDetailedFrom(robot.Position, drillTier, target, includePlayerBaseAttack: false);
                 MineInteractionResult mineResult = mineResolution.Result;
                 ResourceAmount reward = mineResolution.TotalReward;
+                if (mineResult == MineInteractionResult.MiningInProgress)
+                {
+                    return new RobotAutomationResult(RobotAutomationResultKind.MiningProgressed, robot, target, ResourceAmount.Zero, "机器人正在持续挖掘。");
+                }
+
                 robot.ClearTarget();
                 if (mineResult == MineInteractionResult.Mined)
                 {
@@ -280,7 +293,7 @@ namespace Minebot.Automation
             return cell.IsMineable
                 && !cell.IsMarked
                 && (!avoidDangerZones || !cell.IsDangerZone)
-                && cell.HardnessTier <= drillTier;
+                && EffectiveAttackFor(drillTier) > DefenseFor(cell.HardnessTier);
         }
 
         private bool TryFindPathToAdjacentTarget(GridPosition start, GridPosition target, out GridPosition nextStep, out int distance, bool avoidDangerZones)
@@ -387,6 +400,20 @@ namespace Minebot.Automation
         private static bool IsEarlier(GridPosition left, GridPosition right)
         {
             return left.Y < right.Y || (left.Y == right.Y && left.X < right.X);
+        }
+
+        private int EffectiveAttackFor(HardnessTier drillTier)
+        {
+            return miningRules != null
+                ? miningRules.EffectiveAttackFor(drillTier, includePlayerBaseAttack: false)
+                : MiningRules.DefaultEffectiveAttackFor(drillTier, includePlayerBaseAttack: false);
+        }
+
+        private int DefenseFor(HardnessTier hardnessTier)
+        {
+            return miningRules != null
+                ? miningRules.DefenseFor(hardnessTier)
+                : MiningRules.DefaultDefenseFor(hardnessTier);
         }
     }
 }

@@ -10,7 +10,7 @@ namespace Minebot.Presentation
         private SpriteSequenceAsset currentSequence;
         private float elapsed;
         private bool isComplete;
-        private float sequencePlayerFrameDuration;
+        private bool isHoldingFrame;
 
         public SpriteRenderer TargetRenderer
         {
@@ -30,41 +30,31 @@ namespace Minebot.Presentation
 
             currentSequence = sequence;
             elapsed = 0f;
+            isHoldingFrame = false;
             isComplete = sequence == null || sequence.Frames.Length == 0;
             ApplyCurrentFrame(forceFirstFrame: true);
         }
 
-        public void PlayWithDuration(SpriteSequenceAsset sequence, float frameDuration)
+        public void ShowFrame(SpriteSequenceAsset sequence, int frameIndex)
         {
-            if (sequence == null || sequence.Frames.Length == 0)
-            {
-                currentSequence = sequence;
-                elapsed = 0f;
-                isComplete = true;
-                return;
-            }
-
             currentSequence = sequence;
             elapsed = 0f;
-            isComplete = false;
-            if (sequencePlayerFrameDuration != frameDuration)
-            {
-                sequencePlayerFrameDuration = frameDuration;
-            }
-
-            ApplyCurrentFrame(forceFirstFrame: true);
+            isHoldingFrame = true;
+            isComplete = sequence == null || sequence.Frames.Length == 0;
+            ApplyFrame(frameIndex);
         }
 
         public void Stop()
         {
             currentSequence = null;
             elapsed = 0f;
+            isHoldingFrame = false;
             isComplete = true;
         }
 
         private void LateUpdate()
         {
-            if (currentSequence == null || currentSequence.Frames.Length == 0 || targetRenderer == null)
+            if (isHoldingFrame || currentSequence == null || currentSequence.Frames.Length == 0 || targetRenderer == null)
             {
                 return;
             }
@@ -82,8 +72,7 @@ namespace Minebot.Presentation
 
             Sprite[] frames = currentSequence.Frames;
             int frameCount = frames.Length;
-            // 优先使用动态帧时长，否则使用序列配置的帧时长
-            float frameDuration = sequencePlayerFrameDuration > 0f ? sequencePlayerFrameDuration : currentSequence.FrameDuration;
+            float frameDuration = currentSequence.FrameDuration;
             int frameIndex = forceFirstFrame ? 0 : Mathf.FloorToInt(elapsed / frameDuration);
 
             if (currentSequence.Loop)
@@ -100,7 +89,18 @@ namespace Minebot.Presentation
                 isComplete = false;
             }
 
-            targetRenderer.sprite = frames[Mathf.Clamp(frameIndex, 0, frameCount - 1)];
+            ApplyFrame(frameIndex);
+        }
+
+        private void ApplyFrame(int frameIndex)
+        {
+            if (targetRenderer == null || currentSequence == null || currentSequence.Frames.Length == 0)
+            {
+                return;
+            }
+
+            Sprite[] frames = currentSequence.Frames;
+            targetRenderer.sprite = frames[Mathf.Clamp(frameIndex, 0, frames.Length - 1)];
         }
     }
 }

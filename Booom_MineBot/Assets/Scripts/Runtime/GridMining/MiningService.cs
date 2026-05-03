@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Minebot.Common;
+using UnityEngine;
 
 namespace Minebot.GridMining
 {
@@ -9,6 +10,7 @@ namespace Minebot.GridMining
         Moved,
         BlockedByTerrain,
         DrillTooWeak,
+        MiningInProgress,
         Mined,
         TriggeredBomb
     }
@@ -27,18 +29,45 @@ namespace Minebot.GridMining
         public bool WasBomb { get; }
     }
 
+    public readonly struct MiningProgressSnapshot
+    {
+        public MiningProgressSnapshot(GridPosition position, int currentHealth, int maxHealth)
+        {
+            Position = position;
+            CurrentHealth = Mathf.Max(0, currentHealth);
+            MaxHealth = Mathf.Max(1, maxHealth);
+        }
+
+        public GridPosition Position { get; }
+        public int CurrentHealth { get; }
+        public int MaxHealth { get; }
+        public bool IsValid => MaxHealth > 0;
+        public float HealthNormalized => MaxHealth > 0 ? Mathf.Clamp01((float)CurrentHealth / MaxHealth) : 0f;
+        public float DamageNormalized => 1f - HealthNormalized;
+    }
+
     public readonly struct MineResolution
     {
-        public MineResolution(MineInteractionResult result, IReadOnlyList<MineClearedCell> clearedCells, ResourceAmount totalReward)
+        public MineResolution(
+            MineInteractionResult result,
+            IReadOnlyList<MineClearedCell> clearedCells,
+            ResourceAmount totalReward,
+            MiningProgressSnapshot progressSnapshot = default,
+            int damageDealt = 0)
         {
             Result = result;
             ClearedCells = clearedCells ?? System.Array.Empty<MineClearedCell>();
             TotalReward = totalReward;
+            ProgressSnapshot = progressSnapshot;
+            DamageDealt = Mathf.Max(0, damageDealt);
         }
 
         public MineInteractionResult Result { get; }
         public IReadOnlyList<MineClearedCell> ClearedCells { get; }
         public ResourceAmount TotalReward { get; }
+        public MiningProgressSnapshot ProgressSnapshot { get; }
+        public int DamageDealt { get; }
+        public bool HasProgressSnapshot => ProgressSnapshot.IsValid;
     }
 
     public sealed class PlayerMiningState
@@ -60,11 +89,63 @@ namespace Minebot.GridMining
 
     public sealed class MiningService
     {
+        private sealed class MiningProgressState
+        {
+            public MiningProgressState(int maxHealth)
+            {
+                MaxHealth = Mathf.Max(1, maxHealth);
+                CurrentHealth = MaxHealth;
+                TimeSinceLastInteraction = 0f;
+            }
+
+            public int MaxHealth { get; }
+            public int CurrentHealth { get; set; }
+            public float TimeSinceLastInteraction { get; set; }
+        }
+
         private readonly LogicalGridState grid;
+        private readonly MiningRules rules;
+        private readonly Dictionary<GridPosition, MiningProgressState> progressByCell = new Dictionary<GridPosition, MiningProgressState>();
+        private readonly List<MiningProgressSnapshot> activeSnapshotsBuffer = new List<MiningProgressSnapshot>();
+        private readonly List<GridPosition> expiredProgressBuffer = new List<GridPosition>();
 
         public MiningService(LogicalGridState grid)
+            : this(grid, null)
+        {
+        }
+
+        public MiningService(LogicalGridState grid, MiningRules rules)
         {
             this.grid = grid;
+            this.rules = rules;
+        }
+
+        public float PlayerMiningTickIntervalSeconds => rules != null
+            ? rules.PlayerMiningTickIntervalSeconds
+            : MiningRules.DefaultPlayerMiningTickIntervalSeconds;
+
+        public float MiningDisengageGraceSeconds => rules != null
+            ? rules.MiningDisengageGraceSeconds
+            : MiningRules.DefaultMiningDisengageGraceSeconds;
+
+        public IReadOnlyList<MiningProgressSnapshot> ActiveProgressSnapshots
+        {
+            get
+            {
+                activeSnapshotsBuffer.Clear();
+                foreach (KeyValuePair<GridPosition, MiningProgressState> pair in progressByCell)
+                {
+                    if (!grid.IsInside(pair.Key) || !grid.GetCell(pair.Key).IsMineable)
+                    {
+                        continue;
+                    }
+
+                    activeSnapshotsBuffer.Add(CreateSnapshot(pair.Key, pair.Value));
+                }
+
+                activeSnapshotsBuffer.Sort(CompareSnapshotsByPosition);
+                return activeSnapshotsBuffer;
+            }
         }
 
         public MineInteractionResult Move(PlayerMiningState player, GridPosition direction)
@@ -100,75 +181,173 @@ namespace Minebot.GridMining
 
         public MineResolution TryMineDetailed(PlayerMiningState player, GridPosition target)
         {
-            return TryMineDetailedFrom(player.Position, player.DrillTier, target);
+            return TryMineDetailedFrom(player.Position, player.DrillTier, target, includePlayerBaseAttack: true);
         }
 
-        public MineResolution TryMineDetailedFrom(GridPosition actorPosition, HardnessTier drillTier, GridPosition target)
+        public MineResolution TryMineDetailedFrom(
+            GridPosition actorPosition,
+            HardnessTier drillTier,
+            GridPosition target,
+            bool includePlayerBaseAttack = true)
         {
             if (!grid.IsInside(target) || actorPosition.ManhattanDistance(target) != 1)
             {
-                return new MineResolution(MineInteractionResult.InvalidTarget, System.Array.Empty<MineClearedCell>(), ResourceAmount.Zero);
+                return CreateResolution(MineInteractionResult.InvalidTarget);
             }
 
             ref GridCellState cell = ref grid.GetCellRef(target);
             if (!cell.IsMineable)
             {
-                return new MineResolution(MineInteractionResult.BlockedByTerrain, System.Array.Empty<MineClearedCell>(), ResourceAmount.Zero);
+                return CreateResolution(MineInteractionResult.BlockedByTerrain);
             }
 
-            if (cell.HardnessTier > drillTier)
+            int attack = EffectiveAttackFor(drillTier, includePlayerBaseAttack);
+            int defense = DefenseFor(cell.HardnessTier);
+            if (attack <= defense)
             {
-                return new MineResolution(MineInteractionResult.DrillTooWeak, System.Array.Empty<MineClearedCell>(), ResourceAmount.Zero);
+                if (progressByCell.TryGetValue(target, out MiningProgressState existingState))
+                {
+                    existingState.TimeSinceLastInteraction = 0f;
+                    return CreateResolution(MineInteractionResult.DrillTooWeak, progressSnapshot: CreateSnapshot(target, existingState));
+                }
+
+                return CreateResolution(MineInteractionResult.DrillTooWeak);
             }
 
+            MiningProgressState state = GetOrCreateProgressState(target, MaxHealthFor(cell.HardnessTier));
+            state.TimeSinceLastInteraction = 0f;
+            int damage = Mathf.Max(0, attack - defense);
+            state.CurrentHealth = Mathf.Max(0, state.CurrentHealth - damage);
+
+            if (state.CurrentHealth > 0)
+            {
+                return CreateResolution(
+                    MineInteractionResult.MiningInProgress,
+                    progressSnapshot: CreateSnapshot(target, state),
+                    damageDealt: damage);
+            }
+
+            progressByCell.Remove(target);
             var clearedCells = new List<MineClearedCell>();
-            if (cell.HasBomb)
-            {
-                ResourceAmount reward = OpenCell(target, clearBomb: true);
-                clearedCells.Add(new MineClearedCell(target, reward, true));
-                return new MineResolution(MineInteractionResult.TriggeredBomb, clearedCells, reward);
-            }
-
-            ExpandSafeRegion(target, drillTier, clearedCells);
-            return new MineResolution(MineInteractionResult.Mined, clearedCells, SumRewards(clearedCells));
+            bool wasBomb = cell.HasBomb;
+            ResourceAmount reward = OpenCell(target, clearBomb: wasBomb);
+            clearedCells.Add(new MineClearedCell(target, reward, wasBomb));
+            return CreateResolution(
+                wasBomb ? MineInteractionResult.TriggeredBomb : MineInteractionResult.Mined,
+                clearedCells,
+                reward,
+                damageDealt: damage);
         }
 
-        private void ExpandSafeRegion(GridPosition origin, HardnessTier drillTier, List<MineClearedCell> clearedCells)
+        public bool TickMiningRecovery(float deltaTime)
         {
-            var pending = new Queue<GridPosition>();
-            var visited = new HashSet<GridPosition>();
-            pending.Enqueue(origin);
-
-            while (pending.Count > 0)
+            if (progressByCell.Count == 0)
             {
-                GridPosition current = pending.Dequeue();
-                if (!visited.Add(current) || !grid.IsInside(current))
+                return false;
+            }
+
+            float elapsed = Mathf.Max(0f, deltaTime);
+            float grace = MiningDisengageGraceSeconds;
+            expiredProgressBuffer.Clear();
+            foreach (KeyValuePair<GridPosition, MiningProgressState> pair in progressByCell)
+            {
+                if (!grid.IsInside(pair.Key) || !grid.GetCell(pair.Key).IsMineable)
                 {
+                    expiredProgressBuffer.Add(pair.Key);
                     continue;
                 }
 
-                GridCellState currentCell = grid.GetCell(current);
-                if (!currentCell.IsMineable || currentCell.HardnessTier > drillTier || currentCell.HasBomb)
+                pair.Value.TimeSinceLastInteraction += elapsed;
+                if (pair.Value.TimeSinceLastInteraction >= grace)
                 {
-                    continue;
-                }
-
-                int bombCount = GridBombCounter.CountBombsInScanSquare(grid, current);
-                ResourceAmount reward = OpenCell(current, clearBomb: false);
-                clearedCells.Add(new MineClearedCell(current, reward, false));
-                if (bombCount > 0)
-                {
-                    continue;
-                }
-
-                foreach (GridPosition neighbor in grid.Neighbors(current, GridDirections.EightWay))
-                {
-                    if (!visited.Contains(neighbor))
-                    {
-                        pending.Enqueue(neighbor);
-                    }
+                    expiredProgressBuffer.Add(pair.Key);
                 }
             }
+
+            if (expiredProgressBuffer.Count == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < expiredProgressBuffer.Count; i++)
+            {
+                progressByCell.Remove(expiredProgressBuffer[i]);
+            }
+
+            return true;
+        }
+
+        public bool CanDamageTarget(GridPosition position, HardnessTier drillTier, bool includePlayerBaseAttack = true)
+        {
+            if (!grid.IsInside(position))
+            {
+                return false;
+            }
+
+            GridCellState cell = grid.GetCell(position);
+            if (!cell.IsMineable)
+            {
+                return false;
+            }
+
+            return EffectiveAttackFor(drillTier, includePlayerBaseAttack) > DefenseFor(cell.HardnessTier);
+        }
+
+        public int EffectiveAttackFor(HardnessTier drillTier, bool includePlayerBaseAttack = true)
+        {
+            return rules != null
+                ? rules.EffectiveAttackFor(drillTier, includePlayerBaseAttack)
+                : MiningRules.DefaultEffectiveAttackFor(drillTier, includePlayerBaseAttack);
+        }
+
+        private MineResolution CreateResolution(
+            MineInteractionResult result,
+            IReadOnlyList<MineClearedCell> clearedCells = null,
+            ResourceAmount? totalReward = null,
+            MiningProgressSnapshot progressSnapshot = default,
+            int damageDealt = 0)
+        {
+            return new MineResolution(result, clearedCells, totalReward ?? ResourceAmount.Zero, progressSnapshot, damageDealt);
+        }
+
+        private MiningProgressState GetOrCreateProgressState(GridPosition target, int maxHealth)
+        {
+            if (!progressByCell.TryGetValue(target, out MiningProgressState state))
+            {
+                state = new MiningProgressState(maxHealth);
+                progressByCell.Add(target, state);
+            }
+
+            return state;
+        }
+
+        private MiningProgressSnapshot CreateSnapshot(GridPosition position, MiningProgressState state)
+        {
+            return new MiningProgressSnapshot(position, state.CurrentHealth, state.MaxHealth);
+        }
+
+        private static int CompareSnapshotsByPosition(MiningProgressSnapshot left, MiningProgressSnapshot right)
+        {
+            if (left.Position.Y != right.Position.Y)
+            {
+                return left.Position.Y.CompareTo(right.Position.Y);
+            }
+
+            return left.Position.X.CompareTo(right.Position.X);
+        }
+
+        private int MaxHealthFor(HardnessTier tier)
+        {
+            return rules != null
+                ? rules.MaxHealthFor(tier)
+                : MiningRules.DefaultMaxHealthFor(tier);
+        }
+
+        private int DefenseFor(HardnessTier tier)
+        {
+            return rules != null
+                ? rules.DefenseFor(tier)
+                : MiningRules.DefaultDefenseFor(tier);
         }
 
         private ResourceAmount OpenCell(GridPosition position, bool clearBomb)
@@ -184,17 +363,6 @@ namespace Minebot.GridMining
             }
 
             return reward;
-        }
-
-        private static ResourceAmount SumRewards(IReadOnlyList<MineClearedCell> clearedCells)
-        {
-            ResourceAmount total = ResourceAmount.Zero;
-            for (int i = 0; i < clearedCells.Count; i++)
-            {
-                total += clearedCells[i].Reward;
-            }
-
-            return total;
         }
     }
 }

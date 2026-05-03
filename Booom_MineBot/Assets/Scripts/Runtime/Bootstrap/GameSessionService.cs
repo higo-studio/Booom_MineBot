@@ -27,6 +27,7 @@ namespace Minebot.Bootstrap
         private readonly bool robotUsesPlayerDrillTier;
         private readonly HardnessTier robotFixedDrillTier;
         private readonly List<ScanReading> lastPassiveHazardSenseReadings = new List<ScanReading>();
+        private readonly List<MiningProgressSnapshot> activeMiningProgressSnapshots = new List<MiningProgressSnapshot>();
         private float passiveHazardSenseElapsed;
 
         public GameSessionService(
@@ -63,11 +64,19 @@ namespace Minebot.Bootstrap
 
         public event Action StateChanged;
         public event Action<ResourceAmount> RewardGranted;
+        public event Action<IReadOnlyList<MiningProgressSnapshot>> MiningProgressUpdated;
         public event Action<IReadOnlyList<ScanReading>> PassiveHazardSenseUpdated;
         public event Action<RobotAutomationResult> RobotAutomationCompleted;
         public MineResolution LastMineResolution { get; private set; }
         public RobotAutomationResult LastRobotAutomationResult { get; private set; }
         public WorldPickupService WorldPickups => worldPickups;
+        public IReadOnlyList<MiningProgressSnapshot> ActiveMiningProgressSnapshots => activeMiningProgressSnapshots;
+        public float PlayerMiningTickIntervalSeconds => mining != null
+            ? mining.PlayerMiningTickIntervalSeconds
+            : MiningRules.DefaultPlayerMiningTickIntervalSeconds;
+        public float MiningDisengageGraceSeconds => mining != null
+            ? mining.MiningDisengageGraceSeconds
+            : MiningRules.DefaultMiningDisengageGraceSeconds;
 
         public MineInteractionResult Move(GridPosition direction)
         {
@@ -79,6 +88,7 @@ namespace Minebot.Bootstrap
         {
             MineResolution resolution = mining.TryMineDetailed(player, target);
             LastMineResolution = resolution;
+            SyncMiningProgressSnapshots();
             MineInteractionResult result = resolution.Result;
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
             {
@@ -98,6 +108,16 @@ namespace Minebot.Bootstrap
             }
 
             return result;
+        }
+
+        public bool TickMiningRecovery(float deltaTime)
+        {
+            if (mining == null || !mining.TickMiningRecovery(deltaTime))
+            {
+                return false;
+            }
+
+            return SyncMiningProgressSnapshots();
         }
 
         public IReadOnlyList<ScanReading> RefreshPassiveHazardSense()
@@ -178,6 +198,8 @@ namespace Minebot.Bootstrap
                 {
                     continue;
                 }
+
+                SyncMiningProgressSnapshots();
 
                 if (result.Kind == RobotAutomationResultKind.Mined)
                 {
@@ -327,6 +349,47 @@ namespace Minebot.Bootstrap
             economy.Add(new ResourceAmount(reward.Metal, reward.Energy, 0));
             experience.AddExperience(reward.Experience);
             RewardGranted?.Invoke(reward);
+        }
+
+        private bool SyncMiningProgressSnapshots()
+        {
+            IReadOnlyList<MiningProgressSnapshot> source = mining != null
+                ? mining.ActiveProgressSnapshots
+                : Array.Empty<MiningProgressSnapshot>();
+
+            bool changed = activeMiningProgressSnapshots.Count != source.Count;
+            if (!changed)
+            {
+                for (int i = 0; i < source.Count; i++)
+                {
+                    if (!AreEqual(activeMiningProgressSnapshots[i], source[i]))
+                    {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!changed)
+            {
+                return false;
+            }
+
+            activeMiningProgressSnapshots.Clear();
+            for (int i = 0; i < source.Count; i++)
+            {
+                activeMiningProgressSnapshots.Add(source[i]);
+            }
+
+            MiningProgressUpdated?.Invoke(activeMiningProgressSnapshots);
+            return true;
+        }
+
+        private static bool AreEqual(MiningProgressSnapshot left, MiningProgressSnapshot right)
+        {
+            return left.Position.Equals(right.Position)
+                && left.CurrentHealth == right.CurrentHealth
+                && left.MaxHealth == right.MaxHealth;
         }
     }
 }
