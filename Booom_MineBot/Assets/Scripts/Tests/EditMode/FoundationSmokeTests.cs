@@ -422,6 +422,57 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void PassiveHazardSenseUsesConfiguredFrontierRange()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), new GridPosition(4, 4));
+            GridPosition farReadableCell = new GridPosition(4, 6);
+            SetMineableWall(grid, farReadableCell + GridPosition.Up, true);
+
+            GameSessionService defaultSession = CreateSession(grid, ResourceAmount.Zero, out _);
+            IReadOnlyList<ScanReading> defaultReadings = defaultSession.RefreshPassiveHazardSense();
+
+            HazardRules hazardRules = CreateHazardRules(scanFrontierRange: 2);
+            try
+            {
+                GameSessionService configuredSession = CreateSession(grid, ResourceAmount.Zero, out _, out _, hazardRules);
+                IReadOnlyList<ScanReading> configuredReadings = configuredSession.RefreshPassiveHazardSense();
+
+                Assert.That(ContainsReading(defaultReadings, farReadableCell), Is.False);
+                Assert.That(ContainsReading(configuredReadings, farReadableCell), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(hazardRules);
+            }
+        }
+
+        [Test]
+        public void PassiveHazardSenseCanRequireCardinalWallNeighbors()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(8, 8), new GridPosition(3, 3));
+            GridPosition readableCell = new GridPosition(3, 4);
+            SetMineableWall(grid, new GridPosition(4, 5), true);
+
+            HazardRules eightWayRules = CreateHazardRules(scanUsesEightWayNeighbors: true);
+            HazardRules cardinalRules = CreateHazardRules(scanUsesEightWayNeighbors: false);
+            try
+            {
+                GameSessionService eightWaySession = CreateSession(grid, ResourceAmount.Zero, out _, out _, eightWayRules);
+                GameSessionService cardinalSession = CreateSession(grid, ResourceAmount.Zero, out _, out _, cardinalRules);
+                IReadOnlyList<ScanReading> eightWayReadings = eightWaySession.RefreshPassiveHazardSense();
+                IReadOnlyList<ScanReading> cardinalReadings = cardinalSession.RefreshPassiveHazardSense();
+
+                Assert.That(ContainsReading(eightWayReadings, readableCell), Is.True);
+                Assert.That(ContainsReading(cardinalReadings, readableCell), Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(eightWayRules);
+                Object.DestroyImmediate(cardinalRules);
+            }
+        }
+
+        [Test]
         public void MiningRelevantWallImmediatelyClearsPassiveHazardSenseSnapshot()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
@@ -1589,7 +1640,7 @@ namespace Minebot.Tests.EditMode
 
         private static GameSessionService CreateSession(LogicalGridState grid, ResourceAmount startingResources, out PlayerEconomy economy)
         {
-            return CreateSession(grid, startingResources, out economy, out _);
+            return CreateSession(grid, startingResources, out economy, out _, null);
         }
 
         private static GameSessionService CreateSession(
@@ -1597,6 +1648,16 @@ namespace Minebot.Tests.EditMode
             ResourceAmount startingResources,
             out PlayerEconomy economy,
             out ExperienceService experience)
+        {
+            return CreateSession(grid, startingResources, out economy, out experience, null);
+        }
+
+        private static GameSessionService CreateSession(
+            LogicalGridState grid,
+            ResourceAmount startingResources,
+            out PlayerEconomy economy,
+            out ExperienceService experience,
+            HazardRules hazardRules)
         {
             var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
             var mining = new MiningService(grid);
@@ -1612,7 +1673,7 @@ namespace Minebot.Tests.EditMode
                 player,
                 mining,
                 hazards,
-                null,
+                hazardRules,
                 economy,
                 experience,
                 worldPickups,
@@ -1623,6 +1684,32 @@ namespace Minebot.Tests.EditMode
                 ResourceAmount.Zero,
                 true,
                 HardnessTier.Soil);
+        }
+
+        private static HazardRules CreateHazardRules(
+            int? scanFrontierRange = null,
+            bool? scanUsesEightWayNeighbors = null,
+            float? passiveHazardSenseIntervalSeconds = null)
+        {
+            var hazardRules = ScriptableObject.CreateInstance<HazardRules>();
+            var serializedRules = new SerializedObject(hazardRules);
+            if (scanFrontierRange.HasValue)
+            {
+                serializedRules.FindProperty("scanFrontierRange").intValue = scanFrontierRange.Value;
+            }
+
+            if (scanUsesEightWayNeighbors.HasValue)
+            {
+                serializedRules.FindProperty("scanUsesEightWayNeighbors").boolValue = scanUsesEightWayNeighbors.Value;
+            }
+
+            if (passiveHazardSenseIntervalSeconds.HasValue)
+            {
+                serializedRules.FindProperty("passiveHazardSenseIntervalSeconds").floatValue = passiveHazardSenseIntervalSeconds.Value;
+            }
+
+            serializedRules.ApplyModifiedPropertiesWithoutUndo();
+            return hazardRules;
         }
 
         private static Vector2 ToWorldCenter(GridPosition position)

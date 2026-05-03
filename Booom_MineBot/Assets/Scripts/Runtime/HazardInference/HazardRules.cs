@@ -10,6 +10,7 @@ namespace Minebot.HazardInference
         public const int DefaultBombSafeRadius = 2;
         public const int DefaultScanEnergyCost = 1;
         public const int DefaultScanFrontierRange = 1;
+        public const bool DefaultScanUsesEightWayNeighbors = true;
         public const float DefaultPassiveHazardSenseIntervalSeconds = 1f;
         public const int DefaultDirectBombDamage = 1;
         public const int DefaultExplosionRadius = 1;
@@ -28,7 +29,7 @@ namespace Minebot.HazardInference
         private int bombSafeRadius = DefaultBombSafeRadius;
 
         [SerializeField]
-        [InspectorLabel("探测能量消耗")]
+        [InspectorLabel("探测能量消耗（兼容保留，当前不生效）")]
         private int scanEnergyCost = DefaultScanEnergyCost;
 
         [SerializeField]
@@ -44,12 +45,12 @@ namespace Minebot.HazardInference
         private int directBombDamage = DefaultDirectBombDamage;
 
         [SerializeField]
-        [InspectorLabel("爆炸半径")]
+        [InspectorLabel("爆炸半径（兼容保留，当前不生效）")]
         private int explosionRadius = DefaultExplosionRadius;
 
         [SerializeField]
         [InspectorLabel("探测使用八邻域")]
-        private bool scanUsesEightWayNeighbors = true;
+        private bool scanUsesEightWayNeighbors = DefaultScanUsesEightWayNeighbors;
 
         public float BombSpawnChance => Mathf.Clamp01(bombSpawnChance);
         public int BombSeed => bombSeed;
