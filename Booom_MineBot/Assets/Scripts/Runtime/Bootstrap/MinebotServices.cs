@@ -47,9 +47,10 @@ namespace Minebot.Bootstrap
             var robots = new List<RobotState>();
             WaveConfig waveConfig = config != null ? config.WaveConfig : null;
             var waves = new WaveSurvivalService(grid, waveConfig);
+            MiningRules miningRules = config != null ? config.MiningRules : null;
 
             var miningState = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
-            var mining = new MiningService(grid);
+            var mining = new MiningService(grid, miningRules);
             var hazards = new HazardService(grid);
             HazardRules hazardRules = config != null ? config.HazardRules : null;
             Debug.Log(
@@ -60,7 +61,11 @@ namespace Minebot.Bootstrap
                 $"ScanFrontierRange: {(hazardRules?.ScanFrontierRange ?? HazardRules.DefaultScanFrontierRange)}, " +
                 $"ScanUsesEightWayNeighbors: {(hazardRules?.ScanUsesEightWayNeighbors ?? HazardRules.DefaultScanUsesEightWayNeighbors)}, " +
                 $"PassiveHazardSenseInterval: {(hazardRules?.PassiveHazardSenseIntervalSeconds ?? HazardRules.DefaultPassiveHazardSenseIntervalSeconds):F2}, " +
-                $"DirectBombDamage: {(hazardRules?.DirectBombDamage ?? HazardRules.DefaultDirectBombDamage)}");
+                $"DirectBombDamage: {(hazardRules?.DirectBombDamage ?? HazardRules.DefaultDirectBombDamage)}, " +
+                $"MiningRules: {(miningRules != null ? miningRules.name : "null")}, " +
+                $"PlayerMiningTick: {(miningRules != null ? miningRules.PlayerMiningTickIntervalSeconds : MiningRules.DefaultPlayerMiningTickIntervalSeconds):F2}, " +
+                $"MiningGrace: {(miningRules != null ? miningRules.MiningDisengageGraceSeconds : MiningRules.DefaultMiningDisengageGraceSeconds):F2}, " +
+                $"PlayerBaseAttack: {(miningRules != null ? miningRules.PlayerBaseAttack : MiningRules.DefaultPlayerBaseAttack)}");
             if (usingGeneratedMap)
             {
                 int seed = hazardRules != null ? hazardRules.BombSeed : HazardRules.DefaultBombSeed;
@@ -72,6 +77,7 @@ namespace Minebot.Bootstrap
 
             var robotAutomation = new RobotAutomationService(
                 grid,
+                miningRules,
                 balance != null ? balance.RobotMaxTargetDistance : RobotAutomationService.DefaultMaxTargetDistance,
                 balance != null ? balance.RobotActionInterval : 0.35f);
             var session = new GameSessionService(

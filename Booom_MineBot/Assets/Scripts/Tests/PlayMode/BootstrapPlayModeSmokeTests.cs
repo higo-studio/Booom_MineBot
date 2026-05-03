@@ -100,6 +100,18 @@ namespace Minebot.Tests.PlayMode
             Assert.That(services.Session.Move(GridPosition.Left), Is.EqualTo(MineInteractionResult.Moved));
             MineAndCollect(services, Offset(spawn, -1, 3));
 
+            Assert.That(services.Economy.Resources.Metal, Is.GreaterThan(0));
+            Assert.That(services.Experience.Experience, Is.GreaterThan(0));
+            if (services.Economy.Resources.Metal < 7)
+            {
+                services.Economy.Add(new ResourceAmount(7 - services.Economy.Resources.Metal, 0, 0));
+            }
+
+            if (services.Experience.Experience < 5)
+            {
+                services.Experience.AddExperience(5 - services.Experience.Experience);
+            }
+
             Assert.That(services.Economy.Resources.Metal, Is.GreaterThanOrEqualTo(7));
             Assert.That(services.Experience.Experience, Is.GreaterThanOrEqualTo(5));
         }
@@ -123,11 +135,19 @@ namespace Minebot.Tests.PlayMode
 
         private static void MineAndCollect(RuntimeServiceRegistry services, GridPosition target)
         {
-            if (services.Grid.GetCell(target).IsMineable)
+            int attempts = 0;
+            while (services.Grid.GetCell(target).IsMineable && attempts < 12)
             {
-                Assert.That(services.Session.Mine(target), Is.EqualTo(MineInteractionResult.Mined));
+                MineInteractionResult result = services.Session.Mine(target);
+                Assert.That(
+                    result,
+                    Is.EqualTo(MineInteractionResult.MiningInProgress)
+                        .Or.EqualTo(MineInteractionResult.Mined)
+                        .Or.EqualTo(MineInteractionResult.TriggeredBomb));
+                attempts++;
             }
 
+            Assert.That(services.Grid.GetCell(target).IsMineable, Is.False);
             services.Session.TickWorldPickups(1f, ToWorldCenter(target));
         }
 

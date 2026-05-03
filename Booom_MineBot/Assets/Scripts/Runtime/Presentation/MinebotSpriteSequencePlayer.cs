@@ -10,6 +10,7 @@ namespace Minebot.Presentation
         private SpriteSequenceAsset currentSequence;
         private float elapsed;
         private bool isComplete;
+        private bool isHoldingFrame;
 
         public SpriteRenderer TargetRenderer
         {
@@ -29,20 +30,31 @@ namespace Minebot.Presentation
 
             currentSequence = sequence;
             elapsed = 0f;
+            isHoldingFrame = false;
             isComplete = sequence == null || sequence.Frames.Length == 0;
             ApplyCurrentFrame(forceFirstFrame: true);
+        }
+
+        public void ShowFrame(SpriteSequenceAsset sequence, int frameIndex)
+        {
+            currentSequence = sequence;
+            elapsed = 0f;
+            isHoldingFrame = true;
+            isComplete = sequence == null || sequence.Frames.Length == 0;
+            ApplyFrame(frameIndex);
         }
 
         public void Stop()
         {
             currentSequence = null;
             elapsed = 0f;
+            isHoldingFrame = false;
             isComplete = true;
         }
 
         private void LateUpdate()
         {
-            if (currentSequence == null || currentSequence.Frames.Length == 0 || targetRenderer == null)
+            if (isHoldingFrame || currentSequence == null || currentSequence.Frames.Length == 0 || targetRenderer == null)
             {
                 return;
             }
@@ -77,7 +89,18 @@ namespace Minebot.Presentation
                 isComplete = false;
             }
 
-            targetRenderer.sprite = frames[Mathf.Clamp(frameIndex, 0, frameCount - 1)];
+            ApplyFrame(frameIndex);
+        }
+
+        private void ApplyFrame(int frameIndex)
+        {
+            if (targetRenderer == null || currentSequence == null || currentSequence.Frames.Length == 0)
+            {
+                return;
+            }
+
+            Sprite[] frames = currentSequence.Frames;
+            targetRenderer.sprite = frames[Mathf.Clamp(frameIndex, 0, frames.Length - 1)];
         }
     }
 }
