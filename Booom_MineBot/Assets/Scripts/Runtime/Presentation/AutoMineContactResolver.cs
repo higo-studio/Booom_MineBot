@@ -65,11 +65,13 @@ namespace Minebot.Presentation
             }
 
             bool sameContact = state.HasContact && state.ContactCell.Equals(targetCell);
+            float interval = Mathf.Max(0.01f, autoMineInterval);
             float elapsed = (sameContact ? state.ElapsedTime : 0f) + Mathf.Max(0f, deltaTime);
-            bool ready = elapsed >= Mathf.Max(0.01f, autoMineInterval);
-            AutoMineContactState nextState = ready
-                ? AutoMineContactState.None
-                : new AutoMineContactState(targetCell, elapsed, true);
+            bool ready = elapsed >= interval;
+            AutoMineContactState nextState = new AutoMineContactState(
+                targetCell,
+                ready ? Mathf.Max(0f, elapsed - interval) : elapsed,
+                true);
 
             return new AutoMineContactDecision(nextState, targetCell, ready, !sameContact);
         }

@@ -184,6 +184,7 @@ namespace Minebot.Presentation
                 ResolveWave();
             }
 
+            bool miningRecoveryChanged = services.Session.TickMiningRecovery(Time.deltaTime);
             bool hazardSenseUpdated = services.Session.TickPassiveHazardSense(Time.deltaTime);
             bool robotsChanged = services.Session.TickRobots(Time.deltaTime);
             bool pickupRewardsGranted = services.Session.TickWorldPickups(Time.deltaTime, PlayerWorldPosition);
@@ -197,7 +198,7 @@ namespace Minebot.Presentation
                 RefreshAfterPickupCollection();
             }
 
-            if (!hazardSenseUpdated && !robotsChanged && !pickupRewardsGranted)
+            if (!miningRecoveryChanged && !hazardSenseUpdated && !robotsChanged && !pickupRewardsGranted)
             {
                 RefreshHud();
             }
@@ -222,6 +223,7 @@ namespace Minebot.Presentation
             RefreshPickups();
             RefreshBuildings();
             RefreshHud();
+            SyncMiningCracks(services.Session.ActiveMiningProgressSnapshots);
         }
 
         public void RefreshDangerZoneOnly()
@@ -1023,6 +1025,7 @@ namespace Minebot.Presentation
             }
 
             services.Session.RewardGranted += OnRewardGranted;
+            services.Session.MiningProgressUpdated += OnMiningProgressUpdated;
             services.Session.PassiveHazardSenseUpdated += OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted += OnRobotAutomationCompleted;
             if (services.WorldPickups != null)
@@ -1031,6 +1034,7 @@ namespace Minebot.Presentation
             }
 
             services.Session.RefreshPassiveHazardSense();
+            OnMiningProgressUpdated(services.Session.ActiveMiningProgressSnapshots);
             isSubscribed = true;
         }
 
@@ -1042,6 +1046,7 @@ namespace Minebot.Presentation
             }
 
             services.Session.RewardGranted -= OnRewardGranted;
+            services.Session.MiningProgressUpdated -= OnMiningProgressUpdated;
             services.Session.PassiveHazardSenseUpdated -= OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted -= OnRobotAutomationCompleted;
             if (services.WorldPickups != null)
@@ -1064,6 +1069,11 @@ namespace Minebot.Presentation
             ApplyHazardSenseReadings(readings);
             scanIndicatorPresenter?.Refresh();
             RefreshHud();
+        }
+
+        private void OnMiningProgressUpdated(IReadOnlyList<MiningProgressSnapshot> snapshots)
+        {
+            SyncMiningCracks(snapshots);
         }
 
         private void OnRobotAutomationCompleted(RobotAutomationResult result)
@@ -1090,6 +1100,8 @@ namespace Minebot.Presentation
                     feedbackMessage = result.Reward.Metal > 0 || result.Reward.Energy > 0 || result.Reward.Experience > 0
                         ? $"从属机器人误挖炸药损毁，回收 +{result.Reward.Metal} 金属。"
                         : "从属机器人误挖炸药并损毁。";
+                    break;
+                case RobotAutomationResultKind.MiningProgressed:
                     break;
                 case RobotAutomationResultKind.Destroyed:
                     destroyedRobotVisualExpiry[result.Robot] = Time.time + 0.35f;
@@ -1157,13 +1169,11 @@ namespace Minebot.Presentation
         public void NotifyPlayerMiningContact(GridPosition target)
         {
             SetPlayerVisualState(PresentationActorState.Mining, 0.24f);
-            RefreshMiningCrack(target);
         }
 
         public void NotifyPlayerMineResolved(GridPosition target, MineInteractionResult result)
         {
             SetPlayerVisualState(PresentationActorState.Mining, 0.24f);
-            RefreshMiningCrack(target);
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
             {
                 if (result == MineInteractionResult.Mined && services != null)
@@ -1179,7 +1189,7 @@ namespace Minebot.Presentation
                     PlayWallBreakFx(target, result == MineInteractionResult.TriggeredBomb);
                 }
             }
-            else
+            else if (result != MineInteractionResult.MiningInProgress)
             {
                 NotifyPlayerBlocked();
             }
@@ -1271,29 +1281,30 @@ namespace Minebot.Presentation
             pickupRenderer.SyncActivePickups(services.WorldPickups.ActivePickups, GridToWorld);
         }
 
-        private void RefreshMiningCrack(GridPosition target)
+        private void SyncMiningCracks(IReadOnlyList<MiningProgressSnapshot> snapshots)
         {
             if (cellFxRoot == null)
             {
                 return;
             }
 
-            if (!miningCrackViews.TryGetValue(target, out MinebotCellFxView view) || view == null)
+            var activeTargets = new HashSet<GridPosition>();
+            if (snapshots != null)
             {
-                GameObject prefab = assets.MiningCrackPrefab;
-                GameObject instance = prefab != null ? Instantiate(prefab, cellFxRoot, false) : new GameObject($"Mining Crack {target}", typeof(MinebotCellFxView));
-                instance.name = $"Mining Crack {target}";
-                instance.transform.SetParent(cellFxRoot, false);
-                view = instance.GetComponent<MinebotCellFxView>();
-                if (view == null)
+                for (int i = 0; i < snapshots.Count; i++)
                 {
-                    view = instance.AddComponent<MinebotCellFxView>();
-                }
+                    MiningProgressSnapshot snapshot = snapshots[i];
+                    if (!snapshot.IsValid || snapshot.CurrentHealth >= snapshot.MaxHealth)
+                    {
+                        continue;
+                    }
 
-                miningCrackViews[target] = view;
+                    activeTargets.Add(snapshot.Position);
+                    ShowMiningCrack(snapshot);
+                }
             }
 
-            view.RefreshPersistent(assets.MiningCrackSequence, GridToWorld(target), 36);
+            ClearInactiveMiningCracks(activeTargets);
         }
 
         private void PlayWallBreakFx(GridPosition target, bool triggerExplosion)
@@ -1303,6 +1314,7 @@ namespace Minebot.Presentation
                 return;
             }
 
+            ClearMiningCrack(target);
             GameObject prefab = triggerExplosion && assets.ExplosionPrefab != null
                 ? assets.ExplosionPrefab
                 : assets.WallBreakPrefab;
@@ -1321,6 +1333,75 @@ namespace Minebot.Presentation
                 37,
                 triggerExplosion ? assets.ExplosionSequence : null,
                 0.08f);
+        }
+
+        private void ShowMiningCrack(MiningProgressSnapshot snapshot)
+        {
+            if (!miningCrackViews.TryGetValue(snapshot.Position, out MinebotCellFxView view) || view == null)
+            {
+                GameObject prefab = assets.MiningCrackPrefab;
+                GameObject instance = prefab != null ? Instantiate(prefab, cellFxRoot, false) : new GameObject($"Mining Crack {snapshot.Position}", typeof(MinebotCellFxView));
+                instance.name = $"Mining Crack {snapshot.Position}";
+                instance.transform.SetParent(cellFxRoot, false);
+                view = instance.GetComponent<MinebotCellFxView>();
+                if (view == null)
+                {
+                    view = instance.AddComponent<MinebotCellFxView>();
+                }
+
+                miningCrackViews[snapshot.Position] = view;
+            }
+
+            int frameIndex = GetMiningCrackFrameIndex(snapshot);
+            view.ShowPersistentFrame(assets.MiningCrackSequence, frameIndex, GridToWorld(snapshot.Position), 36);
+        }
+
+        private void ClearInactiveMiningCracks(HashSet<GridPosition> activeTargets)
+        {
+            if (miningCrackViews.Count == 0)
+            {
+                return;
+            }
+
+            var staleTargets = new List<GridPosition>();
+            foreach (KeyValuePair<GridPosition, MinebotCellFxView> pair in miningCrackViews)
+            {
+                if (!activeTargets.Contains(pair.Key))
+                {
+                    staleTargets.Add(pair.Key);
+                }
+            }
+
+            for (int i = 0; i < staleTargets.Count; i++)
+            {
+                ClearMiningCrack(staleTargets[i]);
+            }
+        }
+
+        private void ClearMiningCrack(GridPosition target)
+        {
+            if (!miningCrackViews.TryGetValue(target, out MinebotCellFxView view))
+            {
+                return;
+            }
+
+            miningCrackViews.Remove(target);
+            if (view != null)
+            {
+                Destroy(view.gameObject);
+            }
+        }
+
+        private int GetMiningCrackFrameIndex(MiningProgressSnapshot snapshot)
+        {
+            SpriteSequenceAsset sequence = assets != null ? assets.MiningCrackSequence : null;
+            if (sequence == null || sequence.Frames == null || sequence.Frames.Length == 0)
+            {
+                return 0;
+            }
+
+            int frameCount = sequence.Frames.Length;
+            return Mathf.Clamp(Mathf.FloorToInt(snapshot.DamageNormalized * frameCount), 0, frameCount - 1);
         }
 
         private void UpdatePlayerVisualState(float deltaTime)

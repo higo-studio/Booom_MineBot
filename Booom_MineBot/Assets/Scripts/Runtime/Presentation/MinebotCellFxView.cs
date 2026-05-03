@@ -11,7 +11,6 @@ namespace Minebot.Presentation
         private MinebotSpriteSequencePlayer sequencePlayer;
 
         private bool persistent;
-        private float lastRefreshTime;
         private SpriteSequenceAsset chainedSequence;
         private float chainedDelay;
         private float chainedElapsed;
@@ -44,12 +43,16 @@ namespace Minebot.Presentation
 
         public void RefreshPersistent(SpriteSequenceAsset sequence, Vector3 worldPosition, int sortingOrder)
         {
+            ShowPersistentFrame(sequence, 0, worldPosition, sortingOrder);
+        }
+
+        public void ShowPersistentFrame(SpriteSequenceAsset sequence, int frameIndex, Vector3 worldPosition, int sortingOrder)
+        {
             EnsureDefaultStructure(sortingOrder);
             persistent = true;
             transform.position = worldPosition;
-            lastRefreshTime = Time.time;
             bodyRenderer.color = Color.white;
-            sequencePlayer.Play(sequence);
+            sequencePlayer.ShowFrame(sequence, frameIndex);
         }
 
         public void PlayOneShot(SpriteSequenceAsset primarySequence, Vector3 worldPosition, int sortingOrder, SpriteSequenceAsset secondarySequence = null, float secondarySequenceDelay = 0.08f)
@@ -68,25 +71,6 @@ namespace Minebot.Presentation
         {
             if (persistent)
             {
-                float idleTime = Time.time - lastRefreshTime;
-                if (idleTime <= 0.05f)
-                {
-                    return;
-                }
-
-                float alpha = 1f - Mathf.Clamp01((idleTime - 0.05f) / 0.22f);
-                if (bodyRenderer != null)
-                {
-                    Color color = bodyRenderer.color;
-                    color.a = alpha;
-                    bodyRenderer.color = color;
-                }
-
-                if (alpha <= 0f)
-                {
-                    Destroy(gameObject);
-                }
-
                 return;
             }
 

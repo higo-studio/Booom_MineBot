@@ -56,7 +56,7 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void MiningZeroWallCascadesAcrossConnectedSafeWalls()
+        public void MiningClearsOnlyTargetWallWithoutCascading()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(8, 8), new GridPosition(3, 3));
             GridPosition[] walls =
@@ -78,10 +78,11 @@ namespace Minebot.Tests.EditMode
             MineResolution resolution = mining.TryMineDetailed(player, new GridPosition(3, 4));
 
             Assert.That(resolution.Result, Is.EqualTo(MineInteractionResult.Mined));
-            Assert.That(resolution.ClearedCells.Count, Is.EqualTo(walls.Length));
-            for (int i = 0; i < walls.Length; i++)
+            Assert.That(resolution.ClearedCells.Count, Is.EqualTo(1));
+            Assert.That(grid.GetCell(walls[0]).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            for (int i = 1; i < walls.Length; i++)
             {
-                Assert.That(grid.GetCell(walls[i]).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+                Assert.That(grid.GetCell(walls[i]).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
             }
         }
 
@@ -106,6 +107,98 @@ namespace Minebot.Tests.EditMode
             Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
             Assert.That(grid.GetCell(safeNeighbor).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
             Assert.That(grid.GetCell(bombWall).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+        }
+
+        [Test]
+        public void MiningRulesExposeConfiguredValuesByHardnessTier()
+        {
+            MiningRules rules = CreateMiningRules(
+                playerMiningTickIntervalSeconds: 0.15f,
+                miningDisengageGraceSeconds: 0.75f,
+                playerBaseAttack: 2,
+                soilMaxHealth: 2,
+                soilDefense: 1,
+                soilAttackBonus: 3,
+                stoneMaxHealth: 4,
+                stoneDefense: 5,
+                stoneAttackBonus: 6,
+                hardRockMaxHealth: 7,
+                hardRockDefense: 8,
+                hardRockAttackBonus: 9,
+                ultraHardMaxHealth: 10,
+                ultraHardDefense: 11,
+                ultraHardAttackBonus: 12);
+
+            Assert.That(rules.PlayerMiningTickIntervalSeconds, Is.EqualTo(0.15f).Within(0.0001f));
+            Assert.That(rules.MiningDisengageGraceSeconds, Is.EqualTo(0.75f).Within(0.0001f));
+            Assert.That(rules.PlayerBaseAttack, Is.EqualTo(2));
+            Assert.That(rules.MaxHealthFor(HardnessTier.Soil), Is.EqualTo(2));
+            Assert.That(rules.DefenseFor(HardnessTier.Stone), Is.EqualTo(5));
+            Assert.That(rules.AttackBonusFor(HardnessTier.HardRock), Is.EqualTo(9));
+            Assert.That(rules.EffectiveAttackFor(HardnessTier.UltraHard, true), Is.EqualTo(14));
+        }
+
+        [Test]
+        public void MiningServiceReturnsMiningInProgressUntilHealthIsDepleted()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = grid.PlayerSpawn + GridPosition.Up;
+            SetMineableWall(grid, target, HardnessTier.Stone, false);
+            MiningRules rules = CreateMiningRules(stoneMaxHealth: 3, stoneDefense: 1, stoneAttackBonus: 3);
+            var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Stone);
+            var mining = new MiningService(grid, rules);
+
+            MineResolution first = mining.TryMineDetailed(player, target);
+            MineResolution second = mining.TryMineDetailed(player, target);
+
+            Assert.That(first.Result, Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(first.ProgressSnapshot.CurrentHealth, Is.EqualTo(1));
+            Assert.That(second.Result, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+        }
+
+        [Test]
+        public void MiningServiceDoesNotDamageWallWhenAttackIsNotHigherThanDefense()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = grid.PlayerSpawn + GridPosition.Up;
+            SetMineableWall(grid, target, HardnessTier.Stone, false);
+            MiningRules rules = CreateMiningRules(soilAttackBonus: 2, stoneDefense: 2, stoneMaxHealth: 5);
+            var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
+            var mining = new MiningService(grid, rules);
+
+            MineResolution resolution = mining.TryMineDetailed(player, target);
+
+            Assert.That(resolution.Result, Is.EqualTo(MineInteractionResult.DrillTooWeak));
+            Assert.That(mining.ActiveProgressSnapshots, Is.Empty);
+            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+        }
+
+        [Test]
+        public void MiningServiceRestoresDamagedWallAfterGraceTimeout()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = grid.PlayerSpawn + GridPosition.Up;
+            SetMineableWall(grid, target, HardnessTier.Stone, false);
+            MiningRules rules = CreateMiningRules(
+                miningDisengageGraceSeconds: 0.5f,
+                soilAttackBonus: 2,
+                stoneMaxHealth: 4,
+                stoneDefense: 0,
+                stoneAttackBonus: 2);
+            var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Stone);
+            var mining = new MiningService(grid, rules);
+
+            MineResolution first = mining.TryMineDetailed(player, target);
+            bool restoredEarly = mining.TickMiningRecovery(0.49f);
+            bool restoredLate = mining.TickMiningRecovery(0.02f);
+            MineResolution afterRestore = mining.TryMineDetailed(player, target);
+
+            Assert.That(first.Result, Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(restoredEarly, Is.False);
+            Assert.That(restoredLate, Is.True);
+            Assert.That(afterRestore.Result, Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(afterRestore.ProgressSnapshot.CurrentHealth, Is.EqualTo(2));
         }
 
         [Test]
@@ -299,7 +392,7 @@ namespace Minebot.Tests.EditMode
             Assert.That(result, Is.EqualTo(MineInteractionResult.Mined));
             Assert.That(registry.Economy.Resources.Metal, Is.EqualTo(metalBefore));
             Assert.That(registry.Experience.Experience, Is.EqualTo(experienceBefore));
-            Assert.That(registry.WorldPickups.ActivePickups.Count, Is.GreaterThanOrEqualTo(2));
+            Assert.That(registry.WorldPickups.ActivePickups.Count, Is.GreaterThan(0));
 
             bool collected = registry.Session.TickWorldPickups(1f, ToWorldCenter(target));
 
@@ -331,6 +424,66 @@ namespace Minebot.Tests.EditMode
             Assert.That(session.WorldPickups.ActivePickups, Is.Empty);
             Assert.That(experience.Experience, Is.EqualTo(4));
             Assert.That(experience.HasPendingUpgrade, Is.True);
+        }
+
+        [Test]
+        public void SessionMiningProgressPersistsWithinGraceWindowAndResetsAfterTimeout()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = grid.PlayerSpawn + GridPosition.Up;
+            SetMineableWall(grid, target, HardnessTier.Stone, false);
+            MiningRules rules = CreateMiningRules(
+                miningDisengageGraceSeconds: 0.5f,
+                soilAttackBonus: 2,
+                stoneMaxHealth: 4,
+                stoneDefense: 0,
+                stoneAttackBonus: 2);
+            GameSessionService session = CreateSession(grid, ResourceAmount.Zero, out _, out _, null, rules);
+
+            MineInteractionResult first = session.Mine(target);
+            bool beforeTimeout = session.TickMiningRecovery(0.49f);
+            Assert.That(session.ActiveMiningProgressSnapshots.Count, Is.EqualTo(1));
+            MineInteractionResult resumed = session.Mine(target);
+
+            Assert.That(first, Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(beforeTimeout, Is.False);
+            Assert.That(resumed, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(session.ActiveMiningProgressSnapshots, Is.Empty);
+
+            LogicalGridState resetGrid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            SetMineableWall(resetGrid, target, HardnessTier.Stone, false);
+            GameSessionService resetSession = CreateSession(resetGrid, ResourceAmount.Zero, out _, out _, null, rules);
+
+            Assert.That(resetSession.Mine(target), Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(resetSession.TickMiningRecovery(0.51f), Is.True);
+            Assert.That(resetSession.ActiveMiningProgressSnapshots, Is.Empty);
+            Assert.That(resetSession.Mine(target), Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(resetSession.LastMineResolution.ProgressSnapshot.CurrentHealth, Is.EqualTo(2));
+
+            Object.DestroyImmediate(rules);
+        }
+
+        [Test]
+        public void BombWallTriggersOnlyAfterHealthReachesZero()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = grid.PlayerSpawn + GridPosition.Up;
+            SetMineableWall(grid, target, HardnessTier.Stone, true);
+            MiningRules rules = CreateMiningRules(soilAttackBonus: 3, stoneMaxHealth: 3, stoneDefense: 1);
+            GameSessionService session = CreateSession(grid, ResourceAmount.Zero, out _, out _, null, rules);
+
+            MineInteractionResult first = session.Mine(target);
+
+            Assert.That(first, Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(session.WorldPickups.ActivePickups, Is.Empty);
+            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+
+            MineInteractionResult second = session.Mine(target);
+
+            Assert.That(second, Is.EqualTo(MineInteractionResult.TriggeredBomb));
+            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+
+            Object.DestroyImmediate(rules);
         }
 
         [Test]
@@ -1569,9 +1722,14 @@ namespace Minebot.Tests.EditMode
 
         private static void SetMineableWall(LogicalGridState grid, GridPosition position, bool hasBomb)
         {
+            SetMineableWall(grid, position, HardnessTier.Soil, hasBomb);
+        }
+
+        private static void SetMineableWall(LogicalGridState grid, GridPosition position, HardnessTier hardnessTier, bool hasBomb)
+        {
             ref GridCellState cell = ref grid.GetCellRef(position);
             cell.TerrainKind = TerrainKind.MineableWall;
-            cell.HardnessTier = HardnessTier.Soil;
+            cell.HardnessTier = hardnessTier;
             cell.IsRevealed = false;
             cell.IsMarked = false;
             cell.IsOccupiedByBuilding = false;
@@ -1640,7 +1798,7 @@ namespace Minebot.Tests.EditMode
 
         private static GameSessionService CreateSession(LogicalGridState grid, ResourceAmount startingResources, out PlayerEconomy economy)
         {
-            return CreateSession(grid, startingResources, out economy, out _, null);
+            return CreateSession(grid, startingResources, out economy, out _, null, null);
         }
 
         private static GameSessionService CreateSession(
@@ -1649,7 +1807,7 @@ namespace Minebot.Tests.EditMode
             out PlayerEconomy economy,
             out ExperienceService experience)
         {
-            return CreateSession(grid, startingResources, out economy, out experience, null);
+            return CreateSession(grid, startingResources, out economy, out experience, null, null);
         }
 
         private static GameSessionService CreateSession(
@@ -1659,15 +1817,26 @@ namespace Minebot.Tests.EditMode
             out ExperienceService experience,
             HazardRules hazardRules)
         {
+            return CreateSession(grid, startingResources, out economy, out experience, hazardRules, null);
+        }
+
+        private static GameSessionService CreateSession(
+            LogicalGridState grid,
+            ResourceAmount startingResources,
+            out PlayerEconomy economy,
+            out ExperienceService experience,
+            HazardRules hazardRules,
+            MiningRules miningRules)
+        {
             var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
-            var mining = new MiningService(grid);
+            var mining = new MiningService(grid, miningRules);
             var hazards = new HazardService(grid);
             economy = new PlayerEconomy(startingResources);
             experience = new ExperienceService(4);
             var worldPickups = new WorldPickupService();
             var vitals = new PlayerVitals(3);
             var robots = new List<RobotState>();
-            var robotAutomation = new RobotAutomationService(grid);
+            var robotAutomation = new RobotAutomationService(grid, miningRules);
 
             return new GameSessionService(
                 player,
@@ -1684,6 +1853,44 @@ namespace Minebot.Tests.EditMode
                 ResourceAmount.Zero,
                 true,
                 HardnessTier.Soil);
+        }
+
+        private static MiningRules CreateMiningRules(
+            float? playerMiningTickIntervalSeconds = null,
+            float? miningDisengageGraceSeconds = null,
+            int? playerBaseAttack = null,
+            int? soilMaxHealth = null,
+            int? soilDefense = null,
+            int? soilAttackBonus = null,
+            int? stoneMaxHealth = null,
+            int? stoneDefense = null,
+            int? stoneAttackBonus = null,
+            int? hardRockMaxHealth = null,
+            int? hardRockDefense = null,
+            int? hardRockAttackBonus = null,
+            int? ultraHardMaxHealth = null,
+            int? ultraHardDefense = null,
+            int? ultraHardAttackBonus = null)
+        {
+            var rules = ScriptableObject.CreateInstance<MiningRules>();
+            var serializedRules = new SerializedObject(rules);
+            SetFloat(serializedRules, "playerMiningTickIntervalSeconds", playerMiningTickIntervalSeconds);
+            SetFloat(serializedRules, "miningDisengageGraceSeconds", miningDisengageGraceSeconds);
+            SetInt(serializedRules, "playerBaseAttack", playerBaseAttack);
+            SetInt(serializedRules, "soilMaxHealth", soilMaxHealth);
+            SetInt(serializedRules, "soilDefense", soilDefense);
+            SetInt(serializedRules, "soilAttackBonus", soilAttackBonus);
+            SetInt(serializedRules, "stoneMaxHealth", stoneMaxHealth);
+            SetInt(serializedRules, "stoneDefense", stoneDefense);
+            SetInt(serializedRules, "stoneAttackBonus", stoneAttackBonus);
+            SetInt(serializedRules, "hardRockMaxHealth", hardRockMaxHealth);
+            SetInt(serializedRules, "hardRockDefense", hardRockDefense);
+            SetInt(serializedRules, "hardRockAttackBonus", hardRockAttackBonus);
+            SetInt(serializedRules, "ultraHardMaxHealth", ultraHardMaxHealth);
+            SetInt(serializedRules, "ultraHardDefense", ultraHardDefense);
+            SetInt(serializedRules, "ultraHardAttackBonus", ultraHardAttackBonus);
+            serializedRules.ApplyModifiedPropertiesWithoutUndo();
+            return rules;
         }
 
         private static HazardRules CreateHazardRules(
@@ -1710,6 +1917,26 @@ namespace Minebot.Tests.EditMode
 
             serializedRules.ApplyModifiedPropertiesWithoutUndo();
             return hazardRules;
+        }
+
+        private static void SetInt(SerializedObject serializedObject, string propertyName, int? value)
+        {
+            if (!value.HasValue)
+            {
+                return;
+            }
+
+            serializedObject.FindProperty(propertyName).intValue = value.Value;
+        }
+
+        private static void SetFloat(SerializedObject serializedObject, string propertyName, float? value)
+        {
+            if (!value.HasValue)
+            {
+                return;
+            }
+
+            serializedObject.FindProperty(propertyName).floatValue = value.Value;
         }
 
         private static Vector2 ToWorldCenter(GridPosition position)
