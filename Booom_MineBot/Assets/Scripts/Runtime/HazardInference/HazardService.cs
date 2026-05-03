@@ -74,13 +74,30 @@ namespace Minebot.HazardInference
 
         public IReadOnlyList<ScanReading> ScanNearbyEmptyCells(GridPosition playerPosition)
         {
+            return ScanNearbyEmptyCells(
+                playerPosition,
+                HazardRules.DefaultScanFrontierRange,
+                HazardRules.DefaultScanUsesEightWayNeighbors);
+        }
+
+        public IReadOnlyList<ScanReading> ScanNearbyEmptyCells(
+            GridPosition playerPosition,
+            int frontierRange,
+            bool useEightWayNeighbors)
+        {
             var results = new List<ScanReading>();
-            for (int y = -1; y <= 1; y++)
+            int clampedRange = Mathf.Max(0, frontierRange);
+            for (int y = -clampedRange; y <= clampedRange; y++)
             {
-                for (int x = -1; x <= 1; x++)
+                for (int x = -clampedRange; x <= clampedRange; x++)
                 {
+                    if (!IsWithinScanRange(x, y, clampedRange, useEightWayNeighbors))
+                    {
+                        continue;
+                    }
+
                     GridPosition position = new GridPosition(playerPosition.X + x, playerPosition.Y + y);
-                    if (!IsScannableEmptyCell(position))
+                    if (!IsScannableEmptyCell(position, useEightWayNeighbors))
                     {
                         continue;
                     }
@@ -165,7 +182,7 @@ namespace Minebot.HazardInference
             return new ExplosionResolution(destroyed, directDamage);
         }
 
-        private bool IsScannableEmptyCell(GridPosition position)
+        private bool IsScannableEmptyCell(GridPosition position, bool useEightWayNeighbors)
         {
             if (!grid.IsInside(position))
             {
@@ -178,7 +195,8 @@ namespace Minebot.HazardInference
                 return false;
             }
 
-            foreach (GridPosition direction in GridDirections.EightWay)
+            GridPosition[] directions = useEightWayNeighbors ? GridDirections.EightWay : GridDirections.Cardinal;
+            foreach (GridPosition direction in directions)
             {
                 GridPosition neighbor = position + direction;
                 if (!grid.IsInside(neighbor))
@@ -193,6 +211,15 @@ namespace Minebot.HazardInference
             }
 
             return false;
+        }
+
+        private static bool IsWithinScanRange(int offsetX, int offsetY, int frontierRange, bool useEightWayNeighbors)
+        {
+            int absX = Mathf.Abs(offsetX);
+            int absY = Mathf.Abs(offsetY);
+            return useEightWayNeighbors
+                ? Mathf.Max(absX, absY) <= frontierRange
+                : absX + absY <= frontierRange;
         }
 
         private static IEnumerable<GridPosition> PositionsInRadius(GridPosition origin, int radius)

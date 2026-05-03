@@ -14,6 +14,12 @@ namespace Minebot.Bootstrap
         public static RuntimeServiceRegistry Current { get; private set; }
         public static bool IsInitialized => Current != null;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticsOnPlayStart()
+        {
+            Current = null;
+        }
+
         public static RuntimeServiceRegistry Initialize(BootstrapConfig config)
         {
             Debug.Log($"[MinebotServices.Initialize] 调用 - config: {(config != null ? config.name : "null")}");
@@ -46,7 +52,15 @@ namespace Minebot.Bootstrap
             var mining = new MiningService(grid);
             var hazards = new HazardService(grid);
             HazardRules hazardRules = config != null ? config.HazardRules : null;
-            Debug.Log($"[MinebotServices] 配置检查 - HazardRules: {(hazardRules != null ? hazardRules.name : "null")}, BombSpawnChance: {(hazardRules?.BombSpawnChance ?? HazardRules.DefaultBombSpawnChance):F4}, BombSeed: {(hazardRules?.BombSeed ?? HazardRules.DefaultBombSeed)}, BombSafeRadius: {(hazardRules?.BombSafeRadius ?? HazardRules.DefaultBombSafeRadius)}");
+            Debug.Log(
+                $"[MinebotServices] 配置检查 - HazardRules: {(hazardRules != null ? hazardRules.name : "null")}, " +
+                $"BombSpawnChance: {(hazardRules?.BombSpawnChance ?? HazardRules.DefaultBombSpawnChance):F4}, " +
+                $"BombSeed: {(hazardRules?.BombSeed ?? HazardRules.DefaultBombSeed)}, " +
+                $"BombSafeRadius: {(hazardRules?.BombSafeRadius ?? HazardRules.DefaultBombSafeRadius)}, " +
+                $"ScanFrontierRange: {(hazardRules?.ScanFrontierRange ?? HazardRules.DefaultScanFrontierRange)}, " +
+                $"ScanUsesEightWayNeighbors: {(hazardRules?.ScanUsesEightWayNeighbors ?? HazardRules.DefaultScanUsesEightWayNeighbors)}, " +
+                $"PassiveHazardSenseInterval: {(hazardRules?.PassiveHazardSenseIntervalSeconds ?? HazardRules.DefaultPassiveHazardSenseIntervalSeconds):F2}, " +
+                $"DirectBombDamage: {(hazardRules?.DirectBombDamage ?? HazardRules.DefaultDirectBombDamage)}");
             if (usingGeneratedMap)
             {
                 int seed = hazardRules != null ? hazardRules.BombSeed : HazardRules.DefaultBombSeed;

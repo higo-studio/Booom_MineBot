@@ -12,7 +12,6 @@ namespace Minebot.Bootstrap
 {
     public sealed class GameSessionService
     {
-        private const int PassiveHazardSenseInfluenceRadius = 2;
         private readonly PlayerMiningState player;
         private readonly MiningService mining;
         private readonly HazardService hazards;
@@ -103,7 +102,10 @@ namespace Minebot.Bootstrap
 
         public IReadOnlyList<ScanReading> RefreshPassiveHazardSense()
         {
-            IReadOnlyList<ScanReading> readings = hazards.ScanNearbyEmptyCells(player.Position);
+            IReadOnlyList<ScanReading> readings = hazards.ScanNearbyEmptyCells(
+                player.Position,
+                GetPassiveHazardSenseFrontierRange(),
+                GetPassiveHazardSenseUsesEightWayNeighbors());
             lastPassiveHazardSenseReadings.Clear();
             if (readings != null)
             {
@@ -269,9 +271,11 @@ namespace Minebot.Bootstrap
             }
 
             GridPosition playerPosition = player.Position;
+            int frontierRange = GetPassiveHazardSenseFrontierRange();
+            bool usesEightWayNeighbors = GetPassiveHazardSenseUsesEightWayNeighbors();
             for (int i = 0; i < clearedCells.Count; i++)
             {
-                if (!AffectsPassiveHazardSense(clearedCells[i].Position, playerPosition))
+                if (!AffectsPassiveHazardSense(clearedCells[i].Position, playerPosition, frontierRange, usesEightWayNeighbors))
                 {
                     continue;
                 }
@@ -283,12 +287,34 @@ namespace Minebot.Bootstrap
             return false;
         }
 
-        private static bool AffectsPassiveHazardSense(GridPosition clearedPosition, GridPosition playerPosition)
+        private int GetPassiveHazardSenseFrontierRange()
         {
-            // Passive scan samples the player's 3x3 neighborhood, and each reading depends on one extra ring
-            // for bomb counts / wall adjacency, so only cleared cells inside the player's local 5x5 can matter.
-            return Math.Abs(clearedPosition.X - playerPosition.X) <= PassiveHazardSenseInfluenceRadius
-                && Math.Abs(clearedPosition.Y - playerPosition.Y) <= PassiveHazardSenseInfluenceRadius;
+            return hazardRules != null
+                ? hazardRules.ScanFrontierRange
+                : HazardRules.DefaultScanFrontierRange;
+        }
+
+        private bool GetPassiveHazardSenseUsesEightWayNeighbors()
+        {
+            return hazardRules != null
+                ? hazardRules.ScanUsesEightWayNeighbors
+                : HazardRules.DefaultScanUsesEightWayNeighbors;
+        }
+
+        private static bool AffectsPassiveHazardSense(
+            GridPosition clearedPosition,
+            GridPosition playerPosition,
+            int frontierRange,
+            bool usesEightWayNeighbors)
+        {
+            // Passive scan samples the configured local neighborhood, and each reading depends on one extra ring
+            // for nearby wall adjacency and 3x3 bomb counts.
+            int dx = Math.Abs(clearedPosition.X - playerPosition.X);
+            int dy = Math.Abs(clearedPosition.Y - playerPosition.Y);
+            int influenceRadius = Math.Max(0, frontierRange) + 1;
+            return usesEightWayNeighbors
+                ? Math.Max(dx, dy) <= influenceRadius
+                : dx + dy <= influenceRadius;
         }
 
         private void GrantCollectedReward(ResourceAmount reward)
