@@ -270,14 +270,15 @@ namespace Minebot.Presentation
                         GridCellState cell = grid.GetCell(position);
                         Vector3Int tilePosition = ToTilePosition(position);
 
-                        if (position.Equals(repairStationPosition))
-                        {
-                            facilityPositions.Add(tilePosition);
-                        }
-                        else if (position.Equals(robotFactoryPosition))
-                        {
-                            facilityPositions.Add(tilePosition);
-                        }
+                        // 已屏蔽开局建筑显示
+                        // if (position.Equals(repairStationPosition))
+                        // {
+                        //     facilityPositions.Add(tilePosition);
+                        // }
+                        // else if (position.Equals(robotFactoryPosition))
+                        // {
+                        //     facilityPositions.Add(tilePosition);
+                        // }
 
                         if (cell.IsMarked)
                         {

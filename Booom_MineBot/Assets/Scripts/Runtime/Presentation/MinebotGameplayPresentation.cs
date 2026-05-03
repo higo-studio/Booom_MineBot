@@ -619,7 +619,7 @@ namespace Minebot.Presentation
             playerView = playerActorView.BodyRenderer;
             playerFreeform = EnsureFreeformActor(playerActorView.gameObject, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
             EnsureCircleCollider(playerActorView.gameObject, assets.PlayerColliderRadius);
-            EnsureDefaultFacilityBuildings();
+            // EnsureDefaultFacilityBuildings(); // 已屏蔽开局建筑生成
             EnsureHud();
             EnsureEventSystem();
         }

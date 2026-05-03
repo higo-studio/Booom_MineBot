@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de6847cc913b84e3db634521e89d8c0d, type: 3}
   m_Name: MinebotPresentationArtSet_Default
   m_EditorClassIdentifier: 
-  emptyTile: {fileID: 11400000, guid: 5ad57b9ad8c154a5bacd44942e02de2a, type: 2}
+  emptyTile: {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
   soilWallTile: {fileID: 11400000, guid: 5393b6caa22924cb280729a580929630, type: 2}
   stoneWallTile: {fileID: 11400000, guid: 97ed4baf97ca5458a826e5117be9aa45, type: 2}
   hardRockWallTile: {fileID: 11400000, guid: 8ef61307a32b14fd4ae047b89b16c836, type: 2}
@@ -20,22 +20,22 @@ MonoBehaviour:
   boundaryTile: {fileID: 11400000, guid: 1a266e63bcdf14e66b0dbea5dfa060fe, type: 2}
   dualGridTerrainProfile: {fileID: 11400000, guid: 65cf992adbb4f41b8b0f349aa9558a60, type: 2}
   floorDualGridTiles:
-  - {fileID: 11400000, guid: 963616e63e03d4c07907602a874fd19b, type: 2}
-  - {fileID: 11400000, guid: f10fc6b52c35b41a2b1fb8175d4725e9, type: 2}
-  - {fileID: 11400000, guid: 28253f5a4a77d47e1961672f2e0e66d0, type: 2}
-  - {fileID: 11400000, guid: ffaaaefdf982544f288feb16b99532f8, type: 2}
-  - {fileID: 11400000, guid: e8ab55c364afa4866a8c0f0f7f4b44d8, type: 2}
-  - {fileID: 11400000, guid: 18696442ca4464f4bb11cd036bb58983, type: 2}
-  - {fileID: 11400000, guid: cb02dc02d92294480808e0c2c2c13398, type: 2}
-  - {fileID: 11400000, guid: 7512b3650fe9c4f019e0f63fb26265cd, type: 2}
-  - {fileID: 11400000, guid: aa8ea4d2d77b54b249fa3e296d99d981, type: 2}
-  - {fileID: 11400000, guid: 1ac273ee41dbe4d0f94a064493585d75, type: 2}
-  - {fileID: 11400000, guid: cbc311c5e1d674703896ececbe9e3067, type: 2}
-  - {fileID: 11400000, guid: 7a3b93b06c1584ab99c06859c95932a6, type: 2}
-  - {fileID: 11400000, guid: 070f607da6a5d4a36af867dc1e6e8ef8, type: 2}
-  - {fileID: 11400000, guid: c109424d791814dcda51c2144e78f8da, type: 2}
-  - {fileID: 11400000, guid: af78a62bf1daf456e95a8e364ab230df, type: 2}
-  - {fileID: 11400000, guid: 99080024e77e54cffb3c282bd8bc1337, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
   soilDualGridTiles:
   - {fileID: 11400000, guid: 04681efc09b1e4bd58b607ebbbd74bdd, type: 2}
   - {fileID: 11400000, guid: 897b3c3959b8f4fe4a26ac5bbd461e56, type: 2}
@@ -206,15 +206,15 @@ MonoBehaviour:
   bitmapGlyphAtlas: {fileID: 2800000, guid: 0756fa162f9f249aab6793f908b5097f, type: 3}
   bitmapGlyphDescriptor: {fileID: 4900000, guid: 9560ad685c4ff44a5bfa09673f9fa52c, type: 3}
   bitmapGlyphFont: {fileID: 11400000, guid: 4ab9e547febc54282a5ceaecb887bfe7, type: 2}
-  scanLabelOffset: {x: 0, y: 1}
+  scanLabelOffset: {x: 0, y: 0}
   scanLabelColor: {r: 1, g: 1, b: 1, a: 1}
   scanLabelFontSize: 4
-  scanLabelSortingOrder: 35
+  scanLabelSortingOrder: 10
   repairStationTile: {fileID: 11400000, guid: ca436ca254750406bb49f305c243c706, type: 2}
   robotFactoryTile: {fileID: 11400000, guid: 5aef70b7533ce463e87d2b3b9871f1bb, type: 2}
   playerSprite: {fileID: 21300000, guid: 40c2b58172c7e4280ab3f722a892e2c6, type: 3}
   robotSprite: {fileID: 21300000, guid: a9f588084d839433782eedf80eae4575, type: 3}
-  playerColliderRadius: 0.42
+  playerColliderRadius: 0.8
   actorResources:
     playerPrefab: {fileID: 5253805810420483157, guid: 34755ea4406724b28bb7ab87ef251c76, type: 3}
     helperRobotPrefab: {fileID: 2014334203746286247, guid: 70d7d087774154c738541b3a5f3e7b65, type: 3}
@@ -244,6 +244,8 @@ MonoBehaviour:
     miningCrackSequence: {fileID: 11400000, guid: 85ccfa1cf504b4304bece48e370f7c95, type: 2}
     wallBreakSequence: {fileID: 11400000, guid: 1279dc01e9bac4657919c43780f68804, type: 2}
     explosionSequence: {fileID: 11400000, guid: 8415c791d88674c55bbd5709b37670d3, type: 2}
+    miningCrackSortingOrder: 10
+    miningCrackOffset: {x: 0, y: 0.08}
   hudResources:
     hudPrefab: {fileID: 631047171157477282, guid: 95c13d8ca39848e6b0d0ae66f4602f94, type: 3}
     panelBackground: {fileID: 21300000, guid: 6696ad01759e8463f901b7b1600aaba2, type: 3}
@@ -258,6 +260,7 @@ MonoBehaviour:
   floorSortingOrder: 0
   wallSortingOrder: 10
   boundarySortingOrder: 10
+  floorDisplayOffset: {x: 0, y: 0, z: 0}
   fogDeepSortingOrder: 20
   fogNearSortingOrder: 20
   dangerSortingOrder: 1
