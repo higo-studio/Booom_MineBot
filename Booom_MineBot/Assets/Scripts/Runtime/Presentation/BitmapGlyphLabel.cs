@@ -71,6 +71,7 @@ namespace Minebot.Presentation
                 renderer.sprite = glyph.Sprite;
                 renderer.color = tint;
                 renderer.sortingOrder = sortingOrder;
+                renderer.spriteSortPoint = SpriteSortPoint.Pivot;
                 renderer.transform.localPosition = new Vector3((cursor + advance * 0.5f) * scale, 0f, 0f);
                 renderer.transform.localScale = Vector3.one * scale;
                 renderer.gameObject.SetActive(true);
