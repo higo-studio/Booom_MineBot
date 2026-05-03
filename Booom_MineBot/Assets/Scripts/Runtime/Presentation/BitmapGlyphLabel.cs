@@ -9,6 +9,21 @@ namespace Minebot.Presentation
 
         public string CurrentText { get; private set; } = string.Empty;
 
+        [Header("玩家靠近检测")]
+        [SerializeField]
+        [InspectorLabel("检测半径")]
+        private float playerDetectionRadius = 1f;
+
+        [SerializeField]
+        [InspectorLabel("靠近时透明度")]
+        private float nearbyAlpha = 0.1f;
+
+        private Color baseColor = Color.white;
+        private float targetAlpha = 1f;
+        private float currentAlpha = 1f;
+        private Transform playerTransform;
+        private bool isNearPlayer;
+
         public int VisibleGlyphCount
         {
             get
@@ -26,9 +41,80 @@ namespace Minebot.Presentation
             }
         }
 
+        private void Start()
+        {
+            // 延迟一帧获取玩家对象，等待场景初始化
+            Invoke(nameof(FindPlayer), 0.1f);
+        }
+
+        private void FindPlayer()
+        {
+            // 尝试查找玩家对象
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+            {
+                playerTransform = player.transform;
+            }
+            else
+            {
+                // 如果没有Player标签，尝试通过名称查找
+                player = GameObject.Find("Player View");
+                if (player != null)
+                {
+                    playerTransform = player.transform;
+                }
+            }
+        }
+
+        private void Update()
+        {
+            // 检测玩家是否靠近
+            CheckPlayerProximity();
+
+            // 平滑过渡透明度
+            if (!Mathf.Approximately(currentAlpha, targetAlpha))
+            {
+                currentAlpha = Mathf.MoveTowards(currentAlpha, targetAlpha, Time.deltaTime * 5f);
+                UpdateGlyphAlpha();
+            }
+        }
+
+        private void CheckPlayerProximity()
+        {
+            if (playerTransform == null)
+            {
+                FindPlayer();
+                return;
+            }
+
+            float distance = Vector3.Distance(transform.position, playerTransform.position);
+            bool shouldBeNear = distance <= playerDetectionRadius;
+
+            if (shouldBeNear != isNearPlayer)
+            {
+                isNearPlayer = shouldBeNear;
+                targetAlpha = isNearPlayer ? nearbyAlpha : 1f;
+            }
+        }
+
+        private void UpdateGlyphAlpha()
+        {
+            for (int i = 0; i < glyphRenderers.Count; i++)
+            {
+                if (glyphRenderers[i] != null && glyphRenderers[i].gameObject.activeSelf)
+                {
+                    Color color = glyphRenderers[i].color;
+                    color.a = currentAlpha;
+                    glyphRenderers[i].color = color;
+                }
+            }
+        }
+
         public void SetText(string text, BitmapGlyphFontDefinition font, Color tint, float fontSize, int sortingOrder)
         {
             CurrentText = text ?? string.Empty;
+            baseColor = new Color(tint.r, tint.g, tint.b, 1f);
+
             if (font == null || string.IsNullOrEmpty(CurrentText))
             {
                 HideUnused(0);
@@ -69,7 +155,7 @@ namespace Minebot.Presentation
                 SpriteRenderer renderer = EnsureGlyphRenderer(rendererIndex++);
                 float advance = GlyphAdvanceUnits(glyph);
                 renderer.sprite = glyph.Sprite;
-                renderer.color = tint;
+                renderer.color = new Color(baseColor.r, baseColor.g, baseColor.b, currentAlpha);
                 renderer.sortingOrder = sortingOrder;
                 renderer.spriteSortPoint = SpriteSortPoint.Pivot;
                 renderer.transform.localPosition = new Vector3((cursor + advance * 0.5f) * scale, 0f, 0f);
