@@ -7,6 +7,7 @@ using Minebot.HazardInference;
 using Minebot.Progression;
 using Minebot.WaveSurvival;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Minebot.Tests.EditMode
@@ -53,6 +54,27 @@ namespace Minebot.Tests.EditMode
 
             Assert.That(found, Is.True);
             Assert.That(target, Is.EqualTo(safe));
+        }
+
+        [Test]
+        public void TargetSelectionSkipsWallsWhoseDefenseRobotCannotBeat()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition tooHard = new GridPosition(3, 4);
+            GridPosition safe = new GridPosition(4, 3);
+            SetWall(grid, tooHard);
+            SetWall(grid, safe);
+            grid.GetCellRef(tooHard).HardnessTier = HardnessTier.UltraHard;
+            MiningRules rules = CreateMiningRules();
+            var robot = new RobotState(grid.PlayerSpawn);
+            var automation = new RobotAutomationService(grid, rules, 5, 0f);
+
+            bool found = automation.TrySelectNearestSafeMineTarget(robot, HardnessTier.Soil, out GridPosition target);
+
+            Assert.That(found, Is.True);
+            Assert.That(target, Is.EqualTo(safe));
+
+            Object.DestroyImmediate(rules);
         }
 
         [Test]
@@ -189,6 +211,32 @@ namespace Minebot.Tests.EditMode
             Assert.That(result.Kind, Is.EqualTo(RobotAutomationResultKind.Moved));
             Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
             Assert.That(grid.GetCell(robot.Position).IsDangerZone, Is.False);
+        }
+
+        [Test]
+        public void RobotTickKeepsMiningSameTargetAcrossMultipleTicksUntilBroken()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = grid.PlayerSpawn + GridPosition.Up;
+            SetWall(grid, target);
+            grid.GetCellRef(target).HardnessTier = HardnessTier.Stone;
+            MiningRules rules = CreateMiningRules(stoneMaxHealth: 5, stoneDefense: 1, stoneAttackBonus: 3);
+            var robot = new RobotState(grid.PlayerSpawn);
+            robot.SetTarget(target);
+            var automation = new RobotAutomationService(grid, rules, 7, 0f);
+            var mining = new MiningService(grid, rules);
+
+            RobotAutomationResult first = automation.TickRobot(robot, HardnessTier.Stone, mining, 1f);
+            RobotAutomationResult second = automation.TickRobot(robot, HardnessTier.Stone, mining, 1f);
+            RobotAutomationResult third = automation.TickRobot(robot, HardnessTier.Stone, mining, 1f);
+
+            Assert.That(first.Kind, Is.EqualTo(RobotAutomationResultKind.MiningProgressed));
+            Assert.That(second.Kind, Is.EqualTo(RobotAutomationResultKind.MiningProgressed));
+            Assert.That(third.Kind, Is.EqualTo(RobotAutomationResultKind.Mined));
+            Assert.That(robot.TargetPosition.HasValue, Is.False);
+            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+
+            Object.DestroyImmediate(rules);
         }
 
         [Test]
@@ -354,6 +402,22 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void SessionRobotTickPausesWhenPlayerIsDead()
+        {
+            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
+            registry.Economy.Add(new ResourceAmount(5, 0, 0));
+            Assert.That(registry.RobotFactory.TryProduce(registry.Grid.PlayerSpawn, out RobotState robot), Is.True);
+            registry.Vitals.Damage(registry.Vitals.MaxHealth);
+            GridPosition before = robot.Position;
+
+            bool changed = registry.Session.TickRobots(1f);
+
+            Assert.That(changed, Is.False);
+            Assert.That(robot.Position, Is.EqualTo(before));
+            Assert.That(robot.StatusReason, Does.Contain("暂停"));
+        }
+
+        [Test]
         public void RobotTickIdlesWhenNoEligibleTargetsExist()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(5, 5), new GridPosition(2, 2));
@@ -411,6 +475,29 @@ namespace Minebot.Tests.EditMode
             cell.StaticFlags = CellStaticFlags.None;
             cell.IsDangerZone = false;
             cell.IsMarked = false;
+        }
+
+        private static MiningRules CreateMiningRules(int? stoneMaxHealth = null, int? stoneDefense = null, int? stoneAttackBonus = null)
+        {
+            var rules = ScriptableObject.CreateInstance<MiningRules>();
+            var serializedRules = new SerializedObject(rules);
+            if (stoneMaxHealth.HasValue)
+            {
+                serializedRules.FindProperty("stoneMaxHealth").intValue = stoneMaxHealth.Value;
+            }
+
+            if (stoneDefense.HasValue)
+            {
+                serializedRules.FindProperty("stoneDefense").intValue = stoneDefense.Value;
+            }
+
+            if (stoneAttackBonus.HasValue)
+            {
+                serializedRules.FindProperty("stoneAttackBonus").intValue = stoneAttackBonus.Value;
+            }
+
+            serializedRules.ApplyModifiedPropertiesWithoutUndo();
+            return rules;
         }
 
         private static Vector2 ToWorldCenter(GridPosition position)

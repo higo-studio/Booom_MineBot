@@ -456,6 +456,74 @@ namespace Minebot.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator CrackSpriteAdvancesWithMiningProgressAndBreakFxPlaysOnDestroy()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            RuntimeServiceRegistry services = MinebotServices.Current;
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
+            GridPosition target = services.Grid.PlayerSpawn + GridPosition.Up;
+
+            services.PlayerMiningState.DrillTier = HardnessTier.HardRock;
+            SetMineableHardness(services, target, HardnessTier.HardRock);
+            presentation.RefreshAll();
+            yield return null;
+
+            Assert.That(input.MineFacingCell(), Is.True);
+            yield return null;
+            Sprite firstSprite = GetCrackSprite(target);
+
+            Assert.That(input.MineFacingCell(), Is.True);
+            yield return null;
+            Sprite secondSprite = GetCrackSprite(target);
+
+            Assert.That(firstSprite, Is.Not.Null);
+            Assert.That(secondSprite, Is.Not.Null);
+            Assert.That(secondSprite, Is.Not.EqualTo(firstSprite));
+
+            Assert.That(input.MineFacingCell(), Is.True);
+            yield return null;
+
+            Assert.That(FindCrackView(target), Is.Null);
+            Assert.That(FindWallBreakView(target), Is.Not.Null);
+            Assert.That(services.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+        }
+
+        [UnityTest]
+        public IEnumerator CrackSpriteHoldsDuringGraceWindowAndClearsAfterRecoveryTimeout()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            RuntimeServiceRegistry services = MinebotServices.Current;
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
+            GridPosition target = services.Grid.PlayerSpawn + GridPosition.Up;
+
+            services.PlayerMiningState.DrillTier = HardnessTier.Stone;
+            SetMineableHardness(services, target, HardnessTier.Stone);
+            presentation.RefreshAll();
+            yield return null;
+
+            Assert.That(input.MineFacingCell(), Is.True);
+            yield return null;
+            Sprite initialSprite = GetCrackSprite(target);
+
+            yield return new WaitForSeconds(0.25f);
+            Sprite pausedSprite = GetCrackSprite(target);
+
+            Assert.That(FindCrackView(target), Is.Not.Null);
+            Assert.That(pausedSprite, Is.EqualTo(initialSprite));
+
+            yield return new WaitForSeconds(0.35f);
+
+            Assert.That(FindCrackView(target), Is.Null);
+            Assert.That(services.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+        }
+
+        [UnityTest]
         public IEnumerator FreeformMovementSlidesPastConvexCornerWithoutSnagging()
         {
             yield return LoadBootstrapAndWaitForGameplay();
@@ -788,6 +856,12 @@ namespace Minebot.Tests.PlayMode
             ref GridCellState cell = ref services.Grid.GetCellRef(position);
             cell.TerrainKind = TerrainKind.MineableWall;
             cell.HardnessTier = hardness;
+            cell.IsRevealed = false;
+            cell.IsMarked = false;
+            cell.IsDangerZone = false;
+            cell.IsOccupiedByBuilding = false;
+            cell.OccupyingBuildingId = null;
+            cell.StaticFlags &= ~CellStaticFlags.Bomb;
         }
 
         private static void SetBombWall(RuntimeServiceRegistry services, GridPosition position)
@@ -875,6 +949,32 @@ namespace Minebot.Tests.PlayMode
         private static Transform GetCellFxRoot()
         {
             return GameObject.Find(MinebotGameplayPresentation.CellFxRootName).transform;
+        }
+
+        private static GameObject FindCrackView(GridPosition position)
+        {
+            Transform root = GetCellFxRoot();
+            Transform crack = root.Find($"Mining Crack {position}");
+            return crack != null ? crack.gameObject : null;
+        }
+
+        private static Sprite GetCrackSprite(GridPosition position)
+        {
+            GameObject crack = FindCrackView(position);
+            if (crack == null)
+            {
+                return null;
+            }
+
+            SpriteRenderer renderer = crack.GetComponentInChildren<SpriteRenderer>();
+            return renderer != null ? renderer.sprite : null;
+        }
+
+        private static GameObject FindWallBreakView(GridPosition position)
+        {
+            Transform root = GetCellFxRoot();
+            Transform wallBreak = root.Find($"Wall Break {position}");
+            return wallBreak != null ? wallBreak.gameObject : null;
         }
 
         private static IReadOnlyList<Tilemap> GetTerrainFamilyTilemaps()

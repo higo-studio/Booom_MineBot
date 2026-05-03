@@ -11,7 +11,6 @@ namespace Minebot.Presentation
         private MinebotSpriteSequencePlayer sequencePlayer;
 
         private bool persistent;
-        private float lastRefreshTime;
         private SpriteSequenceAsset chainedSequence;
         private float chainedDelay;
         private float chainedElapsed;
@@ -43,15 +42,18 @@ namespace Minebot.Presentation
             sequencePlayer.TargetRenderer = bodyRenderer;
         }
 
-        public void RefreshPersistent(SpriteSequenceAsset sequence, Vector3 worldPosition, int sortingOrder, float totalDuration)
+        public void RefreshPersistent(SpriteSequenceAsset sequence, Vector3 worldPosition, int sortingOrder)
+        {
+            ShowPersistentFrame(sequence, 0, worldPosition, sortingOrder);
+        }
+
+        public void ShowPersistentFrame(SpriteSequenceAsset sequence, int frameIndex, Vector3 worldPosition, int sortingOrder)
         {
             EnsureDefaultStructure(sortingOrder);
             persistent = true;
             transform.position = worldPosition;
-            lastRefreshTime = Time.time;
             bodyRenderer.color = Color.white;
-            float frameDuration = ComputeFrameDuration(sequence, totalDuration);
-            sequencePlayer.PlayWithDuration(sequence, frameDuration);
+            sequencePlayer.ShowFrame(sequence, frameIndex);
         }
 
         public void PlayOneShot(SpriteSequenceAsset primarySequence, Vector3 worldPosition, int sortingOrder, SpriteSequenceAsset secondarySequence = null, float secondarySequenceDelay = 0.08f)
@@ -66,40 +68,10 @@ namespace Minebot.Presentation
             sequencePlayer.Play(primarySequence, restartIfSame: true);
         }
 
-        private static float ComputeFrameDuration(SpriteSequenceAsset sequence, float totalDuration)
-        {
-            if (sequence == null || sequence.Frames == null || sequence.Frames.Length == 0)
-            {
-                return 0.1f;
-            }
-
-            int frameCount = sequence.Frames.Length;
-            return totalDuration / frameCount;
-        }
-
         private void Update()
         {
             if (persistent)
             {
-                float idleTime = Time.time - lastRefreshTime;
-                if (idleTime <= 0.05f)
-                {
-                    return;
-                }
-
-                float alpha = 1f - Mathf.Clamp01((idleTime - 0.05f) / 0.22f);
-                if (bodyRenderer != null)
-                {
-                    Color color = bodyRenderer.color;
-                    color.a = alpha;
-                    bodyRenderer.color = color;
-                }
-
-                if (alpha <= 0f)
-                {
-                    Destroy(gameObject);
-                }
-
                 return;
             }
 

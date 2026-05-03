@@ -432,7 +432,7 @@ namespace Minebot.Presentation
                     services.PlayerMiningState.Position,
                     lastDirection,
                     deltaTime,
-                    autoMineInterval);
+                    GetAutoMineInterval());
 
                 autoMineState = decision.NextState;
                 if (decision.ShouldShowFeedback)
@@ -443,7 +443,7 @@ namespace Minebot.Presentation
 
                 if (!decision.ShouldMine)
                 {
-                    if (moveResult.WasBlocked && !decision.ShouldShowFeedback)
+                    if (moveResult.WasBlocked && !decision.ShouldShowFeedback && !decision.NextState.HasContact)
                     {
                         presentation.NotifyPlayerBlocked();
                     }
@@ -451,7 +451,6 @@ namespace Minebot.Presentation
                     return false;
                 }
 
-                ResetAutoMineState();
                 return MineTarget(decision.TargetCell);
             }
         }
@@ -471,10 +470,11 @@ namespace Minebot.Presentation
                 {
                     presentation.RefreshAfterTerrainChanged(services.Session.LastMineResolution.ClearedCells);
                 }
-                presentation.ShowFeedback(result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb
-                    ? $"自动挖掘 {target}：{ToChineseResultText(result)}"
-                    : $"无法挖掘 {target}：{ToChineseResultText(result)}");
-                return result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb;
+
+                bool isAdvancingMine = IsAdvancingMineResult(result);
+                string prefix = isAdvancingMine ? $"自动挖掘 {target}" : $"无法挖掘 {target}";
+                presentation.ShowFeedback($"{prefix}：{ToChineseResultText(result)}");
+                return isAdvancingMine;
             }
         }
 
@@ -494,7 +494,9 @@ namespace Minebot.Presentation
                 case MineInteractionResult.BlockedByTerrain:
                     return "被地形阻挡";
                 case MineInteractionResult.DrillTooWeak:
-                    return "钻头强度不足";
+                    return "攻击不足";
+                case MineInteractionResult.MiningInProgress:
+                    return "正在挖掘";
                 case MineInteractionResult.Mined:
                     return "已挖开";
                 case MineInteractionResult.TriggeredBomb:
@@ -502,6 +504,20 @@ namespace Minebot.Presentation
                 default:
                     return "未知结果";
             }
+        }
+
+        private float GetAutoMineInterval()
+        {
+            return services != null
+                ? services.Session.PlayerMiningTickIntervalSeconds
+                : Mathf.Max(0.02f, autoMineInterval);
+        }
+
+        private static bool IsAdvancingMineResult(MineInteractionResult result)
+        {
+            return result == MineInteractionResult.MiningInProgress
+                || result == MineInteractionResult.Mined
+                || result == MineInteractionResult.TriggeredBomb;
         }
     }
 }

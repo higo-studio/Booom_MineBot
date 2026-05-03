@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb7a638a44a3408d90b8e2ef9c989001, type: 3}
+  m_Name: Mining Rules
+  m_EditorClassIdentifier: 
+  playerMiningTickIntervalSeconds: 0.1
+  miningDisengageGraceSeconds: 0.5
+  playerBaseAttack: 0
+  soilMaxHealth: 1
+  soilDefense: 0
+  soilAttackBonus: 1
+  stoneMaxHealth: 2
+  stoneDefense: 2
+  stoneAttackBonus: 3
+  hardRockMaxHealth: 3
+  hardRockDefense: 4
+  hardRockAttackBonus: 5
+  ultraHardMaxHealth: 4
+  ultraHardDefense: 6
+  ultraHardAttackBonus: 7

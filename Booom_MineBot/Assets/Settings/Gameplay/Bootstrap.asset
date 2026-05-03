@@ -18,6 +18,7 @@ MonoBehaviour:
   balanceConfig: {fileID: 11400000, guid: 1b5ac709426f347e18613d7f9f9c57fc, type: 2}
   upgradePool: {fileID: 11400000, guid: a22e3788f295e4492bedc76a25cee888, type: 2}
   hazardRules: {fileID: 11400000, guid: 4374aa0be2dcf436ba2ddef58c0add63, type: 2}
+  miningRules: {fileID: 11400000, guid: f3e1c3d38b5b4a15a5f0ca0799e8c001, type: 2}
   waveConfig: {fileID: 11400000, guid: 0f2f019a573db47c2a20e35181caa922, type: 2}
   buildingDefinitions:
   - {fileID: 11400000, guid: a93c75db922424d8fada0e194913f8b9, type: 2}
