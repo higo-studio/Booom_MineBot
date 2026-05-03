@@ -777,11 +777,15 @@ namespace Minebot.Presentation
                 TerrainRenderLayerId layerId = orderedLayers[i];
                 int sortingOrder = ResolveTerrainSortingOrder(layerId, layoutSettings);
                 Debug.Log($"[SortOrder] Layer {layerId} -> SortingOrder {sortingOrder} (Floor={assets?.FloorSortingOrder}, Wall={assets?.WallSortingOrder}, Boundary={assets?.BoundarySortingOrder})");
+                Vector3 displayOffset = (layerId == TerrainRenderLayerId.Floor && assets != null)
+                    ? layoutSettings.DisplayOffset + assets.FloorDisplayOffset
+                    : layoutSettings.DisplayOffset;
+                Debug.Log($"[DisplayOffset] Layer {layerId} -> Offset {displayOffset} (Base={layoutSettings.DisplayOffset}, FloorExtra={assets?.FloorDisplayOffset})");
                 terrainTilemaps[i] = EnsureTilemapLayer(
                     gridRoot,
                     DualGridTerrainLayout.GetTilemapName(layerId),
                     sortingOrder,
-                    layoutSettings.DisplayOffset);
+                    displayOffset);
             }
 
             return terrainTilemaps;

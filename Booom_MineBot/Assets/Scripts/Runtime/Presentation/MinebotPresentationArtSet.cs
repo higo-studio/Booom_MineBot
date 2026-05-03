@@ -210,6 +210,11 @@ namespace Minebot.Presentation
         [InspectorLabel("DG Boundary 排序层级")]
         private int boundarySortingOrder = 20;
 
+        [Header("地形层偏移")]
+        [SerializeField]
+        [InspectorLabel("地板偏移（与全局偏移叠加）")]
+        private Vector3 floorDisplayOffset = default;
+
         [Header("覆盖层排序")]
         [SerializeField]
         [InspectorLabel("Fog Deep 排序层级")]
@@ -305,6 +310,7 @@ namespace Minebot.Presentation
         public int BuildPreviewSortingOrder => buildPreviewSortingOrder;
         public int PlayerSortingOrder => playerSortingOrder;
         public int RobotSortingOrder => robotSortingOrder;
+        public Vector3 FloorDisplayOffset => floorDisplayOffset;
 
         private TileBase[] ResolveDualGridTiles(TerrainRenderLayerId layerId, TileBase[] configuredTiles)
         {
