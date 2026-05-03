@@ -75,7 +75,7 @@ namespace Minebot.Progression
 
     public sealed class WorldPickupService
     {
-        public const float DefaultAutoAbsorbRadius = 1.08f;
+        public const float DefaultAutoAbsorbRadius = 3f;
         public const float DefaultAbsorbDuration = 0.18f;
         public const float DefaultSpawnGraceSeconds = 0.18f;
 
