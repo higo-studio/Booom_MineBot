@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 namespace Minebot.HazardInference
 {
@@ -21,7 +22,11 @@ namespace Minebot.HazardInference
         private float bombSpawnChance = DefaultBombSpawnChance;
 
         [SerializeField]
-        [InspectorLabel("炸药随机种子")]
+        [InspectorLabel("使用随机炸药种子")]
+        private bool useRandomBombSeed = false;
+
+        [SerializeField]
+        [InspectorLabel("炸药随机种子（固定）")]
         private int bombSeed = DefaultBombSeed;
 
         [SerializeField]
@@ -53,7 +58,8 @@ namespace Minebot.HazardInference
         private bool scanUsesEightWayNeighbors = DefaultScanUsesEightWayNeighbors;
 
         public float BombSpawnChance => Mathf.Clamp01(bombSpawnChance);
-        public int BombSeed => bombSeed;
+        public bool UseRandomBombSeed => useRandomBombSeed;
+        public int BombSeed => useRandomBombSeed ? Environment.TickCount : bombSeed;
         public int BombSafeRadius => Mathf.Max(0, bombSafeRadius);
         public int ScanEnergyCost => Mathf.Max(0, scanEnergyCost);
         public int ScanFrontierRange => Mathf.Max(0, scanFrontierRange);
