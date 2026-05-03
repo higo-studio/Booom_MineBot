@@ -1946,9 +1946,10 @@ namespace Minebot.Presentation
             }
 
             bool canUse = CanUseBuildingInteractionButtons();
-            bool showRepair = canUse && IsNearRepairStation();
-            bool showFactory = canUse && IsNearRobotFactory();
-            hudView.BuildingInteractionPanel.SetVisible(showRepair || showFactory);
+            // 已屏蔽开局建筑 - 强制隐藏建筑交互面板
+            bool showRepair = false; // canUse && IsNearRepairStation();
+            bool showFactory = false; // canUse && IsNearRobotFactory();
+            hudView.BuildingInteractionPanel.SetVisible(false); // showRepair || showFactory
             hudView.BuildingInteractionPanel.SetTitle(MinebotHudDefaults.BuildingInteractionTitle);
             hudView.BuildingInteractionPanel.SetButton(0, showRepair, $"维修站：维修（金属 {Mathf.Max(0, repairMetalCost)}）");
             hudView.BuildingInteractionPanel.SetButton(1, showFactory, "机器人工厂：生产从属机器人");
