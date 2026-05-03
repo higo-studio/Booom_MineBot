@@ -152,7 +152,7 @@ namespace Minebot.UI
             usingTemplateHud = BindTemplateHud();
             if (usingTemplateHud)
             {
-                ApplyTemplateFont(runtimeFontAsset);
+                // ApplyTemplateFont(runtimeFontAsset);
                 EnsureTemplateOverlayStructure(runtimeFontAsset);
                 HideLegacyPanel(statusPanel);
                 HideLegacyPanel(interactionPanel);
