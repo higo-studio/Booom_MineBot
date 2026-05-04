@@ -9,17 +9,20 @@ namespace Minebot.Progression
         private readonly PlayerMiningState playerMining;
         private readonly PlayerVitals vitals;
         private readonly UpgradePoolConfig upgradePool;
+        private readonly int thresholdIncrease;
 
         public UpgradeSelectionService(
             ExperienceService experience,
             PlayerMiningState playerMining,
             PlayerVitals vitals,
-            UpgradePoolConfig upgradePool)
+            UpgradePoolConfig upgradePool,
+            GameBalanceConfig balance)
         {
             this.experience = experience;
             this.playerMining = playerMining;
             this.vitals = vitals;
             this.upgradePool = upgradePool;
+            this.thresholdIncrease = balance != null ? balance.UpgradeThresholdIncrease : 3;
         }
 
         public bool HasPendingUpgrade => experience.HasPendingUpgrade;
@@ -50,7 +53,7 @@ namespace Minebot.Progression
             int drillTier = (int)playerMining.DrillTier + Math.Max(0, upgrade.drillTierDelta);
             playerMining.DrillTier = (HardnessTier)Math.Min(drillTier, (int)HardnessTier.UltraHard);
             vitals.IncreaseMaxHealth(upgrade.maxHealthDelta);
-            experience.ConfirmUpgrade(3);
+            experience.ConfirmUpgrade(thresholdIncrease);
             return true;
         }
 

@@ -93,7 +93,8 @@ namespace Minebot.Bootstrap
                 experience,
                 miningState,
                 vitals,
-                config != null ? config.UpgradePool : null);
+                config != null ? config.UpgradePool : null,
+                balance);
             var factory = new RobotFactoryService(
                 economy,
                 balance != null ? balance.RobotCost : new Minebot.Common.ResourceAmount(4, 0, 0),
