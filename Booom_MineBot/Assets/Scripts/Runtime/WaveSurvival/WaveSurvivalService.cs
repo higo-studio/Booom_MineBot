@@ -6,6 +6,18 @@ using Minebot.Progression;
 
 namespace Minebot.WaveSurvival
 {
+    public readonly struct WaveResolutionPlan
+    {
+        public WaveResolutionPlan(int waveNumber, int dangerRadius)
+        {
+            WaveNumber = UnityEngine.Mathf.Max(1, waveNumber);
+            DangerRadius = UnityEngine.Mathf.Max(0, dangerRadius);
+        }
+
+        public int WaveNumber { get; }
+        public int DangerRadius { get; }
+    }
+
     public readonly struct WaveResolution
     {
         public WaveResolution(bool playerKilled, int robotsDestroyed, ResourceAmount droppedResources, int survivedWave)
@@ -45,6 +57,15 @@ namespace Minebot.WaveSurvival
         public int NextDangerRadius => config != null
             ? config.DangerRadiusForWave(CurrentWave + 1)
             : WaveConfig.DefaultBaseDangerRadius + CurrentWave / WaveConfig.DefaultRadiusGrowthEveryWaves;
+        public float PerimeterBombPhaseHoldSeconds => config != null
+            ? config.PerimeterBombPhaseHoldSeconds
+            : WaveConfig.DefaultPerimeterBombPhaseHoldSeconds;
+        public float DangerRefreshPhaseHoldSeconds => config != null
+            ? config.DangerRefreshPhaseHoldSeconds
+            : WaveConfig.DefaultDangerRefreshPhaseHoldSeconds;
+        public float CollapsePhaseHoldSeconds => config != null
+            ? config.CollapsePhaseHoldSeconds
+            : WaveConfig.DefaultCollapsePhaseHoldSeconds;
 
         public bool Tick(float deltaTime)
         {
@@ -54,13 +75,17 @@ namespace Minebot.WaveSurvival
 
         public void EvaluateDangerZones()
         {
+            EvaluateDangerZones(NextDangerRadius);
+        }
+
+        public void EvaluateDangerZones(int thickness)
+        {
             foreach (GridPosition position in grid.Positions())
             {
                 ref GridCellState cell = ref grid.GetCellRef(position);
                 cell.IsDangerZone = false;
             }
 
-            int thickness = NextDangerRadius;
             if (thickness <= 0)
             {
                 return;
@@ -230,10 +255,17 @@ namespace Minebot.WaveSurvival
             EvaluateDangerZones();
         }
 
-        public WaveResolution ResolveWave(GridPosition playerPosition, PlayerVitals vitals, IList<RobotState> robots)
+        public WaveResolutionPlan PrepareWaveResolution()
         {
-            CurrentWave++;
-            timeUntilNextWave = config != null ? config.FirstWaveDelay : WaveConfig.DefaultFirstWaveDelay;
+            return new WaveResolutionPlan(CurrentWave + 1, DangerRadiusForWave(CurrentWave + 1));
+        }
+
+        public WaveResolution FinalizeWaveResolution(
+            WaveResolutionPlan plan,
+            GridPosition playerPosition,
+            PlayerVitals vitals,
+            IList<RobotState> robots)
+        {
             bool playerKilled = grid.IsInside(playerPosition) && grid.GetCell(playerPosition).IsDangerZone;
             if (playerKilled)
             {
@@ -256,14 +288,32 @@ namespace Minebot.WaveSurvival
             }
 
             CollapseResolvedDangerZone();
+            CurrentWave = plan.WaveNumber;
+            timeUntilNextWave = config != null ? config.FirstWaveDelay : WaveConfig.DefaultFirstWaveDelay;
 
-            int survivedWave = playerKilled ? CurrentWave - 1 : CurrentWave;
+            int survivedWave = playerKilled ? plan.WaveNumber - 1 : plan.WaveNumber;
             if (survivedWave > BestSurvivedWave)
             {
                 BestSurvivedWave = survivedWave;
             }
 
             return new WaveResolution(playerKilled, robotsDestroyed, drops, survivedWave);
+        }
+
+        public WaveResolution ResolveWave(GridPosition playerPosition, PlayerVitals vitals, IList<RobotState> robots)
+        {
+            WaveResolutionPlan plan = PrepareWaveResolution();
+            EvaluateDangerZones(plan.DangerRadius);
+            WaveResolution resolution = FinalizeWaveResolution(plan, playerPosition, vitals, robots);
+            EvaluateDangerZones();
+            return resolution;
+        }
+
+        private int DangerRadiusForWave(int wave)
+        {
+            return config != null
+                ? config.DangerRadiusForWave(wave)
+                : WaveConfig.DefaultBaseDangerRadius + UnityEngine.Mathf.Max(0, wave - 1) / WaveConfig.DefaultRadiusGrowthEveryWaves;
         }
 
         private void CollapseResolvedDangerZone()

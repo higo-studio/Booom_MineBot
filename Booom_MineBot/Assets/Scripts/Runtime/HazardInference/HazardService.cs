@@ -131,6 +131,24 @@ namespace Minebot.HazardInference
             return cell.IsMarked;
         }
 
+        public IReadOnlyList<GridPosition> CollectPerimeterBombOrigins()
+        {
+            var origins = new List<GridPosition>();
+            foreach (GridPosition position in grid.Positions())
+            {
+                GridCellState cell = grid.GetCell(position);
+                if (!cell.IsMineable || !cell.HasBomb || !HasAdjacentEmptyCardinalCell(position))
+                {
+                    continue;
+                }
+
+                origins.Add(position);
+            }
+
+            origins.Sort(CompareGridPositions);
+            return origins;
+        }
+
         public ExplosionResolution ResolveExplosion(GridPosition origin, int radius, int directDamage)
         {
             var pending = new Queue<GridPosition>();
@@ -182,6 +200,19 @@ namespace Minebot.HazardInference
             return new ExplosionResolution(destroyed, directDamage);
         }
 
+        private bool HasAdjacentEmptyCardinalCell(GridPosition position)
+        {
+            return IsEmptyCell(position + GridPosition.Up)
+                || IsEmptyCell(position + GridPosition.Down)
+                || IsEmptyCell(position + GridPosition.Left)
+                || IsEmptyCell(position + GridPosition.Right);
+        }
+
+        private bool IsEmptyCell(GridPosition position)
+        {
+            return grid.IsInside(position) && grid.GetCell(position).TerrainKind == TerrainKind.Empty;
+        }
+
         private bool IsScannableEmptyCell(GridPosition position, bool useEightWayNeighbors)
         {
             if (!grid.IsInside(position))
@@ -220,6 +251,16 @@ namespace Minebot.HazardInference
             return useEightWayNeighbors
                 ? Mathf.Max(absX, absY) <= frontierRange
                 : absX + absY <= frontierRange;
+        }
+
+        private static int CompareGridPositions(GridPosition left, GridPosition right)
+        {
+            if (left.Y != right.Y)
+            {
+                return left.Y.CompareTo(right.Y);
+            }
+
+            return left.X.CompareTo(right.X);
         }
 
         private static IEnumerable<GridPosition> PositionsInRadius(GridPosition origin, int radius)

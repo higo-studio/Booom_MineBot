@@ -81,6 +81,7 @@ namespace Minebot.Bootstrap
                 balance != null ? balance.RobotMaxTargetDistance : RobotAutomationService.DefaultMaxTargetDistance,
                 balance != null ? balance.RobotActionInterval : 0.35f);
             var session = new GameSessionService(
+                grid,
                 miningState,
                 mining,
                 hazards,

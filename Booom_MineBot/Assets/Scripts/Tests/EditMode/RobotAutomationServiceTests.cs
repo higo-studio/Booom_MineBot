@@ -356,6 +356,7 @@ namespace Minebot.Tests.EditMode
             var robots = new List<RobotState> { robot };
             var automation = new RobotAutomationService(grid, 7, 0f);
             var session = new GameSessionService(
+                grid,
                 player,
                 mining,
                 hazards,

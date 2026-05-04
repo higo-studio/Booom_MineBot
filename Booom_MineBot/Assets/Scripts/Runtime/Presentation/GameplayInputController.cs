@@ -115,7 +115,7 @@ namespace Minebot.Presentation
         {
             using (MoveFreeformProfilerMarker.Auto())
             {
-                if (!CanAcceptGameplayInput() || presentation.InteractionMode != GameplayInteractionMode.Normal)
+                if (!CanAcceptGameplayInput(suppressWaveLockFeedback: true) || presentation.InteractionMode != GameplayInteractionMode.Normal)
                 {
                     return false;
                 }
@@ -205,6 +205,12 @@ namespace Minebot.Presentation
                     return false;
                 }
 
+                if (services.Session != null && services.Session.IsWaveResolutionActive)
+                {
+                    presentation.ShowFeedback("地震结算中，动作已暂停。");
+                    return false;
+                }
+
                 if (services.Vitals.IsDead || services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
                 {
                     presentation.ShowFeedback("输入已锁定，先处理升级或失败状态。");
@@ -265,10 +271,20 @@ namespace Minebot.Presentation
             return selected;
         }
 
-        private bool CanAcceptGameplayInput()
+        private bool CanAcceptGameplayInput(bool suppressWaveLockFeedback = false)
         {
             if (!EnsureServices())
             {
+                return false;
+            }
+
+            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            {
+                if (!suppressWaveLockFeedback)
+                {
+                    presentation.ShowFeedback("地震结算中，动作已暂停。");
+                }
+
                 return false;
             }
 
@@ -288,10 +304,20 @@ namespace Minebot.Presentation
             return true;
         }
 
-        private bool CanChangeMode()
+        private bool CanChangeMode(bool suppressWaveLockFeedback = false)
         {
             if (!EnsureServices())
             {
+                return false;
+            }
+
+            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            {
+                if (!suppressWaveLockFeedback)
+                {
+                    presentation.ShowFeedback("地震结算中，动作已暂停。");
+                }
+
                 return false;
             }
 
@@ -352,7 +378,9 @@ namespace Minebot.Presentation
             using (PointerPositionProfilerMarker.Auto())
             {
                 pointerPosition = context.ReadValue<Vector2>();
-                if (presentation != null && presentation.InteractionMode == GameplayInteractionMode.Build)
+                if (presentation != null
+                    && presentation.InteractionMode == GameplayInteractionMode.Build
+                    && (services == null || services.Session == null || !services.Session.IsWaveResolutionActive))
                 {
                     presentation.SetBuildPreview(presentation.ScreenToGridPosition(pointerPosition));
                 }
@@ -371,6 +399,12 @@ namespace Minebot.Presentation
         {
             if (!EnsureServices())
             {
+                return;
+            }
+
+            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            {
+                presentation.ShowFeedback("地震结算中，动作已暂停。");
                 return;
             }
 
