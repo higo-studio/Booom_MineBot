@@ -244,8 +244,8 @@ MonoBehaviour:
     miningCrackSequence: {fileID: 11400000, guid: 85ccfa1cf504b4304bece48e370f7c95, type: 2}
     wallBreakSequence: {fileID: 11400000, guid: 1279dc01e9bac4657919c43780f68804, type: 2}
     explosionSequence: {fileID: 11400000, guid: 8415c791d88674c55bbd5709b37670d3, type: 2}
-    miningCrackSortingOrder: 10
-    miningCrackOffset: {x: 0, y: -0.51}
+    miningCrackSortingOrder: 11
+    miningCrackOffset: {x: 0, y: 0.5}
   hudResources:
     hudPrefab: {fileID: 631047171157477282, guid: 95c13d8ca39848e6b0d0ae66f4602f94, type: 3}
     panelBackground: {fileID: 21300000, guid: 6696ad01759e8463f901b7b1600aaba2, type: 3}
