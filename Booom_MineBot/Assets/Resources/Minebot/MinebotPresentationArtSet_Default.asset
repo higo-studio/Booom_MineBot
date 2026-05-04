@@ -234,9 +234,9 @@ MonoBehaviour:
     metalPickupPrefab: {fileID: 5540578952216291018, guid: 9a3187b99f5ad4936a813c02472d6918, type: 3}
     energyPickupPrefab: {fileID: 5150366908750135399, guid: fcbb44ffd4a9543ec842d46d8de48e3e, type: 3}
     experiencePickupPrefab: {fileID: 7284440803755123050, guid: f965dc0a2b47444dab62c7092430eac6, type: 3}
-    metalIcon: {fileID: 21300000, guid: fa0dab51938e84b658468641dae5d260, type: 3}
-    energyIcon: {fileID: 21300000, guid: ec5aa81b13a624bb8876a0a5428d9674, type: 3}
-    experienceIcon: {fileID: 21300000, guid: 528e1aecef24d4a6d94df2ab0587c1e0, type: 3}
+    metalIcon: {fileID: 3294802081377596052, guid: 4a6c3aa8dc73ace499229b9afeed1ae5, type: 3}
+    energyIcon: {fileID: -7388546868702741084, guid: 4a6c3aa8dc73ace499229b9afeed1ae5, type: 3}
+    experienceIcon: {fileID: -4460482279354169577, guid: 4a6c3aa8dc73ace499229b9afeed1ae5, type: 3}
   cellFxResources:
     miningCrackPrefab: {fileID: 5403244050406053843, guid: e9c39fc35806b40df90813057802b5ce, type: 3}
     wallBreakPrefab: {fileID: 9056696367042688441, guid: 27f6a45df415f4a74bf7c8fa203c58f3, type: 3}
