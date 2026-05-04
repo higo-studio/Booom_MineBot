@@ -16,6 +16,10 @@ namespace Minebot.Progression
         private int firstUpgradeThreshold = 4;
 
         [SerializeField]
+        [InspectorLabel("升级阈值增量")]
+        private int upgradeThresholdIncrease = 3;
+
+        [SerializeField]
         [InspectorLabel("初始资源")]
         private ResourceAmount startingResources = new ResourceAmount(1, 4, 0);
 
@@ -92,6 +96,7 @@ namespace Minebot.Progression
 
         public int PlayerMaxHealth => Mathf.Max(1, playerMaxHealth);
         public int FirstUpgradeThreshold => Mathf.Max(1, firstUpgradeThreshold);
+        public int UpgradeThresholdIncrease => Mathf.Max(1, upgradeThresholdIncrease);
         public ResourceAmount StartingResources => startingResources;
         public ResourceAmount RepairCost => repairCost;
         public ResourceAmount RobotCost => robotCost;
