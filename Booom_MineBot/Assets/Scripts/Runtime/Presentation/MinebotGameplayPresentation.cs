@@ -170,8 +170,24 @@ namespace Minebot.Presentation
 
             UpdatePlayerVisualState(Time.deltaTime);
             UpdateCameraFraming();
+            bool waveResolutionActive = services.Session != null && services.Session.IsWaveResolutionActive;
             bool pauseSimulation = IsSimulationPausedByUpgradePanel();
-            gridPresentation?.SetWaveCountdownPaused(pauseSimulation);
+            gridPresentation?.SetWaveCountdownPaused(pauseSimulation || waveResolutionActive);
+
+            if (waveResolutionActive)
+            {
+                bool waveResolutionChanged = services.Session.TickWaveResolution(Time.deltaTime);
+                if (waveResolutionChanged)
+                {
+                    RefreshFromCurrentGridState();
+                }
+                else
+                {
+                    RefreshHud();
+                }
+
+                return;
+            }
 
             if (pauseSimulation)
             {
@@ -181,7 +197,20 @@ namespace Minebot.Presentation
 
             if (enableWaveTick && !services.Vitals.IsDead && services.Waves.Tick(Time.deltaTime))
             {
-                ResolveWave();
+                if (services.Session.BeginWaveResolution())
+                {
+                    bool waveResolutionChanged = services.Session.TickWaveResolution(0f);
+                    if (waveResolutionChanged)
+                    {
+                        RefreshFromCurrentGridState();
+                    }
+                    else
+                    {
+                        RefreshHud();
+                    }
+
+                    return;
+                }
             }
 
             bool miningRecoveryChanged = services.Session.TickMiningRecovery(Time.deltaTime);
@@ -216,14 +245,12 @@ namespace Minebot.Presentation
                 return;
             }
 
-            EvaluateDangerZones();
-            gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
-            scanIndicatorPresenter?.Refresh();
-            RefreshActors();
-            RefreshPickups();
-            RefreshBuildings();
-            RefreshHud();
-            SyncMiningCracks(services.Session.ActiveMiningProgressSnapshots);
+            if (services.Session == null || !services.Session.IsWaveResolutionActive)
+            {
+                EvaluateDangerZones();
+            }
+
+            RefreshFromCurrentGridState();
         }
 
         public void RefreshDangerZoneOnly()
@@ -234,9 +261,12 @@ namespace Minebot.Presentation
             }
 
             Debug.Log($"[DangerZone] RefreshDangerZoneOnly called");
-            EvaluateDangerZones();
-            gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
-            RefreshHud();
+            if (services.Session == null || !services.Session.IsWaveResolutionActive)
+            {
+                EvaluateDangerZones();
+            }
+
+            RefreshFromCurrentGridState();
         }
 
         public void ShowFeedback(string message)
@@ -311,6 +341,22 @@ namespace Minebot.Presentation
                     RefreshHud();
                 }
             }
+        }
+
+        private void RefreshFromCurrentGridState()
+        {
+            if (services == null)
+            {
+                return;
+            }
+
+            gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
+            scanIndicatorPresenter?.Refresh();
+            RefreshActors();
+            RefreshPickups();
+            RefreshBuildings();
+            RefreshHud();
+            SyncMiningCracks(services.Session.ActiveMiningProgressSnapshots);
         }
 
         public bool TryRepairAtStation(int metalCost)
@@ -1209,6 +1255,7 @@ namespace Minebot.Presentation
             PresentationActorState playerState = services.Vitals.IsDead ? PresentationActorState.Destroyed : playerVisualState;
             playerActorView.ApplyState(assets.PlayerActorStates, playerState, assets.PlayerSprite, Color.white);
 
+            bool waveResolutionActive = services.Session != null && services.Session.IsWaveResolutionActive;
             int visibleRobotCount = 0;
             for (int i = 0; i < services.Robots.Count; i++)
             {
@@ -1226,12 +1273,14 @@ namespace Minebot.Presentation
                 HelperRobotMotionController motion = robotView.GetComponent<HelperRobotMotionController>();
                 if (motion != null)
                 {
-                    if (!robotView.gameObject.activeSelf)
+                    if (!robotView.gameObject.activeSelf || waveResolutionActive)
                     {
                         motion.SnapTo(target);
                     }
-
-                    motion.SetTarget(target);
+                    else
+                    {
+                        motion.SetTarget(target);
+                    }
                 }
                 else
                 {
@@ -1357,7 +1406,8 @@ namespace Minebot.Presentation
             }
 
             int frameIndex = GetMiningCrackFrameIndex(snapshot);
-            view.ShowPersistentFrame(assets.MiningCrackSequence, frameIndex, GridToWorld(snapshot.Position), 36);
+            Vector3 crackWorldPosition = GridToWorld(snapshot.Position) + (Vector3)assets.MiningCrackOffset;
+            view.ShowPersistentFrame(assets.MiningCrackSequence, frameIndex, crackWorldPosition, assets.MiningCrackSortingOrder);
         }
 
         private void ClearInactiveMiningCracks(HashSet<GridPosition> activeTargets)
@@ -1576,14 +1626,33 @@ namespace Minebot.Presentation
             if (hudView.WarningPanel != null)
             {
                 hudView.WarningPanel.SetText(BuildWaveHeaderText());
-                hudView.WarningPanel.SetColor(services.Waves.TimeUntilNextWave <= WaveSurvivalService.DangerWarningLeadTime
-                    ? new Color(1f, 0.2f, 0.58f, 1f)
-                    : new Color(1f, 0.96f, 0.22f, 1f));
+                hudView.WarningPanel.SetColor(services.Session != null && services.Session.IsWaveResolutionActive
+                    ? new Color(1f, 0.38f, 0.18f, 1f)
+                    : services.Waves.TimeUntilNextWave <= WaveSurvivalService.DangerWarningLeadTime
+                        ? new Color(1f, 0.2f, 0.58f, 1f)
+                        : new Color(1f, 0.96f, 0.22f, 1f));
             }
-            hudView.UpdateTemplateWaveStatus(
-                Mathf.Max(1, services.Waves.CurrentWave + 1),
-                services.Waves.TimeUntilNextWave,
-                services.Waves.WaveInterval);
+
+            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            {
+                WaveResolutionState state = services.Session.CurrentWaveResolutionState;
+                float phaseHoldSeconds = GetWaveResolutionPhaseHoldSeconds(state.Phase);
+                float fillAmount = phaseHoldSeconds > 0.0001f
+                    ? Mathf.Clamp01(state.PhaseElapsedSeconds / phaseHoldSeconds)
+                    : 1f;
+                hudView.UpdateTemplateWaveStatus(
+                    $"WAVE {Mathf.Max(1, state.TargetWave)}",
+                    $"{ToChineseWaveResolutionPhase(state)} | 暂停",
+                    fillAmount,
+                    new Color(1f, 0.38f, 0.18f, 1f));
+            }
+            else
+            {
+                hudView.UpdateTemplateWaveStatus(
+                    Mathf.Max(1, services.Waves.CurrentWave + 1),
+                    services.Waves.TimeUntilNextWave,
+                    services.Waves.WaveInterval);
+            }
 
             if (hudView.GameOverPanel != null)
             {
@@ -1612,6 +1681,11 @@ namespace Minebot.Presentation
         private string BuildInteractionText()
         {
             const string baseHint = "WASD 移动  贴墙即挖掘  自动感知周边风险  E 标记  点击底栏选建筑  R 开关建造  1-3 升级";
+            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            {
+                return "地震结算中：动作已暂停，等待外围炸弹、危险区重算和塌方完成";
+            }
+
             if (services.Experience.HasPendingUpgrade)
             {
                 return "升级可用：按 1/2/3 或点击右下升级卡片";
@@ -1676,6 +1750,14 @@ namespace Minebot.Presentation
 
         private string BuildWaveHeaderText()
         {
+            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            {
+                WaveResolutionState state = services.Session.CurrentWaveResolutionState;
+                return
+                    $"WAVE {Mathf.Max(1, state.TargetWave)}\n" +
+                    $"{ToChineseWaveResolutionPhase(state)} | 动作暂停";
+            }
+
             int displayWave = Mathf.Max(1, services.Waves.CurrentWave + 1);
             return
                 $"WAVE {displayWave}\n" +
@@ -1684,6 +1766,11 @@ namespace Minebot.Presentation
 
         private string BuildActionTagText()
         {
+            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            {
+                return "结算中";
+            }
+
             if (services.Experience.HasPendingUpgrade)
             {
                 return "升级待选";
@@ -1714,6 +1801,11 @@ namespace Minebot.Presentation
 
         private Color BuildActionTagColor()
         {
+            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            {
+                return new Color(1f, 0.48f, 0.18f, 1f);
+            }
+
             if (services.Experience.HasPendingUpgrade)
             {
                 return new Color(1f, 0.2f, 0.58f, 1f);
@@ -1729,6 +1821,12 @@ namespace Minebot.Presentation
 
         private string BuildWarningText()
         {
+            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            {
+                WaveResolutionState state = services.Session.CurrentWaveResolutionState;
+                return $"地震结算中：{ToChineseWaveResolutionPhase(state)} | 动作已暂停";
+            }
+
             string scanLine = BuildHazardSenseSummaryText();
             string countdown = $"地震波 {Mathf.Max(0f, services.Waves.TimeUntilNextWave):0.0}s | 下一波厚度 {services.Waves.NextDangerRadius}";
             if (services.Waves.TimeUntilNextWave <= WaveSurvivalService.DangerWarningLeadTime)
@@ -1782,6 +1880,35 @@ namespace Minebot.Presentation
             }
 
             return $"周边感知：{lastHazardSenseReadings.Count} 处，最高风险 {highestRisk}";
+        }
+
+        private static string ToChineseWaveResolutionPhase(WaveResolutionState state)
+        {
+            return state.Phase switch
+            {
+                WaveResolutionPhase.DetonatePerimeterBombs => state.TotalPerimeterBombs > 0
+                    ? $"外围炸弹 {state.DetonatedPerimeterBombs}/{state.TotalPerimeterBombs}"
+                    : "外围炸弹",
+                WaveResolutionPhase.ReevaluateDangerZones => "危险区重算",
+                WaveResolutionPhase.CollapseDangerZones => "塌方回填",
+                _ => "地震结算"
+            };
+        }
+
+        private float GetWaveResolutionPhaseHoldSeconds(WaveResolutionPhase phase)
+        {
+            if (services == null || services.Waves == null)
+            {
+                return 0f;
+            }
+
+            return phase switch
+            {
+                WaveResolutionPhase.DetonatePerimeterBombs => services.Waves.PerimeterBombPhaseHoldSeconds,
+                WaveResolutionPhase.ReevaluateDangerZones => services.Waves.DangerRefreshPhaseHoldSeconds,
+                WaveResolutionPhase.CollapseDangerZones => services.Waves.CollapsePhaseHoldSeconds,
+                _ => 0f
+            };
         }
 
         private string BuildRobotStatusText()
@@ -1960,7 +2087,8 @@ namespace Minebot.Presentation
 
             bool show = services != null
                 && !services.Vitals.IsDead
-                && !services.Experience.HasPendingUpgrade;
+                && !services.Experience.HasPendingUpgrade
+                && (services.Session == null || !services.Session.IsWaveResolutionActive);
             if (hudView.BuildPanel != null)
             {
                 hudView.BuildPanel.SetVisible(show);
@@ -2039,6 +2167,7 @@ namespace Minebot.Presentation
             return services != null
                 && !services.Vitals.IsDead
                 && !services.Experience.HasPendingUpgrade
+                && (services.Session == null || !services.Session.IsWaveResolutionActive)
                 && interactionMode == GameplayInteractionMode.Normal;
         }
 

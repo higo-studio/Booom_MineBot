@@ -785,6 +785,78 @@ namespace Minebot.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator WaveResolutionLocksInputShowsPhasePromptAndRestoresControlAfterCompletion()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            RuntimeServiceRegistry services = MinebotServices.Current;
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
+            TMP_Text waveText = GameObject.Find("MainUI/Upper Center/WaveText").GetComponent<TMP_Text>();
+            TMP_Text waveTimerText = GameObject.Find("MainUI/Upper Center/TimeText").GetComponent<TMP_Text>();
+            GridPosition start = services.PlayerMiningState.Position;
+            GridPosition moveTarget = start + GridPosition.Up;
+            GridPosition robotPosition = start + GridPosition.Down;
+            GridPosition perimeterBomb = start + GridPosition.Right;
+
+            SetEmpty(services, moveTarget);
+            SetEmpty(services, robotPosition);
+            SetBombWall(services, perimeterBomb);
+            List<RobotState> robots = services.Robots as List<RobotState>;
+            Assert.That(robots, Is.Not.Null);
+            var robot = new RobotState(robotPosition);
+            robot.SetTarget(perimeterBomb);
+            robot.SetActivity(RobotActivity.Moving, "前往目标");
+            robots.Add(robot);
+            presentation.RefreshAll();
+            yield return null;
+
+            GameObject robotView = GameObject.Find("Robot View 1");
+            Assert.That(robotView, Is.Not.Null);
+            Vector3 robotWorldPosition = presentation.GridToWorld(robotPosition);
+            robotView.transform.position = robotWorldPosition + new Vector3(1.6f, 0.5f, 0f);
+            Assert.That(Vector3.Distance(robotView.transform.position, robotWorldPosition), Is.GreaterThan(1f));
+
+            Assert.That(services.Session.BeginWaveResolution(), Is.True);
+            yield return null;
+
+            Assert.That(services.Session.IsWaveResolutionActive, Is.True);
+            Assert.That(robot.Activity, Is.EqualTo(RobotActivity.Idle));
+            Assert.That(presentation.WarningSummary, Does.Contain("地震结算中"));
+            Assert.That(presentation.WarningSummary, Does.Contain("外围炸弹"));
+            Assert.That(waveText.text, Does.Contain("WAVE"));
+            Assert.That(waveTimerText.text, Does.Contain("外围炸弹"));
+            Assert.That(waveTimerText.text, Does.Contain("暂停"));
+            Assert.That(Vector3.Distance(robotView.transform.position, robotWorldPosition), Is.LessThan(0.001f));
+
+            Assert.That(input.ToggleMarkerMode(), Is.False);
+            Assert.That(input.ClickGridCell(perimeterBomb), Is.False);
+            Assert.That(services.PlayerMiningState.Position, Is.EqualTo(start));
+            Assert.That(presentation.FeedbackMessage, Does.Contain("地震结算中"));
+
+            float timeoutAt = Time.realtimeSinceStartup + 2f;
+            while (services.Session.IsWaveResolutionActive && Time.realtimeSinceStartup < timeoutAt)
+            {
+                yield return null;
+            }
+
+            Assert.That(services.Session.IsWaveResolutionActive, Is.False);
+            Assert.That(Time.realtimeSinceStartup, Is.LessThan(timeoutAt));
+
+            if (services.Grid.GetCell(moveTarget).TerrainKind != TerrainKind.Empty)
+            {
+                SetEmpty(services, moveTarget);
+                presentation.RefreshAll();
+                yield return null;
+            }
+
+            Assert.That(input.Move(GridPosition.Up), Is.True);
+            yield return null;
+            Assert.That(services.PlayerMiningState.Position, Is.EqualTo(moveTarget));
+        }
+
+        [UnityTest]
         public IEnumerator LayeredOverlaysKeepMarkerDangerBuildPreviewAndScanIndicatorsIndependent()
         {
             yield return LoadBootstrapAndWaitForGameplay();
