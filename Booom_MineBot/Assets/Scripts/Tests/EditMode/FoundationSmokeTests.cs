@@ -888,6 +888,196 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
+        public void HazardServiceCollectsPerimeterBombsUsingCardinalEmptyAdjacencyInStableOrder()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), new GridPosition(4, 4));
+            SetMineableWall(grid, new GridPosition(2, 2), true);
+            SetMineableWall(grid, new GridPosition(4, 2), true);
+            SetMineableWall(grid, new GridPosition(2, 4), true);
+
+            GridPosition interiorBomb = new GridPosition(6, 6);
+            SetMineableWall(grid, interiorBomb, true);
+            SetMineableWall(grid, interiorBomb + GridPosition.Up, false);
+            SetMineableWall(grid, interiorBomb + GridPosition.Down, false);
+            SetMineableWall(grid, interiorBomb + GridPosition.Left, false);
+            SetMineableWall(grid, interiorBomb + GridPosition.Right, false);
+
+            var hazards = new HazardService(grid);
+
+            IReadOnlyList<GridPosition> origins = hazards.CollectPerimeterBombOrigins();
+
+            Assert.That(origins, Is.EqualTo(new[]
+            {
+                new GridPosition(2, 2),
+                new GridPosition(4, 2),
+                new GridPosition(2, 4)
+            }));
+        }
+
+        [Test]
+        public void FinalizeWaveResolutionUsesDangerZonesReevaluatedAfterPerimeterExplosion()
+        {
+            GridPosition spawn = new GridPosition(3, 3);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), spawn);
+            GridPosition perimeterBomb = spawn + GridPosition.Right;
+            SetMineableWall(grid, perimeterBomb, true);
+
+            var hazards = new HazardService(grid);
+            WaveConfig waveConfig = CreateWaveConfig();
+            var waves = new WaveSurvivalService(grid, waveConfig);
+            WaveResolutionPlan plan = waves.PrepareWaveResolution();
+
+            waves.EvaluateDangerZones(plan.DangerRadius);
+            Assert.That(grid.GetCell(spawn).IsDangerZone, Is.True);
+
+            hazards.ResolveExplosion(perimeterBomb, HazardRules.DefaultExplosionRadius, 0);
+            waves.EvaluateDangerZones(plan.DangerRadius);
+
+            Assert.That(grid.GetCell(spawn).IsDangerZone, Is.False);
+
+            var vitals = new PlayerVitals(3);
+            WaveResolution resolution = waves.FinalizeWaveResolution(plan, spawn, vitals, new List<RobotState>());
+
+            Assert.That(resolution.PlayerKilled, Is.False);
+            Assert.That(vitals.IsDead, Is.False);
+        }
+
+        [Test]
+        public void ResolveWaveRebuildsNextWavePreviewImmediatelyAfterCollapse()
+        {
+            GridPosition spawn = new GridPosition(4, 4);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), spawn);
+            for (int y = 2; y <= 6; y++)
+            {
+                SetMineableWall(grid, new GridPosition(2, y), false);
+            }
+
+            WaveConfig waveConfig = CreateWaveConfig(baseDangerRadius: 1, radiusGrowthEveryWaves: 1);
+            var waves = new WaveSurvivalService(grid, waveConfig);
+
+            WaveResolution resolution = waves.ResolveWave(spawn, new PlayerVitals(3), new List<RobotState>());
+
+            Assert.That(resolution.PlayerKilled, Is.False);
+            Assert.That(waves.CurrentWave, Is.EqualTo(1));
+            Assert.That(waves.NextDangerRadius, Is.EqualTo(2));
+
+            var previewSnapshot = new List<(GridPosition Position, bool IsDangerZone)>();
+            bool hasAnyDangerZone = false;
+            foreach (GridPosition position in grid.Positions())
+            {
+                bool isDangerZone = grid.GetCell(position).IsDangerZone;
+                previewSnapshot.Add((position, isDangerZone));
+                hasAnyDangerZone |= isDangerZone;
+                grid.GetCellRef(position).IsDangerZone = false;
+            }
+
+            Assert.That(hasAnyDangerZone, Is.True);
+
+            waves.EvaluateDangerZones();
+
+            for (int i = 0; i < previewSnapshot.Count; i++)
+            {
+                (GridPosition position, bool isDangerZone) = previewSnapshot[i];
+                Assert.That(grid.GetCell(position).IsDangerZone, Is.EqualTo(isDangerZone), $"Preview mismatch at {position}.");
+            }
+        }
+
+        [Test]
+        public void SessionWaveResolutionOnlyDetonatesPerimeterBombSnapshotFromStart()
+        {
+            GridPosition spawn = new GridPosition(3, 3);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), spawn);
+            GridPosition firstBomb = new GridPosition(2, 2);
+            GridPosition separatorWall = new GridPosition(3, 2);
+            GridPosition newlyExposedBomb = new GridPosition(4, 2);
+            SetMineableWall(grid, firstBomb, true);
+            SetMineableWall(grid, separatorWall, false);
+            SetMineableWall(grid, newlyExposedBomb, true);
+            SetMineableWall(grid, new GridPosition(5, 2), false);
+            SetMineableWall(grid, new GridPosition(4, 1), false);
+            SetMineableWall(grid, new GridPosition(4, 3), false);
+
+            HazardRules hazardRules = ScriptableObject.CreateInstance<HazardRules>();
+            WaveConfig waveConfig = CreateWaveConfig(
+                perimeterBombPhaseHoldSeconds: 0.01f,
+                dangerRefreshPhaseHoldSeconds: 0.01f,
+                collapsePhaseHoldSeconds: 0.01f);
+            var session = CreateWaveSession(grid, hazardRules, waveConfig);
+
+            Assert.That(session.BeginWaveResolution(), Is.True);
+            Assert.That(session.TickWaveResolution(0f), Is.True);
+
+            WaveResolutionState state = session.CurrentWaveResolutionState;
+            Assert.That(state.Phase, Is.EqualTo(WaveResolutionPhase.DetonatePerimeterBombs));
+            Assert.That(state.TotalPerimeterBombs, Is.EqualTo(1));
+            Assert.That(state.DetonatedPerimeterBombs, Is.EqualTo(1));
+            Assert.That(grid.GetCell(firstBomb).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            Assert.That(grid.GetCell(separatorWall).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            Assert.That(grid.GetCell(newlyExposedBomb).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+            Assert.That(grid.GetCell(newlyExposedBomb).HasBomb, Is.True);
+        }
+
+        [Test]
+        public void SessionWaveResolutionSkipsPerimeterCandidatesClearedByEarlierChainExplosion()
+        {
+            GridPosition spawn = new GridPosition(3, 3);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), spawn);
+            GridPosition firstBomb = new GridPosition(3, 2);
+            GridPosition secondBomb = new GridPosition(4, 2);
+            SetMineableWall(grid, firstBomb, true);
+            SetMineableWall(grid, secondBomb, true);
+
+            HazardRules hazardRules = ScriptableObject.CreateInstance<HazardRules>();
+            WaveConfig waveConfig = CreateWaveConfig();
+            var session = CreateWaveSession(grid, hazardRules, waveConfig);
+
+            Assert.That(session.BeginWaveResolution(), Is.True);
+            Assert.That(session.TickWaveResolution(0f), Is.True);
+
+            WaveResolutionState state = session.CurrentWaveResolutionState;
+            Assert.That(state.Phase, Is.EqualTo(WaveResolutionPhase.DetonatePerimeterBombs));
+            Assert.That(state.TotalPerimeterBombs, Is.EqualTo(2));
+            Assert.That(state.DetonatedPerimeterBombs, Is.EqualTo(1));
+            Assert.That(grid.GetCell(firstBomb).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            Assert.That(grid.GetCell(secondBomb).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+        }
+
+        [Test]
+        public void SessionWaveResolutionReevaluatesDangerZonesBeforeCollapsePhase()
+        {
+            GridPosition spawn = new GridPosition(3, 3);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), spawn);
+            GridPosition perimeterBomb = spawn + GridPosition.Right;
+            GridPosition survivingWall = new GridPosition(1, 3);
+            GridPosition postRefreshDangerCell = new GridPosition(2, 3);
+            SetMineableWall(grid, perimeterBomb, true);
+            SetMineableWall(grid, survivingWall, false);
+
+            HazardRules hazardRules = ScriptableObject.CreateInstance<HazardRules>();
+            WaveConfig waveConfig = CreateWaveConfig(
+                perimeterBombPhaseHoldSeconds: 0.01f,
+                dangerRefreshPhaseHoldSeconds: 0.01f,
+                collapsePhaseHoldSeconds: 0.01f);
+            var session = CreateWaveSession(grid, hazardRules, waveConfig);
+
+            Assert.That(session.BeginWaveResolution(), Is.True);
+            Assert.That(session.TickWaveResolution(0f), Is.True);
+            Assert.That(session.CurrentWaveResolutionState.Phase, Is.EqualTo(WaveResolutionPhase.DetonatePerimeterBombs));
+            Assert.That(grid.GetCell(perimeterBomb).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+
+            Assert.That(session.TickWaveResolution(0.01f), Is.True);
+            Assert.That(session.CurrentWaveResolutionState.Phase, Is.EqualTo(WaveResolutionPhase.ReevaluateDangerZones));
+            Assert.That(grid.GetCell(spawn).IsDangerZone, Is.False);
+            Assert.That(grid.GetCell(postRefreshDangerCell).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(postRefreshDangerCell).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+
+            Assert.That(session.TickWaveResolution(0.01f), Is.True);
+            Assert.That(session.CurrentWaveResolutionState.Phase, Is.EqualTo(WaveResolutionPhase.CollapseDangerZones));
+            Assert.That(grid.GetCell(postRefreshDangerCell).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+            Assert.That(grid.GetCell(postRefreshDangerCell).IsDangerZone, Is.False);
+        }
+
+        [Test]
         public void LayeredBinaryTerrainResolverProducesStableOrderedCommandsForMixedSample()
         {
             var resolver = new LayeredBinaryTerrainResolver();
@@ -1839,6 +2029,7 @@ namespace Minebot.Tests.EditMode
             var robotAutomation = new RobotAutomationService(grid, miningRules);
 
             return new GameSessionService(
+                grid,
                 player,
                 mining,
                 hazards,
@@ -1851,6 +2042,40 @@ namespace Minebot.Tests.EditMode
                 robots,
                 null,
                 ResourceAmount.Zero,
+                true,
+                HardnessTier.Soil);
+        }
+
+        private static GameSessionService CreateWaveSession(
+            LogicalGridState grid,
+            HazardRules hazardRules,
+            WaveConfig waveConfig)
+        {
+            var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
+            var mining = new MiningService(grid);
+            var hazards = new HazardService(grid);
+            var economy = new PlayerEconomy(ResourceAmount.Zero);
+            var experience = new ExperienceService(4);
+            var worldPickups = new WorldPickupService();
+            var vitals = new PlayerVitals(3);
+            var robots = new List<RobotState>();
+            var robotAutomation = new RobotAutomationService(grid, null);
+            var waves = new WaveSurvivalService(grid, waveConfig);
+
+            return new GameSessionService(
+                grid,
+                player,
+                mining,
+                hazards,
+                hazardRules,
+                economy,
+                experience,
+                worldPickups,
+                vitals,
+                robotAutomation,
+                robots,
+                waves,
+                waveConfig != null ? waveConfig.RobotRecycleDrop : ResourceAmount.Zero,
                 true,
                 HardnessTier.Soil);
         }
@@ -1917,6 +2142,26 @@ namespace Minebot.Tests.EditMode
 
             serializedRules.ApplyModifiedPropertiesWithoutUndo();
             return hazardRules;
+        }
+
+        private static WaveConfig CreateWaveConfig(
+            float? firstWaveDelay = null,
+            int? baseDangerRadius = null,
+            int? radiusGrowthEveryWaves = null,
+            float? perimeterBombPhaseHoldSeconds = null,
+            float? dangerRefreshPhaseHoldSeconds = null,
+            float? collapsePhaseHoldSeconds = null)
+        {
+            var waveConfig = ScriptableObject.CreateInstance<WaveConfig>();
+            var serializedConfig = new SerializedObject(waveConfig);
+            SetFloat(serializedConfig, "firstWaveDelay", firstWaveDelay);
+            SetInt(serializedConfig, "baseDangerRadius", baseDangerRadius);
+            SetInt(serializedConfig, "radiusGrowthEveryWaves", radiusGrowthEveryWaves);
+            SetFloat(serializedConfig, "perimeterBombPhaseHoldSeconds", perimeterBombPhaseHoldSeconds);
+            SetFloat(serializedConfig, "dangerRefreshPhaseHoldSeconds", dangerRefreshPhaseHoldSeconds);
+            SetFloat(serializedConfig, "collapsePhaseHoldSeconds", collapsePhaseHoldSeconds);
+            serializedConfig.ApplyModifiedPropertiesWithoutUndo();
+            return waveConfig;
         }
 
         private static void SetInt(SerializedObject serializedObject, string propertyName, int? value)

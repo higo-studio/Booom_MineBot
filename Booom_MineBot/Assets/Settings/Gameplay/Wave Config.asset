@@ -19,3 +19,6 @@ MonoBehaviour:
     metal: 2
     energy: 0
     experience: 0
+  perimeterBombPhaseHoldSeconds: 0.2
+  dangerRefreshPhaseHoldSeconds: 0.2
+  collapsePhaseHoldSeconds: 0.2
