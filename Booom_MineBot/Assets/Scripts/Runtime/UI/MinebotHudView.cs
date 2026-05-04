@@ -289,13 +289,28 @@ namespace Minebot.UI
                 return;
             }
 
-            SetText(templateWaveText, $"WAVE {Mathf.Max(1, displayWave)}");
-            SetText(templateWaveTimerText, FormatWaveTimer(timeUntilNextWave));
+            float interval = waveInterval > 0.01f ? waveInterval : 1f;
+            float fillAmount = Mathf.Clamp01(1f - Mathf.Clamp(timeUntilNextWave, 0f, interval) / interval);
+            UpdateTemplateWaveStatus(
+                $"WAVE {Mathf.Max(1, displayWave)}",
+                FormatWaveTimer(timeUntilNextWave),
+                fillAmount,
+                Color.white);
+        }
+
+        public void UpdateTemplateWaveStatus(string waveText, string detailText, float fillAmount, Color fillColor)
+        {
+            if (!usingTemplateHud)
+            {
+                return;
+            }
+
+            SetText(templateWaveText, waveText);
+            SetText(templateWaveTimerText, detailText);
             if (templateWaveFillImage != null)
             {
-                float interval = waveInterval > 0.01f ? waveInterval : 1f;
-                templateWaveFillImage.fillAmount = Mathf.Clamp01(1f - Mathf.Clamp(timeUntilNextWave, 0f, interval) / interval);
-                templateWaveFillImage.color = Color.white;
+                templateWaveFillImage.fillAmount = Mathf.Clamp01(fillAmount);
+                templateWaveFillImage.color = fillColor;
             }
         }
 
