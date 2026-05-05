@@ -75,6 +75,7 @@ namespace Minebot.Presentation
         private Transform actorRoot;
         private Transform pickupRoot;
         private Transform cellFxRoot;
+        private Transform cameraRig;
         private Transform buildingRoot;
         private MinebotPickupRenderer pickupRenderer;
         private MinebotActorView playerActorView;
@@ -747,15 +748,36 @@ namespace Minebot.Presentation
             Camera camera = Camera.main;
             if (camera == null)
             {
+                // 创建相机Rig父物体
+                var rigObject = new GameObject("Camera Rig");
+                cameraRig = rigObject.transform;
+                
                 var cameraObject = new GameObject("Main Camera");
                 cameraObject.tag = "MainCamera";
+                cameraObject.transform.SetParent(cameraRig, false);
                 camera = cameraObject.AddComponent<Camera>();
                 cameraObject.AddComponent<AudioListener>();
+            }
+            else
+            {
+                // 如果相机已存在，确保它有父物体Rig
+                if (camera.transform.parent == null || camera.transform.parent.name != "Camera Rig")
+                {
+                    var rigObject = new GameObject("Camera Rig");
+                    cameraRig = rigObject.transform;
+                    camera.transform.SetParent(cameraRig, false);
+                }
+                else
+                {
+                    cameraRig = camera.transform.parent;
+                }
             }
 
             camera.orthographic = true;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.05f, 0.07f, 0.08f, 1f);
+            // 确保相机本地位置为(0,0,0)，震动效果会在localPosition上叠加
+            camera.transform.localPosition = Vector3.zero;
             UpdateCameraFraming(camera);
         }
 
@@ -771,9 +793,16 @@ namespace Minebot.Presentation
                 return;
             }
 
+            // 获取相机Rig，如果不存在则使用相机本身
+            Transform rig = cameraRig;
+            if (rig == null)
+            {
+                rig = camera.transform.parent != null ? camera.transform.parent : camera.transform;
+            }
+
             if (services == null)
             {
-                camera.transform.position = new Vector3(6f, 6f, -10f);
+                rig.position = new Vector3(6f, 6f, -10f);
                 camera.orthographicSize = 6.5f;
                 return;
             }
@@ -798,7 +827,8 @@ namespace Minebot.Presentation
             float maxCenterY = size.y - visibleHalfHeight;
             focusCenter.x = minCenterX <= maxCenterX ? Mathf.Clamp(focusCenter.x, minCenterX, maxCenterX) : size.x * 0.5f;
             focusCenter.y = minCenterY <= maxCenterY ? Mathf.Clamp(focusCenter.y, minCenterY, maxCenterY) : size.y * 0.5f;
-            camera.transform.position = new Vector3(focusCenter.x, focusCenter.y, -10f);
+            // 设置Rig的位置，震动效果在相机的localPosition上叠加
+            rig.position = new Vector3(focusCenter.x, focusCenter.y, -10f);
         }
 
         private static void EnsureLight()
