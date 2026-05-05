@@ -539,7 +539,7 @@ namespace Minebot.Presentation
         {
             autoMineState = AutoMineContactState.None;
             presentation?.AudioController?.StopPlayerMiningLoop();
-
+            //presentation?.AudioController?.StopPlayerMoveLoop();
         }
 
         private bool MineTarget(GridPosition target)
