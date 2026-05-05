@@ -247,6 +247,7 @@ MonoBehaviour:
     miningCrackSortingOrder: 11
     miningCrackOffset: {x: 0, y: 0.5}
     wallBreakParticlePrefab: {fileID: 3380532150941746670, guid: a9ff6f2717a8c094ba84678a730f9a85, type: 3}
+    explosionParticlePrefab: {fileID: 3357896782286245484, guid: 4be83202bed52504b97ffad0cf752814, type: 3}
   hudResources:
     hudPrefab: {fileID: 631047171157477282, guid: 95c13d8ca39848e6b0d0ae66f4602f94, type: 3}
     panelBackground: {fileID: 21300000, guid: 6696ad01759e8463f901b7b1600aaba2, type: 3}
