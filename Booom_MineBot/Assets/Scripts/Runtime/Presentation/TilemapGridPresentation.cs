@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DG.Tweening;
 using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
@@ -23,6 +24,10 @@ namespace Minebot.Presentation
 
         private const float DangerFlashThreshold = 3f;
         private const float FlashInterval = 0.12f;
+        private const float DangerFadeInThreshold = 10f;
+        private const float DangerNormalOpacity = 1f;
+        private const float DangerLowOpacity = 0f;
+        private const float DangerFadeDuration = 0.5f;
         
         private MinebotPresentationAssets assets;
         private readonly DualGridRenderer terrainRenderer = new DualGridRenderer(new LayeredBinaryTerrainResolver());
@@ -49,6 +54,8 @@ namespace Minebot.Presentation
         private float lastFlashTime;
         private bool isFlashingVisible = true;
         private bool isWaveCountdownPaused;
+        private Tween dangerOpacityTween;
+        private float currentDangerOpacity = 1f;
 
         public Tilemap TerrainTilemap => GetTerrainTilemap(TerrainRenderLayerId.Floor);
         public IReadOnlyList<Tilemap> TerrainTilemaps { get; private set; } = Array.Empty<Tilemap>();
@@ -89,6 +96,7 @@ namespace Minebot.Presentation
 
         private void OnDestroy()
         {
+            dangerOpacityTween?.Kill();
             DisposeFogNativeBuffers();
         }
 
@@ -215,8 +223,16 @@ namespace Minebot.Presentation
 
             TimeUntilNextWave = Mathf.Max(0f, TimeUntilNextWave - Time.deltaTime);
             
+            if (DangerTilemap == null || dangerTileCache.Count == 0)
+            {
+                return;
+            }
+            
+            // Handle danger zone opacity based on time until wave
+            UpdateDangerOpacity();
+            
             // Handle danger zone flashing when wave is about to hit
-            if (DangerTilemap != null && dangerTileCache.Count > 0 && TimeUntilNextWave <= DangerFlashThreshold && TimeUntilNextWave > 0)
+            if (TimeUntilNextWave <= DangerFlashThreshold && TimeUntilNextWave > 0)
             {
                 if (Time.time - lastFlashTime >= FlashInterval)
                 {
@@ -241,6 +257,56 @@ namespace Minebot.Presentation
                     }
                 }
             }
+        }
+        
+        private void UpdateDangerOpacity()
+        {
+            // Calculate target opacity based on time until wave
+            float targetOpacity;
+            
+            if (TimeUntilNextWave <= DangerFlashThreshold)
+            {
+                // During flashing, full opacity when visible
+                targetOpacity = isFlashingVisible ? DangerNormalOpacity : 0f;
+            }
+            else if (TimeUntilNextWave <= DangerFadeInThreshold)
+            {
+                // Between 3-10 seconds: fade from low to normal opacity (starts low, gets more visible)
+                float fadeProgress = (TimeUntilNextWave - DangerFlashThreshold) / (DangerFadeInThreshold - DangerFlashThreshold);
+                targetOpacity = Mathf.Lerp(DangerLowOpacity, DangerNormalOpacity, fadeProgress);
+            }
+            else
+            {
+                // Above 10 seconds: low opacity (hardly visible)
+                targetOpacity = DangerLowOpacity;
+            }
+            
+            // Smooth transition to target opacity using DOTween
+            if (!Mathf.Approximately(currentDangerOpacity, targetOpacity))
+            {
+                dangerOpacityTween?.Kill();
+                dangerOpacityTween = DOTween.To(
+                    () => currentDangerOpacity,
+                    x => {
+                        currentDangerOpacity = x;
+                        ApplyDangerOpacity(currentDangerOpacity);
+                    },
+                    targetOpacity,
+                    DangerFadeDuration
+                ).SetEase(Ease.OutQuad).SetUpdate(true);
+            }
+        }
+        
+        private void ApplyDangerOpacity(float opacity)
+        {
+            if (DangerTilemap == null)
+            {
+                return;
+            }
+            
+            Color color = DangerTilemap.color;
+            color.a = opacity;
+            DangerTilemap.color = color;
         }
 
         public void Refresh(RuntimeServiceRegistry services, GridPosition repairStationPosition, GridPosition robotFactoryPosition)
