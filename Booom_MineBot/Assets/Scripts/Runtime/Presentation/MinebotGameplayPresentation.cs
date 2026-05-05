@@ -86,6 +86,7 @@ namespace Minebot.Presentation
         private readonly List<GameObject> buildingViews = new List<GameObject>();
         private static TMP_FontAsset runtimeFontAsset;
         private MinebotHudView hudView;
+        private MinebotGameplayAudioController audioController;
         private UpgradeDefinition[] currentCandidates = Array.Empty<UpgradeDefinition>();
         private BuildingDefinition[] availableBuildingDefinitions = Array.Empty<BuildingDefinition>();
         private BuildingDefinition selectedBuildingDefinition;
@@ -133,6 +134,7 @@ namespace Minebot.Presentation
         public bool IsGameOver => services != null && services.Vitals.IsDead;
         public bool IsUsingConfiguredArtSet => assets != null && assets.IsUsingConfiguredArtSet;
         public GameplayInteractionMode InteractionMode => interactionMode;
+        internal MinebotGameplayAudioController AudioController => audioController;
         public Vector2 PlayerWorldPosition => playerFreeform != null
             ? playerFreeform.WorldPosition
             : (services != null ? (Vector2)GridToWorld(services.PlayerMiningState.Position) : Vector2.zero);
@@ -154,6 +156,7 @@ namespace Minebot.Presentation
 
         private void OnDisable()
         {
+            audioController?.StopTransientLoops();
             UnsubscribeFromServices();
         }
 
@@ -170,6 +173,7 @@ namespace Minebot.Presentation
 
             UpdatePlayerVisualState(Time.deltaTime);
             UpdateCameraFraming();
+            audioController?.SyncState(services, playerActorView != null ? playerActorView.transform : transform, GetFirstRobotMiningAnchor());
             bool waveResolutionActive = services.Session != null && services.Session.IsWaveResolutionActive;
             bool pauseSimulation = IsSimulationPausedByUpgradePanel();
             gridPresentation?.SetWaveCountdownPaused(pauseSimulation || waveResolutionActive);
@@ -363,11 +367,20 @@ namespace Minebot.Presentation
         {
             if (!IsNearRepairStation())
             {
+                audioController?.PlayActionDenied();
                 ShowFeedback("需要靠近蓝色维修站才能维修。");
                 return false;
             }
 
             bool repaired = services.BaseOps.TryRepair(new ResourceAmount(Mathf.Max(0, metalCost), 0, 0));
+            if (repaired)
+            {
+                audioController?.PlayRepairSuccess();
+            }
+            else
+            {
+                audioController?.PlayActionDenied();
+            }
             ShowFeedback(repaired ? "维修完成，生命已恢复。" : "金属不足，无法维修。");
             return repaired;
         }
@@ -381,6 +394,7 @@ namespace Minebot.Presentation
         {
             if (!IsNearRobotFactory())
             {
+                audioController?.PlayActionDenied();
                 ShowFeedback("需要靠近橙色机器人工厂才能生产机器人。");
                 return false;
             }
@@ -390,6 +404,15 @@ namespace Minebot.Presentation
             {
                 RefreshActors();
                 RefreshHud();
+            }
+
+            if (produced && robot != null)
+            {
+                audioController?.PlayRobotBuildSuccess();
+            }
+            else
+            {
+                audioController?.PlayActionDenied();
             }
 
             ShowFeedback(produced && robot != null ? "已生产从属机器人。" : "金属不足，无法生产机器人。");
@@ -406,12 +429,14 @@ namespace Minebot.Presentation
             if (!services.Buildings.TryPlace(definition, origin, out BuildingInstance instance, out BuildingPlacementFailure failure))
             {
                 UpdateBuildPreviewState(definition, origin);
+                audioController?.PlayActionDenied();
                 ShowFeedback($"无法建造：{ToChinesePlacementFailure(failure)}");
                 return false;
             }
 
             RefreshBuildings();
             UpdateBuildPreviewState(definition, origin);
+            audioController?.PlayBuildPlaceSuccess();
             ShowFeedback($"已建造 {instance.Definition.DisplayName}。");
             return true;
         }
@@ -533,6 +558,7 @@ namespace Minebot.Presentation
             RefreshUpgradePanel();
             if (index < 0 || index >= currentCandidates.Length)
             {
+                audioController?.PlayActionDenied();
                 ShowFeedback("当前没有可选升级。");
                 return false;
             }
@@ -542,6 +568,15 @@ namespace Minebot.Presentation
             if (applied && !services.Experience.HasPendingUpgrade && !services.Vitals.IsDead)
             {
                 interactionMode = GameplayInteractionMode.Normal;
+            }
+
+            if (applied)
+            {
+                audioController?.PlayUpgradeApply();
+            }
+            else
+            {
+                audioController?.PlayActionDenied();
             }
 
             ShowFeedback(applied ? $"升级已应用：{selected.displayName}" : "升级选择失败。");
@@ -578,6 +613,7 @@ namespace Minebot.Presentation
                 robotFactoryPosition = PickFacilityPosition(GridPosition.Right);
                 availableBuildingDefinitions = ResolveBuildingDefinitions();
                 selectedBuildingDefinition = availableBuildingDefinitions.Length > 0 ? availableBuildingDefinitions[0] : null;
+                EnsureAudioController();
                 return;
             }
 
@@ -596,6 +632,7 @@ namespace Minebot.Presentation
                     robotFactoryPosition = PickFacilityPosition(GridPosition.Right);
                     availableBuildingDefinitions = ResolveBuildingDefinitions();
                     selectedBuildingDefinition = availableBuildingDefinitions.Length > 0 ? availableBuildingDefinitions[0] : null;
+                    EnsureAudioController();
                 }
             }
         }
@@ -1035,6 +1072,7 @@ namespace Minebot.Presentation
             }
 
             SetSelectedBuilding(availableBuildingDefinitions[index]);
+            audioController?.PlayBuildingSelect();
             if (interactionMode != GameplayInteractionMode.Build)
             {
                 SetInteractionMode(GameplayInteractionMode.Build);
@@ -1137,16 +1175,20 @@ namespace Minebot.Presentation
                         for (int i = 0; i < result.ClearedCells.Count; i++)
                         {
                             PlayWallBreakFx(result.ClearedCells[i].Position, triggerExplosion: false);
+                            audioController?.PlayRobotWallBreak(GridToWorld(result.ClearedCells[i].Position));
                         }
                     }
                     else
                     {
                         PlayWallBreakFx(result.Target, triggerExplosion: false);
+                        audioController?.PlayRobotWallBreak(GridToWorld(result.Target));
                     }
                     break;
                 case RobotAutomationResultKind.TriggeredBomb:
                     destroyedRobotVisualExpiry[result.Robot] = Time.time + 0.35f;
                     PlayWallBreakFx(result.Target, triggerExplosion: true);
+                    audioController?.PlayExplosion(GridToWorld(result.Target));
+                    audioController?.PlayRobotDestroyed(GridToWorld(result.Target));
                     feedbackMessage = result.Reward.Metal > 0 || result.Reward.Energy > 0 || result.Reward.Experience > 0
                         ? $"从属机器人误挖炸药损毁，回收 +{result.Reward.Metal} 金属。"
                         : "从属机器人误挖炸药并损毁。";
@@ -1158,8 +1200,13 @@ namespace Minebot.Presentation
                     if (!result.Target.Equals(GridPosition.Zero) && !string.IsNullOrEmpty(result.Status) && result.Status.Contains("炸药", StringComparison.Ordinal))
                     {
                         PlayWallBreakFx(result.Target, triggerExplosion: true);
+                        audioController?.PlayExplosion(GridToWorld(result.Target));
                     }
 
+                    if (!result.Target.Equals(GridPosition.Zero))
+                    {
+                        audioController?.PlayRobotDestroyed(GridToWorld(result.Target));
+                    }
                     feedbackMessage = result.Reward.Metal > 0 || result.Reward.Energy > 0 || result.Reward.Experience > 0
                         ? $"从属机器人损毁，回收 +{result.Reward.Metal} 金属。"
                         : "从属机器人损毁。";
@@ -1174,6 +1221,7 @@ namespace Minebot.Presentation
         private void OnPickupAbsorbed(WorldPickupAbsorption absorption)
         {
             pickupRenderer?.BeginAbsorb(absorption.Pickup, PlayerWorldPosition);
+            audioController?.PlayPickupAbsorb(absorption.Pickup.Type);
         }
 
         private void RefreshAfterRobotAutomationTick()
@@ -1209,39 +1257,64 @@ namespace Minebot.Presentation
         public void NotifyPlayerMoved()
         {
             SetPlayerVisualState(PresentationActorState.Moving, 0.12f);
+            audioController?.StopPlayerMiningLoop();
+            audioController?.PlayPlayerMove();
         }
 
         public void NotifyPlayerBlocked()
         {
             SetPlayerVisualState(PresentationActorState.Blocked, 0.18f);
+            audioController?.StopPlayerMiningLoop();
+            audioController?.PlayPlayerBlock();
         }
 
         public void NotifyPlayerMiningContact(GridPosition target)
         {
             SetPlayerVisualState(PresentationActorState.Mining, 0.24f);
+            audioController?.StartPlayerMiningLoop(playerActorView != null ? playerActorView.transform : transform);
         }
 
         public void NotifyPlayerMineResolved(GridPosition target, MineInteractionResult result)
         {
             SetPlayerVisualState(PresentationActorState.Mining, 0.24f);
-            if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
+            switch (result)
             {
-                if (result == MineInteractionResult.Mined && services != null)
-                {
-                    IReadOnlyList<MineClearedCell> clearedCells = services.Session.LastMineResolution.ClearedCells;
-                    for (int i = 0; i < clearedCells.Count; i++)
+                case MineInteractionResult.MiningInProgress:
+                    return;
+                case MineInteractionResult.Mined:
+                    audioController?.StopPlayerMiningLoop();
+                    if (services != null)
                     {
-                        PlayWallBreakFx(clearedCells[i].Position, triggerExplosion: false);
+                        IReadOnlyList<MineClearedCell> clearedCells = services.Session.LastMineResolution.ClearedCells;
+                        if (clearedCells.Count == 0)
+                        {
+                            audioController?.PlayTerrainWallBreak(GridToWorld(target));
+                        }
+
+                        for (int i = 0; i < clearedCells.Count; i++)
+                        {
+                            PlayWallBreakFx(clearedCells[i].Position, triggerExplosion: false);
+                            audioController?.PlayTerrainWallBreak(GridToWorld(clearedCells[i].Position));
+                        }
                     }
-                }
-                else
-                {
-                    PlayWallBreakFx(target, result == MineInteractionResult.TriggeredBomb);
-                }
-            }
-            else if (result != MineInteractionResult.MiningInProgress)
-            {
-                NotifyPlayerBlocked();
+                    else
+                    {
+                        audioController?.PlayTerrainWallBreak(GridToWorld(target));
+                    }
+                    return;
+                case MineInteractionResult.TriggeredBomb:
+                    audioController?.StopPlayerMiningLoop();
+                    PlayWallBreakFx(target, triggerExplosion: true);
+                    audioController?.PlayExplosion(GridToWorld(target));
+                    audioController?.PlayPlayerDamage();
+                    return;
+                case MineInteractionResult.DrillTooWeak:
+                    audioController?.StopPlayerMiningLoop();
+                    audioController?.PlayPlayerMiningWeak();
+                    return;
+                default:
+                    NotifyPlayerBlocked();
+                    return;
             }
         }
 
@@ -1386,6 +1459,47 @@ namespace Minebot.Presentation
                 37,
                 triggerExplosion ? assets.ExplosionSequence : null,
                 0.08f);
+        }
+
+        private void EnsureAudioController()
+        {
+            if (audioController != null)
+            {
+                return;
+            }
+
+            BootstrapConfig config = ResolveBootstrapConfig();
+            if (config?.AudioConfig == null)
+            {
+                return;
+            }
+
+            audioController = new MinebotGameplayAudioController(config.AudioConfig);
+        }
+
+        private Transform GetFirstRobotMiningAnchor()
+        {
+            if (services == null || robotViews.Count == 0)
+            {
+                return null;
+            }
+
+            int count = Mathf.Min(services.Robots.Count, robotViews.Count);
+            for (int i = 0; i < count; i++)
+            {
+                RobotState robot = services.Robots[i];
+                MinebotActorView view = robotViews[i];
+                if (robot != null
+                    && robot.IsActive
+                    && robot.Activity == RobotActivity.Mining
+                    && view != null
+                    && view.gameObject.activeInHierarchy)
+                {
+                    return view.transform;
+                }
+            }
+
+            return null;
         }
 
         private void ShowMiningCrack(MiningProgressSnapshot snapshot)

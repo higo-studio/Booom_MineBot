@@ -2,6 +2,7 @@
   "name": "Minebot.Editor",
   "rootNamespace": "Minebot.Editor",
   "references": [
+    "com.Brogrammist.JSAM",
     "Minebot.Runtime.Common",
     "Minebot.Runtime.GridMining",
     "Minebot.Runtime.Bootstrap",

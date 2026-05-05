@@ -35,3 +35,4 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 0f2f019a573db47c2a20e35181caa922, type: 2}
   buildingDefinitions:
   - {fileID: 11400000, guid: a93c75db922424d8fada0e194913f8b9, type: 2}
+  audioConfig: {fileID: 11400000, guid: 14028303f208143aaa14c52818182f21, type: 2}

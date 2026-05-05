@@ -161,8 +161,21 @@ namespace Minebot.Presentation
             }
 
             GridPosition target = services.PlayerMiningState.Position + lastDirection;
+            bool canToggle = CanToggleMarker(target, out bool wasMarked);
             bool marked = services.Session.ToggleMarker(target);
             presentation.RefreshAfterMarkerChanged(target);
+            if (marked)
+            {
+                presentation.AudioController?.PlayMarkerSet();
+            }
+            else if (canToggle && wasMarked)
+            {
+                presentation.AudioController?.PlayMarkerClear();
+            }
+            else
+            {
+                presentation.AudioController?.PlayActionDenied();
+            }
             presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
             return marked;
         }
@@ -176,6 +189,7 @@ namespace Minebot.Presentation
 
             bool entering = presentation.InteractionMode != GameplayInteractionMode.Marker;
             presentation.SetInteractionMode(entering ? GameplayInteractionMode.Marker : GameplayInteractionMode.Normal);
+            presentation.AudioController?.PlayMarkerModeToggle();
             presentation.ShowFeedback(entering ? "已进入标记模式：点击岩壁标记。" : "已退出标记模式。");
             return true;
         }
@@ -194,6 +208,7 @@ namespace Minebot.Presentation
                 presentation.SetSelectedBuilding(presentation.GetSelectedBuildingOrDefault());
             }
 
+            presentation.AudioController?.PlayBuildModeToggle();
             presentation.ShowFeedback(entering ? "已进入建筑模式：选择建筑后点击空地。" : "已退出建筑模式。");
             return true;
         }
@@ -209,20 +224,35 @@ namespace Minebot.Presentation
 
                 if (services.Session != null && services.Session.IsWaveResolutionActive)
                 {
+                    presentation.AudioController?.PlayActionDenied();
                     presentation.ShowFeedback("地震结算中，动作已暂停。");
                     return false;
                 }
 
                 if (services.Vitals.IsDead || services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
                 {
+                    presentation.AudioController?.PlayActionDenied();
                     presentation.ShowFeedback("输入已锁定，先处理升级或失败状态。");
                     return false;
                 }
 
                 if (presentation.InteractionMode == GameplayInteractionMode.Marker)
                 {
+                    bool canToggle = CanToggleMarker(target, out bool wasMarked);
                     bool marked = services.Session.ToggleMarker(target);
                     presentation.RefreshAfterMarkerChanged(target);
+                    if (marked)
+                    {
+                        presentation.AudioController?.PlayMarkerSet();
+                    }
+                    else if (canToggle && wasMarked)
+                    {
+                        presentation.AudioController?.PlayMarkerClear();
+                    }
+                    else
+                    {
+                        presentation.AudioController?.PlayActionDenied();
+                    }
                     presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
                     return true;
                 }
@@ -284,6 +314,7 @@ namespace Minebot.Presentation
             {
                 if (!suppressWaveLockFeedback)
                 {
+                    presentation.AudioController?.PlayActionDenied();
                     presentation.ShowFeedback("地震结算中，动作已暂停。");
                 }
 
@@ -299,6 +330,7 @@ namespace Minebot.Presentation
             if (services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
             {
                 presentation.SetInteractionMode(GameplayInteractionMode.UpgradeLocked);
+                presentation.AudioController?.PlayActionDenied();
                 presentation.ShowFeedback("升级待选择，普通操作已暂停。请按 1/2/3 或点击升级项。");
                 return false;
             }
@@ -317,6 +349,7 @@ namespace Minebot.Presentation
             {
                 if (!suppressWaveLockFeedback)
                 {
+                    presentation.AudioController?.PlayActionDenied();
                     presentation.ShowFeedback("地震结算中，动作已暂停。");
                 }
 
@@ -332,6 +365,7 @@ namespace Minebot.Presentation
             if (services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
             {
                 presentation.SetInteractionMode(GameplayInteractionMode.UpgradeLocked);
+                presentation.AudioController?.PlayActionDenied();
                 presentation.ShowFeedback("升级待选择，模式操作已暂停。请按 1/2/3 或点击升级项。");
                 return false;
             }
@@ -406,13 +440,23 @@ namespace Minebot.Presentation
 
             if (services.Session != null && services.Session.IsWaveResolutionActive)
             {
+                presentation.AudioController?.PlayActionDenied();
                 presentation.ShowFeedback("地震结算中，动作已暂停。");
                 return;
             }
 
             if (presentation.InteractionMode == GameplayInteractionMode.Marker || presentation.InteractionMode == GameplayInteractionMode.Build)
             {
+                GameplayInteractionMode previousMode = presentation.InteractionMode;
                 presentation.SetInteractionMode(GameplayInteractionMode.Normal);
+                if (previousMode == GameplayInteractionMode.Marker)
+                {
+                    presentation.AudioController?.PlayMarkerModeToggle();
+                }
+                else if (previousMode == GameplayInteractionMode.Build)
+                {
+                    presentation.AudioController?.PlayBuildModeToggle();
+                }
                 presentation.ShowFeedback("已退出当前模式。");
             }
         }
@@ -492,6 +536,7 @@ namespace Minebot.Presentation
         private void ResetAutoMineState()
         {
             autoMineState = AutoMineContactState.None;
+            presentation?.AudioController?.StopPlayerMiningLoop();
         }
 
         private bool MineTarget(GridPosition target)
@@ -552,6 +597,19 @@ namespace Minebot.Presentation
             return result == MineInteractionResult.MiningInProgress
                 || result == MineInteractionResult.Mined
                 || result == MineInteractionResult.TriggeredBomb;
+        }
+
+        private bool CanToggleMarker(GridPosition target, out bool wasMarked)
+        {
+            wasMarked = false;
+            if (services == null || services.Grid == null || !services.Grid.IsInside(target))
+            {
+                return false;
+            }
+
+            GridCellState cell = services.Grid.GetCell(target);
+            wasMarked = cell.IsMarked;
+            return cell.IsMineable && !cell.IsRevealed;
         }
     }
 }
