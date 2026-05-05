@@ -59,6 +59,7 @@ namespace Minebot.Presentation
         public GameObject MiningCrackPrefab { get; private set; }
         public GameObject WallBreakPrefab { get; private set; }
         public GameObject ExplosionPrefab { get; private set; }
+        public GameObject WallBreakParticlePrefab { get; private set; }
         public SpriteSequenceAsset MiningCrackSequence { get; private set; }
         public SpriteSequenceAsset WallBreakSequence { get; private set; }
         public SpriteSequenceAsset ExplosionSequence { get; private set; }
@@ -180,6 +181,7 @@ namespace Minebot.Presentation
                 MiningCrackPrefab = resolvedArtSet != null ? resolvedArtSet.CellFxResources.MiningCrackPrefab : missingDefaults.MiningCrackPrefab,
                 WallBreakPrefab = resolvedArtSet != null ? resolvedArtSet.CellFxResources.WallBreakPrefab : missingDefaults.WallBreakPrefab,
                 ExplosionPrefab = resolvedArtSet != null ? resolvedArtSet.CellFxResources.ExplosionPrefab : missingDefaults.ExplosionPrefab,
+                WallBreakParticlePrefab = resolvedArtSet != null ? resolvedArtSet.CellFxResources.WallBreakParticlePrefab : missingDefaults.WallBreakParticlePrefab,
                 MiningCrackSequence = resolvedArtSet != null ? resolvedArtSet.CellFxResources.MiningCrackSequence : missingDefaults.MiningCrackSequence,
                 WallBreakSequence = resolvedArtSet != null ? resolvedArtSet.CellFxResources.WallBreakSequence : missingDefaults.WallBreakSequence,
                 ExplosionSequence = resolvedArtSet != null ? resolvedArtSet.CellFxResources.ExplosionSequence : missingDefaults.ExplosionSequence,
