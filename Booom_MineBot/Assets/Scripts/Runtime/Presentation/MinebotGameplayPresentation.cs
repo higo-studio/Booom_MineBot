@@ -1272,6 +1272,7 @@ namespace Minebot.Presentation
         {
             SetPlayerVisualState(PresentationActorState.Mining, 0.24f);
             audioController?.StartPlayerMiningLoop(playerActorView != null ? playerActorView.transform : transform);
+            audioController?.StopPlayerMoveLoop();
         }
 
         public void NotifyPlayerMineResolved(GridPosition target, MineInteractionResult result)
