@@ -224,10 +224,15 @@ namespace Minebot.Presentation
         [InspectorLabel("墙体破碎粒子特效预制体")]
         private GameObject wallBreakParticlePrefab;
 
+        [SerializeField]
+        [InspectorLabel("爆炸粒子特效预制体")]
+        private GameObject explosionParticlePrefab;
+
         public GameObject MiningCrackPrefab => miningCrackPrefab;
         public GameObject WallBreakPrefab => wallBreakPrefab;
         public GameObject ExplosionPrefab => explosionPrefab;
         public GameObject WallBreakParticlePrefab => wallBreakParticlePrefab;
+        public GameObject ExplosionParticlePrefab => explosionParticlePrefab;
         public SpriteSequenceAsset MiningCrackSequence => miningCrackSequence;
         public SpriteSequenceAsset WallBreakSequence => wallBreakSequence;
         public SpriteSequenceAsset ExplosionSequence => explosionSequence;

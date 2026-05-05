@@ -1471,6 +1471,46 @@ namespace Minebot.Presentation
                 particleInstance.name = $"Wall Break Particle {target}";
                 particleInstance.transform.position = worldPosition;
             }
+            
+            // 爆炸时实例化爆炸粒子特效
+            if (triggerExplosion && assets.ExplosionParticlePrefab != null)
+            {
+                GameObject explosionParticleInstance = Instantiate(assets.ExplosionParticlePrefab, cellFxRoot, false);
+                explosionParticleInstance.name = $"Explosion Particle {target}";
+                explosionParticleInstance.transform.position = worldPosition;
+                
+                // 爆炸时触发屏幕震动
+                TriggerExplosionScreenShake();
+            }
+        }
+
+        private void TriggerExplosionScreenShake()
+        {
+            // 使用简单的相机震动效果
+            Camera camera = Camera.main;
+            if (camera != null)
+            {
+                StartCoroutine(SimpleScreenShake(camera));
+            }
+        }
+
+        private System.Collections.IEnumerator SimpleScreenShake(Camera camera)
+        {
+            Vector3 originalPos = camera.transform.localPosition;
+            float shakeDuration = 0.2f;
+            float shakeIntensity = 0.15f;
+            float elapsed = 0f;
+
+            while (elapsed < shakeDuration)
+            {
+                float x = UnityEngine.Random.Range(-1f, 1f) * shakeIntensity;
+                float y = UnityEngine.Random.Range(-1f, 1f) * shakeIntensity;
+                camera.transform.localPosition = originalPos + new Vector3(x, y, 0f);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            camera.transform.localPosition = originalPos;
         }
 
         private void EnsureAudioController()
