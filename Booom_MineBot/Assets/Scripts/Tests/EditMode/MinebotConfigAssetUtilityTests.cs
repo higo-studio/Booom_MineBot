@@ -1,3 +1,4 @@
+using JSAM;
 using Minebot.Bootstrap;
 using Minebot.Editor;
 using Minebot.GridMining;
@@ -11,11 +12,31 @@ namespace Minebot.Tests.EditMode
     public sealed class MinebotConfigAssetUtilityTests
     {
         private const string TestRoot = "Assets/Temp/MinebotConfigAssetUtilityTests";
+        private string[] jsamSettingsGuidsBeforeTest;
+
+        [SetUp]
+        public void SetUp()
+        {
+            jsamSettingsGuidsBeforeTest = AssetDatabase.FindAssets($"t:{nameof(JSAMSettings)}");
+        }
 
         [TearDown]
         public void TearDown()
         {
             AssetDatabase.DeleteAsset(TestRoot);
+            if (jsamSettingsGuidsBeforeTest == null || jsamSettingsGuidsBeforeTest.Length == 0)
+            {
+                string[] currentSettingsGuids = AssetDatabase.FindAssets($"t:{nameof(JSAMSettings)}");
+                for (int i = 0; i < currentSettingsGuids.Length; i++)
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(currentSettingsGuids[i]);
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        AssetDatabase.DeleteAsset(path);
+                    }
+                }
+            }
+
             AssetDatabase.SaveAssets();
         }
 
@@ -33,12 +54,23 @@ namespace Minebot.Tests.EditMode
             AssertManagedReference(serializedObject, "hazardRules");
             AssertManagedReference(serializedObject, "miningRules");
             AssertManagedReference(serializedObject, "waveConfig");
+            AssertManagedReference(serializedObject, "audioConfig");
 
             SerializedProperty buildingDefinitions = serializedObject.FindProperty("buildingDefinitions");
             Assert.That(buildingDefinitions, Is.Not.Null);
             Assert.That(buildingDefinitions.arraySize, Is.GreaterThan(0));
             Assert.That(buildingDefinitions.GetArrayElementAtIndex(0).objectReferenceValue, Is.Not.Null);
             Assert.That(AssetDatabase.GetAssetPath(buildingDefinitions.GetArrayElementAtIndex(0).objectReferenceValue), Does.StartWith(TestRoot));
+
+            SerializedObject audioConfigObject = new SerializedObject(serializedObject.FindProperty("audioConfig").objectReferenceValue);
+            AssertManagedReference(audioConfigObject, "music.gameplayLoop");
+            AssertManagedReference(audioConfigObject, "modeAndUi.actionDenied");
+            AssertManagedReference(audioConfigObject, "playerAndTerrain.playerMiningLoop");
+            AssertManagedReference(audioConfigObject, "waveAndFailure.gameOver");
+
+            JSAMSettings settings = MinebotConfigAssetUtility.GetOrCreateJsamSettingsAsset();
+            Assert.That(settings, Is.Not.Null);
+            Assert.That(AssetDatabase.GetAssetPath(settings), Is.EqualTo("Assets/Settings/Resources/JSAMSettings.asset"));
 
             Assert.That(serializedObject.FindProperty("defaultMap")?.objectReferenceValue, Is.Null);
         }

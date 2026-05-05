@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47bd5ab711239468db372e4d3975db9d, type: 3}
+  m_Name: Minebot Audio Config
+  m_EditorClassIdentifier: 
+  music:
+    gameplayLoop: {fileID: 11400000, guid: 6e00df6ca4b5e4249863ae6374dc7b84, type: 2}
+    waveWarning: {fileID: 11400000, guid: 2604f05fa39c4445bebe3cc645b55f71, type: 2}
+    waveResolution: {fileID: 11400000, guid: c0e012248a3447dfa55b611af65d5e57, type: 2}
+  modeAndUi:
+    modeMarkerToggle: {fileID: 11400000, guid: 003736ba2c31643cfb94f100cd3eb27c, type: 2}
+    modeBuildToggle: {fileID: 11400000, guid: 397f354f516347d7bca1bb8eba3e4b91, type: 2}
+    buildingSelect: {fileID: 11400000, guid: e18150dc6aa743b69d45ae435bcb2d43, type: 2}
+    markerSet: {fileID: 11400000, guid: 47ac93b94bf5416eacee21e899c5cefc, type: 2}
+    markerClear: {fileID: 11400000, guid: 563711e7bca74d3786e952212e58dcc4, type: 2}
+    actionDenied: {fileID: 11400000, guid: 20490f43e26d46968005afe73c4214b9, type: 2}
+  playerAndTerrain:
+    playerMove: {fileID: 11400000, guid: bcc7f04b13cf4c0aa05113f505a5ba0e, type: 2}
+    playerBlock: {fileID: 11400000, guid: 47d40f4e628b43e6a9d22e7569105657, type: 2}
+    playerMiningLoop: {fileID: 11400000, guid: 660ef1b55a824167a81656bdc02e9679, type: 2}
+    playerMiningWeak: {fileID: 11400000, guid: 65ab42b03d86465e8c8798d18cd1140a, type: 2}
+    terrainWallBreak: {fileID: 11400000, guid: 4aed3052a2284742b467e206a65b40a6, type: 2}
+    hazardBombExplosion: {fileID: 11400000, guid: 0b9549607d394db5869c686eb5e38ef5, type: 2}
+    playerDamage: {fileID: 11400000, guid: 4e5c665d996f46c7865d6e79afa34d56, type: 2}
+  pickupAndGrowth:
+    pickupMetalAbsorb: {fileID: 11400000, guid: 17fa62ced8c9483485b7e088583025aa, type: 2}
+    pickupEnergyAbsorb: {fileID: 11400000, guid: 63a2eef3552043e79da5388b8ad16e94, type: 2}
+    pickupExpAbsorb: {fileID: 11400000, guid: 639b0127d61944c5864e3fd692cfeaa5, type: 2}
+    upgradeAvailable: {fileID: 11400000, guid: 0422799694c74babbd1f72b0bb9b4c9f, type: 2}
+    upgradeApply: {fileID: 11400000, guid: 4b75828871894bddae04c369825e4d1f, type: 2}
+  baseOps:
+    repairSuccess: {fileID: 11400000, guid: 2a6ef9eaaf6a483cac24e62e431223ce, type: 2}
+    robotBuildSuccess: {fileID: 11400000, guid: 849fe56f913245e1baf5a0410db97c6a, type: 2}
+    buildPlaceSuccess: {fileID: 11400000, guid: 0e5f894826c94d3daa5cb25ed324406a, type: 2}
+  robots:
+    robotMiningLoop: {fileID: 11400000, guid: 139af065eda64ed6b4efd8f5d3b94472, type: 2}
+    robotWallBreak: {fileID: 11400000, guid: 17ca8d20f3ee4f9e9d4a9a4ad67c5c18, type: 2}
+    robotDestroyed: {fileID: 11400000, guid: c5fcdc61b09f423c8486b10aa4bfa658, type: 2}
+  waveAndFailure:
+    gameOver: {fileID: 11400000, guid: 4d2277078c7a4521bde2caae317e0d6c, type: 2}
+    waveWarningStart: {fileID: 11400000, guid: 1ddb0088aeb2405cae9bd8f18d749bfa, type: 2}
+    waveDangerRefresh: {fileID: 11400000, guid: 81b6eb2c880f4af0b60f53a6cd135edc, type: 2}
+    waveCollapse: {fileID: 11400000, guid: 00c4314134f6407a8466e6b2b658396f, type: 2}
+    waveSurvived: {fileID: 11400000, guid: 8df8c00199cb4564aa2200f6441168a6, type: 2}

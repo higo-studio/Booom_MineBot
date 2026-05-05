@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using JSAM;
 using Minebot.Bootstrap;
 using Minebot.GridMining;
 using Minebot.Progression;
@@ -230,6 +231,7 @@ namespace Minebot.Editor
             categories.Add(new ConfigCategory("成长与经济", "管理玩家成长、资源掉落与升级池。", BuildProgressionCategory));
             categories.Add(new ConfigCategory("挖掘与风险", "管理挖掘规则和炸药感知规则。", BuildMiningAndHazardCategory));
             categories.Add(new ConfigCategory("波次", "管理地震波节奏与回收奖励。", BuildWaveCategory));
+            categories.Add(new ConfigCategory("音频", "管理 JSAM 音乐/音效清单与运行时音频设置。", BuildAudioCategory));
             categories.Add(new ConfigCategory("建筑", "自动同步建筑定义列表，并直接编辑每个建筑资产。", BuildBuildingCategory));
         }
 
@@ -343,6 +345,92 @@ namespace Minebot.Editor
                 GetBootstrapReference<ScriptableObject>(bootstrapConfig, "waveConfig")));
         }
 
+        private void BuildAudioCategory(BootstrapConfig bootstrapConfig, VisualElement parent)
+        {
+            parent.Add(new HelpBox(
+                "音频配置会自动托管到当前 Bootstrap 目录下。每个 cue 缺失时会自动创建对应的 JSAM MusicFileObject / SoundFileObject。\n后续只需要在这些 cue 资产里填入 AudioClip 列表即可。",
+                HelpBoxMessageType.Info));
+
+            JSAMSettings settings = MinebotConfigAssetUtility.GetOrCreateJsamSettingsAsset();
+            parent.Add(CreateManagedObjectSection(
+                "JSAM 设置",
+                "全局运行时设置、默认声道数量与音量持久化。若项目里还没有 JSAMSettings.asset，这里会自动创建。",
+                settings));
+
+            MinebotAudioConfig audioConfig = GetBootstrapReference<MinebotAudioConfig>(bootstrapConfig, "audioConfig");
+            if (audioConfig == null)
+            {
+                parent.Add(new HelpBox("音频配置尚未就绪，点击顶部“补齐引用”后会自动创建并回填。", HelpBoxMessageType.Warning));
+                return;
+            }
+
+            parent.Add(CreateAssetSummaryCard(
+                "音频配置资产",
+                "统一承载 Minebot 的音乐与音效 cue 清单。点击下方对象字段可直接定位或替换具体的 JSAM 资产。",
+                audioConfig));
+
+            parent.Add(CreatePropertySection(
+                "音乐",
+                "主循环、预警和地震结算三段音乐。",
+                audioConfig,
+                "music.gameplayLoop",
+                "music.waveWarning",
+                "music.waveResolution"));
+            parent.Add(CreatePropertySection(
+                "模式与界面",
+                "模式切换、标记反馈与通用无效提示。",
+                audioConfig,
+                "modeAndUi.modeMarkerToggle",
+                "modeAndUi.modeBuildToggle",
+                "modeAndUi.buildingSelect",
+                "modeAndUi.markerSet",
+                "modeAndUi.markerClear",
+                "modeAndUi.actionDenied"));
+            parent.Add(CreatePropertySection(
+                "玩家与地形",
+                "玩家移动/受阻/挖掘，以及破墙、爆炸和受伤反馈。",
+                audioConfig,
+                "playerAndTerrain.playerMove",
+                "playerAndTerrain.playerBlock",
+                "playerAndTerrain.playerMiningLoop",
+                "playerAndTerrain.playerMiningWeak",
+                "playerAndTerrain.terrainWallBreak",
+                "playerAndTerrain.hazardBombExplosion",
+                "playerAndTerrain.playerDamage"));
+            parent.Add(CreatePropertySection(
+                "掉落与成长",
+                "三类掉落吸收，以及升级可选/升级应用反馈。",
+                audioConfig,
+                "pickupAndGrowth.pickupMetalAbsorb",
+                "pickupAndGrowth.pickupEnergyAbsorb",
+                "pickupAndGrowth.pickupExpAbsorb",
+                "pickupAndGrowth.upgradeAvailable",
+                "pickupAndGrowth.upgradeApply"));
+            parent.Add(CreatePropertySection(
+                "建筑与据点",
+                "维修、建造和生产机器人成功反馈。",
+                audioConfig,
+                "baseOps.repairSuccess",
+                "baseOps.robotBuildSuccess",
+                "baseOps.buildPlaceSuccess"));
+            parent.Add(CreatePropertySection(
+                "从属机器人",
+                "机器人持续挖掘、破墙与损毁反馈。",
+                audioConfig,
+                "robots.robotMiningLoop",
+                "robots.robotWallBreak",
+                "robots.robotDestroyed"));
+            parent.Add(CreatePropertySection(
+                "波次与失败",
+                "失败提示、预警开始、阶段切换和成功撑过一波。",
+                audioConfig,
+                "waveAndFailure.gameOver",
+                "waveAndFailure.waveWarningStart",
+                "waveAndFailure.waveDangerRefresh",
+                "waveAndFailure.waveCollapse",
+                "waveAndFailure.waveSurvived"));
+        }
+
         private void BuildBuildingCategory(BootstrapConfig bootstrapConfig, VisualElement parent)
         {
             parent.Add(new HelpBox(
@@ -403,6 +491,31 @@ namespace Minebot.Editor
             var container = CreateCard();
             container.Add(CreateCardHeader(title, description, target));
             container.Add(CreateManagedObjectBody(target, includeTitleBar: false));
+            return container;
+        }
+
+        private VisualElement CreateAssetSummaryCard(string title, string description, UnityEngine.Object target)
+        {
+            var container = CreateCard();
+            container.Add(CreateCardHeader(title, description, target));
+            if (target != null)
+            {
+                container.Add(CreateInlineAssetToolbar(target));
+            }
+            return container;
+        }
+
+        private VisualElement CreatePropertySection(string title, string description, UnityEngine.Object target, params string[] propertyPaths)
+        {
+            var container = CreateCard();
+            container.Add(CreateCardHeader(title, description, null));
+            if (target == null)
+            {
+                container.Add(new HelpBox("目标资源为空，无法展示该分组。", HelpBoxMessageType.Warning));
+                return container;
+            }
+
+            container.Add(CreatePropertyFields(new SerializedObject(target), propertyPaths));
             return container;
         }
 

@@ -2,6 +2,7 @@
   "name": "Minebot.Tests.PlayMode",
   "rootNamespace": "Minebot.Tests.PlayMode",
   "references": [
+    "com.Brogrammist.JSAM",
     "Minebot.Runtime.Bootstrap",
     "Minebot.Runtime.Common",
     "Minebot.Runtime.GridMining",

@@ -2,6 +2,7 @@
   "name": "Minebot.Tests.EditMode",
   "rootNamespace": "Minebot.Tests.EditMode",
   "references": [
+    "com.Brogrammist.JSAM",
     "Minebot.Runtime.Common",
     "Minebot.Runtime.GridMining",
     "Minebot.Runtime.HazardInference",

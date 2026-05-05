@@ -51,6 +51,10 @@ namespace Minebot.Bootstrap
         [InspectorLabel("建筑定义列表")]
         private BuildingDefinition[] buildingDefinitions;
 
+        [SerializeField]
+        [InspectorLabel("音频配置")]
+        private MinebotAudioConfig audioConfig;
+
         public string GameplaySceneName => string.IsNullOrWhiteSpace(gameplaySceneName) ? "Gameplay" : gameplaySceneName;
         public InputActionAsset InputActions => inputActions;
         public MapDefinition DefaultMap => defaultMap;
@@ -61,5 +65,6 @@ namespace Minebot.Bootstrap
         public MiningRules MiningRules => miningRules;
         public WaveConfig WaveConfig => waveConfig;
         public IReadOnlyList<BuildingDefinition> BuildingDefinitions => buildingDefinitions;
+        public MinebotAudioConfig AudioConfig => audioConfig;
     }
 }

@@ -2,6 +2,7 @@
   "name": "Minebot.Runtime.Presentation",
   "rootNamespace": "Minebot.Presentation",
   "references": [
+    "com.Brogrammist.JSAM",
     "Minebot.Runtime.Bootstrap",
     "Minebot.Runtime.Common",
     "Minebot.Runtime.GridMining",
