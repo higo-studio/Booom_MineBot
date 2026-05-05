@@ -395,8 +395,10 @@ namespace Minebot.Presentation
 
         private void OnMoveCanceled(InputAction.CallbackContext context)
         {
+            Debug.Log("移动输入取消");
             currentMoveInput = Vector2.zero;
             ResetAutoMineState();
+            presentation?.AudioController?.StopPlayerMoveLoop();
         }
 
         private void OnToggleMarkerModePerformed(InputAction.CallbackContext context)
@@ -537,6 +539,7 @@ namespace Minebot.Presentation
         {
             autoMineState = AutoMineContactState.None;
             presentation?.AudioController?.StopPlayerMiningLoop();
+
         }
 
         private bool MineTarget(GridPosition target)

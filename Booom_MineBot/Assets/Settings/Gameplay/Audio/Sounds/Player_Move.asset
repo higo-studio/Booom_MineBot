@@ -14,18 +14,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   safeName: 
   presetDescription: 
-  files: []
+  files:
+  - {fileID: 8300000, guid: 9b93831690fa2e541b5eb62ed74f256f, type: 3}
   neverRepeat: 0
   loopStart: 0
-  loopEnd: 0
+  loopEnd: 5
   bpm: 120
-  relativeVolume: 1
+  relativeVolume: 0.1
   spatialize: 0
   maxDistance: 0
   priority: 64
   startingPitch: 1
   pitchShift: 0.02
-  loopMode: 0
+  loopMode: 3
   delay: 0
   ignoreTimeScale: 0
   maxPlayingInstances: 2

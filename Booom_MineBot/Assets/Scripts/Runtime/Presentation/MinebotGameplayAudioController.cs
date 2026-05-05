@@ -11,8 +11,11 @@ namespace Minebot.Presentation
         private MusicFileObject currentMusic;
         private SoundChannelHelper playerMiningLoopHelper;
         private Transform playerMiningLoopAnchor;
+        private SoundChannelHelper playerMoveLoopHelper;
+        private Transform playerMoveLoopAnchor;
         private SoundChannelHelper robotMiningLoopHelper;
         private Transform robotMiningLoopAnchor;
+        private SoundChannelHelper playerMoveHelper;
         private bool lastPendingUpgrade;
         private bool lastIsDead;
         private bool lastWarningWindowActive;
@@ -104,6 +107,7 @@ namespace Minebot.Presentation
         public void StopTransientLoops()
         {
             StopLoop(ref playerMiningLoopHelper, ref playerMiningLoopAnchor);
+            StopLoop(ref playerMoveLoopHelper, ref playerMoveLoopAnchor);
             StopLoop(ref robotMiningLoopHelper, ref robotMiningLoopAnchor);
         }
 
@@ -113,7 +117,16 @@ namespace Minebot.Presentation
         public void PlayMarkerSet() => PlaySound(config.ModeAndUi.MarkerSet);
         public void PlayMarkerClear() => PlaySound(config.ModeAndUi.MarkerClear);
         public void PlayActionDenied() => PlaySound(config.ModeAndUi.ActionDenied);
-        public void PlayPlayerMove() => PlaySound(config.PlayerAndTerrain.PlayerMove);
+        public void PlayPlayerMove(Transform anchor = null)
+        {
+            if (playerMoveHelper != null && playerMoveHelper.isActiveAndEnabled && playerMoveHelper.AudioFile == config.PlayerAndTerrain.PlayerMove)
+            {
+                Debug.Log("玩家移动音效正在播放，跳过");
+                return;
+            }
+            Debug.Log("触发玩家移动音效");
+            playerMoveHelper = AudioManager.PlaySound(config.PlayerAndTerrain.PlayerMove, anchor, playerMoveHelper);
+        }
         public void PlayPlayerBlock() => PlaySound(config.PlayerAndTerrain.PlayerBlock);
         public void PlayPlayerMiningWeak() => PlaySound(config.PlayerAndTerrain.PlayerMiningWeak);
         public void PlayPlayerDamage() => PlaySound(config.PlayerAndTerrain.PlayerDamage);
@@ -135,6 +148,21 @@ namespace Minebot.Presentation
         public void StopPlayerMiningLoop()
         {
             StopLoop(ref playerMiningLoopHelper, ref playerMiningLoopAnchor);
+        }
+
+        public void StartPlayerMoveLoop(Transform anchor)
+        {
+            UpdateLoop(
+                config.PlayerAndTerrain.PlayerMove,
+                anchor,
+                anchor != null,
+                ref playerMoveLoopHelper,
+                ref playerMoveLoopAnchor);
+        }
+
+        public void StopPlayerMoveLoop()
+        {
+            StopLoop(ref playerMoveHelper, ref playerMoveLoopAnchor);
         }
 
         public void PlayTerrainWallBreak(Vector3 position)
