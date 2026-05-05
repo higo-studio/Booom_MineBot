@@ -1442,6 +1442,9 @@ namespace Minebot.Presentation
             }
 
             ClearMiningCrack(target);
+            Vector3 worldPosition = GridToWorld(target);
+
+            // 实例化序列帧动画预制体
             GameObject prefab = triggerExplosion && assets.ExplosionPrefab != null
                 ? assets.ExplosionPrefab
                 : assets.WallBreakPrefab;
@@ -1456,10 +1459,18 @@ namespace Minebot.Presentation
 
             view.PlayOneShot(
                 assets.WallBreakSequence,
-                GridToWorld(target),
+                worldPosition,
                 37,
                 triggerExplosion ? assets.ExplosionSequence : null,
                 0.08f);
+
+            // 实例化粒子特效预制体
+            if (assets.WallBreakParticlePrefab != null)
+            {
+                GameObject particleInstance = Instantiate(assets.WallBreakParticlePrefab, cellFxRoot, false);
+                particleInstance.name = $"Wall Break Particle {target}";
+                particleInstance.transform.position = worldPosition;
+            }
         }
 
         private void EnsureAudioController()

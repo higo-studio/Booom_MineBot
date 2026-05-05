@@ -220,9 +220,14 @@ namespace Minebot.Presentation
         [InspectorLabel("挖掘裂纹偏移")]
         private Vector2 miningCrackOffset = new Vector2(0f, 0.08f);
 
+        [SerializeField]
+        [InspectorLabel("墙体破碎粒子特效预制体")]
+        private GameObject wallBreakParticlePrefab;
+
         public GameObject MiningCrackPrefab => miningCrackPrefab;
         public GameObject WallBreakPrefab => wallBreakPrefab;
         public GameObject ExplosionPrefab => explosionPrefab;
+        public GameObject WallBreakParticlePrefab => wallBreakParticlePrefab;
         public SpriteSequenceAsset MiningCrackSequence => miningCrackSequence;
         public SpriteSequenceAsset WallBreakSequence => wallBreakSequence;
         public SpriteSequenceAsset ExplosionSequence => explosionSequence;
