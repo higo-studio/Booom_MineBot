@@ -13,8 +13,21 @@ MonoBehaviour:
   m_Name: Bootstrap
   m_EditorClassIdentifier: 
   gameplaySceneName: Gameplay
-  inputActions: {fileID: 0}
+  inputActions: {fileID: -944628639613478452, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
   defaultMap: {fileID: 0}
+  generatedMapConfig:
+    baseSize: {x: 12, y: 12}
+    sizeMultiplier: 20
+    safeRadius: 1
+    radialWeight: 0.75
+    noiseWeight: 0.25
+    noiseScale: {x: 0.045, y: 0.045}
+    noiseOffset: {x: 17.31, y: 91.73}
+    radialExponent: 1.15
+    forcedUltraHardDistanceNormalized: 0.82
+    stoneThreshold: 0.24
+    hardRockThreshold: 0.49
+    ultraHardThreshold: 0.71
   balanceConfig: {fileID: 11400000, guid: 1b5ac709426f347e18613d7f9f9c57fc, type: 2}
   upgradePool: {fileID: 11400000, guid: a22e3788f295e4492bedc76a25cee888, type: 2}
   hazardRules: {fileID: 11400000, guid: 4374aa0be2dcf436ba2ddef58c0add63, type: 2}
