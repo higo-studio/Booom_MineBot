@@ -8,60 +8,152 @@ namespace Minebot.Presentation
     public sealed class ActorStateSequenceSet
     {
         [SerializeField]
-        [InspectorLabel("待机")]
-        private SpriteSequenceAsset idle;
+        [InspectorLabel("待机-朝前")]
+        private SpriteSequenceAsset idleFront;
 
         [SerializeField]
-        [InspectorLabel("移动")]
-        private SpriteSequenceAsset moving;
+        [InspectorLabel("待机-朝后")]
+        private SpriteSequenceAsset idleBack;
 
         [SerializeField]
-        [InspectorLabel("挖掘")]
-        private SpriteSequenceAsset mining;
+        [InspectorLabel("待机-朝侧")]
+        private SpriteSequenceAsset idleSide;
 
         [SerializeField]
-        [InspectorLabel("受阻")]
-        private SpriteSequenceAsset blocked;
+        [InspectorLabel("移动-朝前")]
+        private SpriteSequenceAsset movingFront;
+
+        [SerializeField]
+        [InspectorLabel("移动-朝后")]
+        private SpriteSequenceAsset movingBack;
+
+        [SerializeField]
+        [InspectorLabel("移动-朝侧")]
+        private SpriteSequenceAsset movingSide;
+
+        [SerializeField]
+        [InspectorLabel("挖掘-朝前")]
+        private SpriteSequenceAsset miningFront;
+
+        [SerializeField]
+        [InspectorLabel("挖掘-朝后")]
+        private SpriteSequenceAsset miningBack;
+
+        [SerializeField]
+        [InspectorLabel("挖掘-朝侧")]
+        private SpriteSequenceAsset miningSide;
+
+        [SerializeField]
+        [InspectorLabel("受阻-朝前")]
+        private SpriteSequenceAsset blockedFront;
+
+        [SerializeField]
+        [InspectorLabel("受阻-朝后")]
+        private SpriteSequenceAsset blockedBack;
+
+        [SerializeField]
+        [InspectorLabel("受阻-朝侧")]
+        private SpriteSequenceAsset blockedSide;
 
         [SerializeField]
         [InspectorLabel("销毁")]
         private SpriteSequenceAsset destroyed;
 
-        public SpriteSequenceAsset Idle => idle;
-        public SpriteSequenceAsset Moving => moving;
-        public SpriteSequenceAsset Mining => mining;
-        public SpriteSequenceAsset Blocked => blocked;
+        public SpriteSequenceAsset IdleFront => idleFront;
+        public SpriteSequenceAsset IdleBack => idleBack;
+        public SpriteSequenceAsset IdleSide => idleSide;
+        public SpriteSequenceAsset MovingFront => movingFront;
+        public SpriteSequenceAsset MovingBack => movingBack;
+        public SpriteSequenceAsset MovingSide => movingSide;
+        public SpriteSequenceAsset MiningFront => miningFront;
+        public SpriteSequenceAsset MiningBack => miningBack;
+        public SpriteSequenceAsset MiningSide => miningSide;
+        public SpriteSequenceAsset BlockedFront => blockedFront;
+        public SpriteSequenceAsset BlockedBack => blockedBack;
+        public SpriteSequenceAsset BlockedSide => blockedSide;
         public SpriteSequenceAsset Destroyed => destroyed;
 
-        public SpriteSequenceAsset ForState(PresentationActorState state)
+        /// <summary>
+        /// 获取指定状态和方向的序列（不含销毁状态，销毁状态始终无方向）
+        /// </summary>
+        public SpriteSequenceAsset ForState(PresentationActorState state, ActorFacingDirection direction = ActorFacingDirection.Front)
+        {
+            if (state == PresentationActorState.Destroyed)
+            {
+                return destroyed;
+            }
+
+            return ForStateAndDirection(state, direction);
+        }
+
+        private SpriteSequenceAsset ForStateAndDirection(PresentationActorState state, ActorFacingDirection direction)
         {
             switch (state)
             {
+                case PresentationActorState.Idle:
+                    switch (direction)
+                    {
+                        case ActorFacingDirection.Front: return idleFront;
+                        case ActorFacingDirection.Back: return idleBack;
+                        case ActorFacingDirection.Side: return idleSide;
+                    }
+                    break;
                 case PresentationActorState.Moving:
-                    return moving;
+                    switch (direction)
+                    {
+                        case ActorFacingDirection.Front: return movingFront;
+                        case ActorFacingDirection.Back: return movingBack;
+                        case ActorFacingDirection.Side: return movingSide;
+                    }
+                    break;
                 case PresentationActorState.Mining:
-                    return mining;
+                    switch (direction)
+                    {
+                        case ActorFacingDirection.Front: return miningFront;
+                        case ActorFacingDirection.Back: return miningBack;
+                        case ActorFacingDirection.Side: return miningSide;
+                    }
+                    break;
                 case PresentationActorState.Blocked:
-                    return blocked;
-                case PresentationActorState.Destroyed:
-                    return destroyed;
-                default:
-                    return idle;
+                    switch (direction)
+                    {
+                        case ActorFacingDirection.Front: return blockedFront;
+                        case ActorFacingDirection.Back: return blockedBack;
+                        case ActorFacingDirection.Side: return blockedSide;
+                    }
+                    break;
             }
+            return idleFront;
         }
 
 #if UNITY_EDITOR
         public void Configure(
-            SpriteSequenceAsset configuredIdle,
-            SpriteSequenceAsset configuredMoving,
-            SpriteSequenceAsset configuredMining,
-            SpriteSequenceAsset configuredBlocked,
+            SpriteSequenceAsset configuredIdleFront,
+            SpriteSequenceAsset configuredIdleBack,
+            SpriteSequenceAsset configuredIdleSide,
+            SpriteSequenceAsset configuredMovingFront,
+            SpriteSequenceAsset configuredMovingBack,
+            SpriteSequenceAsset configuredMovingSide,
+            SpriteSequenceAsset configuredMiningFront,
+            SpriteSequenceAsset configuredMiningBack,
+            SpriteSequenceAsset configuredMiningSide,
+            SpriteSequenceAsset configuredBlockedFront,
+            SpriteSequenceAsset configuredBlockedBack,
+            SpriteSequenceAsset configuredBlockedSide,
             SpriteSequenceAsset configuredDestroyed)
         {
-            idle = configuredIdle;
-            moving = configuredMoving;
-            mining = configuredMining;
-            blocked = configuredBlocked;
+            idleFront = configuredIdleFront;
+            idleBack = configuredIdleBack;
+            idleSide = configuredIdleSide;
+            movingFront = configuredMovingFront;
+            movingBack = configuredMovingBack;
+            movingSide = configuredMovingSide;
+            miningFront = configuredMiningFront;
+            miningBack = configuredMiningBack;
+            miningSide = configuredMiningSide;
+            blockedFront = configuredBlockedFront;
+            blockedBack = configuredBlockedBack;
+            blockedSide = configuredBlockedSide;
             destroyed = configuredDestroyed;
         }
 #endif

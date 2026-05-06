@@ -110,6 +110,7 @@ namespace Minebot.Presentation
         public bool Move(GridPosition direction)
         {
             lastDirection = direction;
+            presentation?.SetPlayerFacingDirection(direction);
             return MoveFreeform(ToVector2(direction), Mathf.Max(0.02f, freeMoveStepSeconds));
         }
 
@@ -129,6 +130,7 @@ namespace Minebot.Presentation
                 }
 
                 lastDirection = QuantizeDirection(direction);
+                presentation?.SetPlayerFacingDirection(lastDirection);
                 CharacterMoveResult2D moveResult = presentation.TryMovePlayerFreeform(direction, deltaTime);
                 if (moveResult.HasMoved)
                 {
@@ -399,6 +401,9 @@ namespace Minebot.Presentation
             currentMoveInput = Vector2.zero;
             ResetAutoMineState();
             presentation?.AudioController?.StopPlayerMoveLoop();
+            // 先设置朝向，再重置视觉状态，确保 Idle 显示正确方向
+            presentation?.SetPlayerFacingDirection(lastDirection);
+            presentation?.SetPlayerVisualStateIdle();
         }
 
         private void OnToggleMarkerModePerformed(InputAction.CallbackContext context)

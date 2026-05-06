@@ -102,6 +102,8 @@ namespace Minebot.Presentation
         private GameplayInteractionMode interactionMode = GameplayInteractionMode.Normal;
         private PresentationActorState playerVisualState = PresentationActorState.Idle;
         private float playerVisualHoldRemaining;
+        private ActorFacingDirection currentPlayerFacingDirection = ActorFacingDirection.Front;
+        private bool currentPlayerFacingLeft = false;
         private bool isSubscribed;
         private bool defaultFacilitiesRegistered;
 
@@ -140,6 +142,33 @@ namespace Minebot.Presentation
             ? playerFreeform.WorldPosition
             : (services != null ? (Vector2)GridToWorld(services.PlayerMiningState.Position) : Vector2.zero);
         public IReadOnlyList<BuildingDefinition> AvailableBuildingDefinitions => availableBuildingDefinitions;
+
+        /// <summary>
+        /// 设置玩家朝向方向（由输入控制器调用）
+        /// </summary>
+        public void SetPlayerFacingDirection(GridPosition direction)
+        {
+            if (direction.X > 0)
+            {
+                currentPlayerFacingDirection = ActorFacingDirection.Side;
+                currentPlayerFacingLeft = false;
+            }
+            else if (direction.X < 0)
+            {
+                currentPlayerFacingDirection = ActorFacingDirection.Side;
+                currentPlayerFacingLeft = true;
+            }
+            else if (direction.Y > 0)
+            {
+                currentPlayerFacingDirection = ActorFacingDirection.Back;
+                currentPlayerFacingLeft = false;
+            }
+            else
+            {
+                currentPlayerFacingDirection = ActorFacingDirection.Front;
+                currentPlayerFacingLeft = false;
+            }
+        }
 
         private void Awake()
         {
@@ -1357,7 +1386,7 @@ namespace Minebot.Presentation
             }
 
             PresentationActorState playerState = services.Vitals.IsDead ? PresentationActorState.Destroyed : playerVisualState;
-            playerActorView.ApplyState(assets.PlayerActorStates, playerState, assets.PlayerSprite, Color.white);
+            playerActorView.ApplyState(assets.PlayerActorStates, playerState, currentPlayerFacingDirection, assets.PlayerSprite, Color.white, currentPlayerFacingLeft);
 
             bool waveResolutionActive = services.Session != null && services.Session.IsWaveResolutionActive;
             int visibleRobotCount = 0;
@@ -1392,7 +1421,7 @@ namespace Minebot.Presentation
                 }
 
                 PresentationActorState actorState = !robot.IsActive ? PresentationActorState.Destroyed : ToPresentationActorState(robot.Activity);
-                robotView.ApplyState(assets.HelperRobotStates, actorState, assets.RobotSprite, ColorForRobotActivity(robot.Activity));
+                robotView.ApplyState(assets.HelperRobotStates, actorState, ActorFacingDirection.Front, assets.RobotSprite, ColorForRobotActivity(robot.Activity), false);
                 robotView.gameObject.SetActive(true);
                 visibleRobotCount++;
             }
@@ -1660,6 +1689,7 @@ namespace Minebot.Presentation
             {
                 playerVisualState = PresentationActorState.Destroyed;
                 playerVisualHoldRemaining = 0f;
+                RefreshActors();
                 return;
             }
 
@@ -1673,6 +1703,8 @@ namespace Minebot.Presentation
             {
                 playerVisualState = PresentationActorState.Idle;
             }
+
+            RefreshActors();
         }
 
         private void SetPlayerVisualState(PresentationActorState state, float holdDuration)
@@ -2497,6 +2529,16 @@ namespace Minebot.Presentation
         {
             GameplayInputController input = ResolveGameplayInputController();
             return input != null ? input.AutoMineInterval : 0.18f;
+        }
+
+        /// <summary>
+        /// 重置玩家视觉状态为待机（由输入控制器调用）
+        /// </summary>
+        public void SetPlayerVisualStateIdle()
+        {
+            playerVisualState = PresentationActorState.Idle;
+            playerVisualHoldRemaining = 0f;
+            // 不调用 RefreshActors，让 Update 中的 UpdatePlayerVisualState 处理刷新
         }
     }
 }

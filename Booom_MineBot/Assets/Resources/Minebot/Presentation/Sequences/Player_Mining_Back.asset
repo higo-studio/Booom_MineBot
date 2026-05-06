@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b4f508aa9da984f0eb6f433eec45f01b, type: 3}
-  m_Name: Player_Mining
+  m_Name: Player_Mining_Back
   m_EditorClassIdentifier: 
   frames:
-  - {fileID: -4897710709729998580, guid: d9adc4a7098f5f049b838310f7e961ee, type: 3}
-  - {fileID: 584421075, guid: d9adc4a7098f5f049b838310f7e961ee, type: 3}
+  - {fileID: -8300755451064776790, guid: 73aeba8c8dd6d03429020881f67cb296, type: 3}
+  - {fileID: -1110317372, guid: 73aeba8c8dd6d03429020881f67cb296, type: 3}
   frameDuration: 0.05
   loop: 1

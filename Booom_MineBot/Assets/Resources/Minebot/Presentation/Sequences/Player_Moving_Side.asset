@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4f508aa9da984f0eb6f433eec45f01b, type: 3}
+  m_Name: Player_Moving_Side
+  m_EditorClassIdentifier: 
+  frames:
+  - {fileID: -407723574819366847, guid: 12a18574ecb067f4ca3cb0774591d1b3, type: 3}
+  - {fileID: -1434030452703533279, guid: 12a18574ecb067f4ca3cb0774591d1b3, type: 3}
+  - {fileID: 44858971687126631, guid: 12a18574ecb067f4ca3cb0774591d1b3, type: 3}
+  - {fileID: -9041186080880486072, guid: 12a18574ecb067f4ca3cb0774591d1b3, type: 3}
+  frameDuration: 0.12
+  loop: 1

@@ -219,16 +219,32 @@ MonoBehaviour:
     playerPrefab: {fileID: 5253805810420483157, guid: 34755ea4406724b28bb7ab87ef251c76, type: 3}
     helperRobotPrefab: {fileID: 2014334203746286247, guid: 70d7d087774154c738541b3a5f3e7b65, type: 3}
     playerStates:
-      idle: {fileID: 11400000, guid: 9366a74295eb44700a3e6bf95b6c2e10, type: 2}
-      moving: {fileID: 11400000, guid: 286159b54ddcf4d65ac1ba6ec12be294, type: 2}
-      mining: {fileID: 11400000, guid: 9cfe5bacd1f044fdbb80c86919a2b78f, type: 2}
-      blocked: {fileID: 11400000, guid: 3c260acb393b740b984838f3891aa289, type: 2}
+      idleFront: {fileID: 11400000, guid: 9366a74295eb44700a3e6bf95b6c2e10, type: 2}
+      idleBack: {fileID: 11400000, guid: 19f903a6501f87d4b9da5dbdfa3b737d, type: 2}
+      idleSide: {fileID: 11400000, guid: 146c6a2fe5caab948a84b47296ca0497, type: 2}
+      movingFront: {fileID: 11400000, guid: 286159b54ddcf4d65ac1ba6ec12be294, type: 2}
+      movingBack: {fileID: 11400000, guid: e3462a6b25bf12a49997a6cd560059d0, type: 2}
+      movingSide: {fileID: 11400000, guid: 7e8004a6cc4447e4987ebe27de9330d0, type: 2}
+      miningFront: {fileID: 11400000, guid: 9cfe5bacd1f044fdbb80c86919a2b78f, type: 2}
+      miningBack: {fileID: 11400000, guid: afb026ef3160279489fd57133256328f, type: 2}
+      miningSide: {fileID: 11400000, guid: d642c66111d63574bb6b6fee6b5101c2, type: 2}
+      blockedFront: {fileID: 0}
+      blockedBack: {fileID: 0}
+      blockedSide: {fileID: 0}
       destroyed: {fileID: 11400000, guid: 3fefcb1ccc8c341a49c322354e7b4403, type: 2}
     helperRobotStates:
-      idle: {fileID: 11400000, guid: 50510ae0506104860812b9f8e814bb7e, type: 2}
-      moving: {fileID: 11400000, guid: 7b3b112f80b5a4f32a7e63f357877a49, type: 2}
-      mining: {fileID: 11400000, guid: 77f91da14ff494051b6df399efd726f7, type: 2}
-      blocked: {fileID: 11400000, guid: cf6cc0b179e5845f6a86f0f0d7b1a099, type: 2}
+      idleFront: {fileID: 0}
+      idleBack: {fileID: 0}
+      idleSide: {fileID: 0}
+      movingFront: {fileID: 0}
+      movingBack: {fileID: 0}
+      movingSide: {fileID: 0}
+      miningFront: {fileID: 0}
+      miningBack: {fileID: 0}
+      miningSide: {fileID: 0}
+      blockedFront: {fileID: 0}
+      blockedBack: {fileID: 0}
+      blockedSide: {fileID: 0}
       destroyed: {fileID: 11400000, guid: b643443ea3e4948f3a2bca8338158cff, type: 2}
   pickupResources:
     metalPickupPrefab: {fileID: 5540578952216291018, guid: 9a3187b99f5ad4936a813c02472d6918, type: 3}
