@@ -239,10 +239,23 @@ namespace Minebot.Editor
         {
             var set = new ActorStateSequenceSet();
             set.Configure(
-                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Idle.asset"),
-                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Moving.asset"),
-                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Mining.asset"),
-                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Blocked.asset"),
+                // Idle
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Idle_Front.asset"),
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Idle_Back.asset"),
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Idle_Side.asset"),
+                // Moving
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Moving_Front.asset"),
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Moving_Back.asset"),
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Moving_Side.asset"),
+                // Mining
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Mining_Front.asset"),
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Mining_Back.asset"),
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Mining_Side.asset"),
+                // Blocked
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Blocked_Front.asset"),
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Blocked_Back.asset"),
+                AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Blocked_Side.asset"),
+                // Destroyed
                 AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>($"{SequenceAssetDirectory}/{actorToken}_Destroyed.asset"));
             return set;
         }

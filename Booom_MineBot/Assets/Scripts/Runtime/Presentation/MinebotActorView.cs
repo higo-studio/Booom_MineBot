@@ -44,13 +44,17 @@ namespace Minebot.Presentation
             sequencePlayer.TargetRenderer = bodyRenderer;
         }
 
-        public void ApplyState(ActorStateSequenceSet states, PresentationActorState state, Sprite fallback, Color tint)
+        public void ApplyState(ActorStateSequenceSet states, PresentationActorState state, ActorFacingDirection direction, Sprite fallback, Color tint, bool facingLeft = false)
         {
             EnsureDefaultStructure(fallback, bodyRenderer != null ? bodyRenderer.sortingOrder : 40);
             fallbackSprite = fallback;
             bodyRenderer.color = tint;
 
-            SpriteSequenceAsset sequence = states != null ? states.ForState(state) : null;
+            // 处理水平翻转：Side方向朝左时翻转
+            bool shouldFlip = (direction == ActorFacingDirection.Side) && facingLeft;
+            bodyRenderer.flipX = shouldFlip;
+
+            SpriteSequenceAsset sequence = states != null ? states.ForState(state, direction) : null;
             if (sequence != null && sequence.Frames.Length > 0)
             {
                 sequencePlayer.TargetRenderer = bodyRenderer;

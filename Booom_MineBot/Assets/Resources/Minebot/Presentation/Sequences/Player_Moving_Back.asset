@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b4f508aa9da984f0eb6f433eec45f01b, type: 3}
-  m_Name: Player_Moving
+  m_Name: Player_Moving_Back
   m_EditorClassIdentifier: 
   frames:
-  - {fileID: -1039813655896328316, guid: d938556a8e7f4ef42bd64e2a3dfb2330, type: 3}
-  - {fileID: 853092617, guid: d938556a8e7f4ef42bd64e2a3dfb2330, type: 3}
-  - {fileID: 582351663, guid: d938556a8e7f4ef42bd64e2a3dfb2330, type: 3}
-  - {fileID: -659600704, guid: d938556a8e7f4ef42bd64e2a3dfb2330, type: 3}
+  - {fileID: -3305466351161902014, guid: d16e880da80a5e843bcbcec337f2bd9e, type: 3}
+  - {fileID: 326116981, guid: d16e880da80a5e843bcbcec337f2bd9e, type: 3}
+  - {fileID: -1163103279, guid: d16e880da80a5e843bcbcec337f2bd9e, type: 3}
+  - {fileID: -900750392, guid: d16e880da80a5e843bcbcec337f2bd9e, type: 3}
   frameDuration: 0.12
   loop: 1

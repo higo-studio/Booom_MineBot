@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b4f508aa9da984f0eb6f433eec45f01b, type: 3}
-  m_Name: Player_Idle
+  m_Name: Player_Idle_Side
   m_EditorClassIdentifier: 
   frames:
-  - {fileID: -1039813655896328316, guid: d938556a8e7f4ef42bd64e2a3dfb2330, type: 3}
+  - {fileID: -407723574819366847, guid: 12a18574ecb067f4ca3cb0774591d1b3, type: 3}
   frameDuration: 0.22
   loop: 1
