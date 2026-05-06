@@ -1,10 +1,19 @@
 fileFormatVersion: 2
-guid: 32e6a12d89bcb7c41aa916a6e507f075
+guid: 1680fbfb1bb33ed41b15f19b49957cb3
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -2114233804336852664
-    second: Crack_0
+      213: 8795366620419746748
+    second: crack_0
+  - first:
+      213: 5066528421949677919
+    second: crack_1
+  - first:
+      213: 5609880128603421608
+    second: crack_2
+  - first:
+      213: -8724406247229049297
+    second: crack_3
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -74,7 +83,7 @@ TextureImporter:
     buildTarget: DefaultTexturePlatform
     maxTextureSize: 2048
     resizeAlgorithm: 0
-    textureFormat: -1
+    textureFormat: 4
     textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
@@ -113,10 +122,10 @@ TextureImporter:
       customData: 
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 84111608e8bb8a2e0800000000000000
-      internalID: -2114233804336852664
+      spriteID: 319b622e1965137478565ebdae33d413
+      internalID: -1007871105
       vertices: []
       indices: 
       edges: []
@@ -137,8 +146,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: b7529aceaced53944b7f0d05b2f84330
-      internalID: 1199479935
+      spriteID: 240154bcd53ebe04e804453b2af7e958
+      internalID: 1467948403
       vertices: []
       indices: 
       edges: []
@@ -159,8 +168,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 23826ef5842252f4e84cc3127f1f8ead
-      internalID: -46232609
+      spriteID: 4ad014a98693a834e8c596773065055d
+      internalID: 124496537
       vertices: []
       indices: 
       edges: []
@@ -181,96 +190,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 586b069eae7ffd14f834735341795e67
-      internalID: -1852360156
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Crack_4
-      rect:
-        serializedVersion: 2
-        x: 64
-        y: 0
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: b036d648ea90f4447a72506bee16691e
-      internalID: 199662213
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Crack_5
-      rect:
-        serializedVersion: 2
-        x: 80
-        y: 0
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 779937d2d9e6b414e918705eb4e98801
-      internalID: -121428232
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Crack_6
-      rect:
-        serializedVersion: 2
-        x: 96
-        y: 0
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 5ab3878c372c78840ab64ce75d2fd70e
-      internalID: -105204217
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Crack_7
-      rect:
-        serializedVersion: 2
-        x: 112
-        y: 0
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: b2c604e6b5454504db12acd4a43b8a70
-      internalID: -982021503
+      spriteID: b8a380585fdd06f46b1abf86d60628af
+      internalID: 776850649
       vertices: []
       indices: 
       edges: []
@@ -279,7 +200,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 6b15d0c9d365abb42b7b105ae788c225
+    spriteID: 4cc78900f14a2fb4b9f0a27a78b8a49b
     internalID: 0
     vertices: []
     indices: 
@@ -289,14 +210,10 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Crack_0: -2114233804336852664
-      Crack_1: 1199479935
-      Crack_2: -46232609
-      Crack_3: -1852360156
-      Crack_4: 199662213
-      Crack_5: -121428232
-      Crack_6: -105204217
-      Crack_7: -982021503
+      Crack_0: -1007871105
+      Crack_1: 1467948403
+      Crack_2: 124496537
+      Crack_3: 776850649
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -13,13 +13,9 @@ MonoBehaviour:
   m_Name: Fx_MiningCrack
   m_EditorClassIdentifier: 
   frames:
-  - {fileID: -2114233804336852664, guid: 32e6a12d89bcb7c41aa916a6e507f075, type: 3}
-  - {fileID: 1199479935, guid: 32e6a12d89bcb7c41aa916a6e507f075, type: 3}
-  - {fileID: -46232609, guid: 32e6a12d89bcb7c41aa916a6e507f075, type: 3}
-  - {fileID: -1852360156, guid: 32e6a12d89bcb7c41aa916a6e507f075, type: 3}
-  - {fileID: 199662213, guid: 32e6a12d89bcb7c41aa916a6e507f075, type: 3}
-  - {fileID: -121428232, guid: 32e6a12d89bcb7c41aa916a6e507f075, type: 3}
-  - {fileID: -105204217, guid: 32e6a12d89bcb7c41aa916a6e507f075, type: 3}
-  - {fileID: -982021503, guid: 32e6a12d89bcb7c41aa916a6e507f075, type: 3}
+  - {fileID: -1007871105, guid: 1680fbfb1bb33ed41b15f19b49957cb3, type: 3}
+  - {fileID: 1467948403, guid: 1680fbfb1bb33ed41b15f19b49957cb3, type: 3}
+  - {fileID: 124496537, guid: 1680fbfb1bb33ed41b15f19b49957cb3, type: 3}
+  - {fileID: 776850649, guid: 1680fbfb1bb33ed41b15f19b49957cb3, type: 3}
   frameDuration: 0.08
   loop: 1
