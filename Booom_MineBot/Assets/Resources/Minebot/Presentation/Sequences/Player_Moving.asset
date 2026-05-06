@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: Player_Moving
   m_EditorClassIdentifier: 
   frames:
-  - {fileID: 21300000, guid: 68699fd60e2f0454eb4172bc49a0d772, type: 3}
-  - {fileID: 21300000, guid: e7aa28ecc8130483c933b6e21b095a87, type: 3}
+  - {fileID: -1039813655896328316, guid: d938556a8e7f4ef42bd64e2a3dfb2330, type: 3}
+  - {fileID: 853092617, guid: d938556a8e7f4ef42bd64e2a3dfb2330, type: 3}
+  - {fileID: 582351663, guid: d938556a8e7f4ef42bd64e2a3dfb2330, type: 3}
+  - {fileID: -659600704, guid: d938556a8e7f4ef42bd64e2a3dfb2330, type: 3}
   frameDuration: 0.12
   loop: 1

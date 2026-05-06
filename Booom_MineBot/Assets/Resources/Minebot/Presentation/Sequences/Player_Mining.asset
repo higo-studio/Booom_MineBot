@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Player_Mining
   m_EditorClassIdentifier: 
   frames:
-  - {fileID: 21300000, guid: de39fd667059b47ac8370043b7947d2a, type: 3}
-  - {fileID: 21300000, guid: 56273265de03248f7a00707058e55398, type: 3}
-  frameDuration: 0.12
+  - {fileID: -4897710709729998580, guid: d9adc4a7098f5f049b838310f7e961ee, type: 3}
+  - {fileID: 584421075, guid: d9adc4a7098f5f049b838310f7e961ee, type: 3}
+  frameDuration: 0.05
   loop: 1
