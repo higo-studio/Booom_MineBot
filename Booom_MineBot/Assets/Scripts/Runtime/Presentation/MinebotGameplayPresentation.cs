@@ -807,6 +807,10 @@ namespace Minebot.Presentation
             camera.backgroundColor = new Color(0.05f, 0.07f, 0.08f, 1f);
             // 确保相机本地位置为(0,0,0)，震动效果会在localPosition上叠加
             camera.transform.localPosition = Vector3.zero;
+
+            // 确保后处理开启 (URP)
+            EnableCameraPostProcessing(camera);
+
             UpdateCameraFraming(camera);
         }
 
@@ -2539,6 +2543,22 @@ namespace Minebot.Presentation
             playerVisualState = PresentationActorState.Idle;
             playerVisualHoldRemaining = 0f;
             // 不调用 RefreshActors，让 Update 中的 UpdatePlayerVisualState 处理刷新
+        }
+
+        private static void EnableCameraPostProcessing(Camera camera)
+        {
+            // 通过反射添加 UniversalAdditionalCameraData 并设置 renderPostProcessing
+            var assembly = System.Reflection.Assembly.Load("Unity.RenderPipelines.Universal.Runtime");
+            var cameraDataType = assembly.GetType("UnityEngine.Rendering.Universal.UniversalAdditionalCameraData");
+            if (cameraDataType == null)
+            {
+                Debug.LogWarning("[MinebotGameplayPresentation] 无法找到 UniversalAdditionalCameraData 类型，跳过后处理设置");
+                return;
+            }
+
+            var cameraData = camera.gameObject.AddComponent(cameraDataType);
+            var property = cameraDataType.GetProperty("renderPostProcessing");
+            property?.SetValue(cameraData, true);
         }
     }
 }
