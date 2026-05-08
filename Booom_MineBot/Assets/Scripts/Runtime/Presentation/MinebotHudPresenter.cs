@@ -1,4 +1,6 @@
 using Minebot.Bootstrap;
+using Minebot.Progression;
+using Minebot.WaveSurvival;
 using UnityEngine;
 
 namespace Minebot.UI
@@ -6,7 +8,10 @@ namespace Minebot.UI
     [MinebotRuntimeTag(MinebotRuntimeTag.Consumer)]
     public sealed class MinebotHudPresenter : MonoBehaviour
     {
-        private RuntimeServiceRegistry services;
+        private GameSessionService session;
+        private PlayerVitals vitals;
+        private PlayerEconomy economy;
+        private WaveSurvivalService waves;
         private bool isSubscribed;
 
         public string LastSummary { get; private set; }
@@ -23,15 +28,26 @@ namespace Minebot.UI
             Unsubscribe();
         }
 
-        public void InjectServices(RuntimeServiceRegistry injectedServices, BootstrapConfig config)
+        public void InjectServices(
+            GameSessionService injectedSession,
+            PlayerVitals injectedVitals,
+            PlayerEconomy injectedEconomy,
+            WaveSurvivalService injectedWaves,
+            BootstrapConfig config)
         {
-            if (ReferenceEquals(services, injectedServices))
+            if (ReferenceEquals(session, injectedSession)
+                && ReferenceEquals(vitals, injectedVitals)
+                && ReferenceEquals(economy, injectedEconomy)
+                && ReferenceEquals(waves, injectedWaves))
             {
                 return;
             }
 
             Unsubscribe();
-            services = injectedServices;
+            session = injectedSession;
+            vitals = injectedVitals;
+            economy = injectedEconomy;
+            waves = injectedWaves;
             Subscribe();
             Refresh();
         }
@@ -43,54 +59,62 @@ namespace Minebot.UI
 
         public string BuildDebugSummary()
         {
-            if (services == null)
+            if (vitals == null || economy == null || waves == null)
             {
                 return "游戏服务尚未初始化。";
             }
 
-            return $"生命 {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {services.Economy.Resources.Metal} | 能量 {services.Economy.Resources.Energy} | 波次 {services.Waves.CurrentWave}";
+            return $"生命 {vitals.CurrentHealth}/{vitals.MaxHealth} | 金属 {economy.Resources.Metal} | 能量 {economy.Resources.Energy} | 波次 {waves.CurrentWave}";
         }
 
         private void EnsureServices()
         {
-            if (services != null)
+            if (session != null && vitals != null && economy != null && waves != null)
             {
                 return;
             }
 
+            MinebotRuntimeDiscovery.TryInjectInto(this);
             Minebot.Presentation.MinebotGameplayPresentation presentation = GetComponentInParent<Minebot.Presentation.MinebotGameplayPresentation>();
             if (presentation != null && presentation.Services != null)
             {
-                services = presentation.Services;
-                return;
-            }
-
-            if (MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry runtimeServices, out _))
-            {
-                services = runtimeServices;
+                AdoptRegistry(presentation.Services);
             }
         }
 
         private void Subscribe()
         {
-            if (isSubscribed || services?.Session == null)
+            if (isSubscribed || session == null)
             {
                 return;
             }
 
-            services.Session.StateChanged += Refresh;
+            session.StateChanged += Refresh;
             isSubscribed = true;
         }
 
         private void Unsubscribe()
         {
-            if (!isSubscribed || services?.Session == null)
+            if (!isSubscribed || session == null)
             {
                 return;
             }
 
-            services.Session.StateChanged -= Refresh;
+            session.StateChanged -= Refresh;
             isSubscribed = false;
+        }
+
+        private void AdoptRegistry(RuntimeServiceRegistry registry)
+        {
+            if (registry == null)
+            {
+                return;
+            }
+
+            session = registry.Session;
+            vitals = registry.Vitals;
+            economy = registry.Economy;
+            waves = registry.Waves;
         }
     }
 }

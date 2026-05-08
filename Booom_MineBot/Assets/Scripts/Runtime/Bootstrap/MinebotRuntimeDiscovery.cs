@@ -8,21 +8,19 @@ namespace Minebot.Bootstrap
     public static class MinebotRuntimeDiscovery
     {
         public const string InjectServicesMethodName = "InjectServices";
-        public const string GetServicesMethodName = "GetServices";
-        public const string GetBootstrapConfigMethodName = "GetBootstrapConfig";
+        public const string GetContainerMethodName = "GetContainer";
 
         private static readonly Dictionary<Type, TaggedMethodCache> CacheByType = new Dictionary<Type, TaggedMethodCache>();
-        private static readonly object[] ProviderConfigArguments = Array.Empty<object>();
+        private static readonly object[] NoArguments = Array.Empty<object>();
 
-        public static void InjectIntoHierarchy(GameObject root, RuntimeServiceRegistry services, BootstrapConfig config, MonoBehaviour excludedConsumer = null)
+        public static void InjectIntoHierarchy(GameObject root, MinebotContainer container, MonoBehaviour excludedConsumer = null)
         {
-            if (root == null || services == null)
+            if (root == null || container == null)
             {
                 return;
             }
 
             MonoBehaviour[] behaviours = root.GetComponentsInChildren<MonoBehaviour>(true);
-            object[] arguments = { services, config };
             for (int i = 0; i < behaviours.Length; i++)
             {
                 MonoBehaviour behaviour = behaviours[i];
@@ -31,82 +29,104 @@ namespace Minebot.Bootstrap
                     continue;
                 }
 
-                if (!TryGetConsumerInjectionMethod(behaviour.GetType(), out MethodInfo method))
+                TryInjectInto(behaviour, container);
+            }
+        }
+
+        public static bool TryInjectInto(MonoBehaviour behaviour)
+        {
+            if (!TryResolveContainer(out MinebotContainer container))
+            {
+                return false;
+            }
+
+            return TryInjectInto(behaviour, container);
+        }
+
+        public static bool TryInjectInto(MonoBehaviour behaviour, MinebotContainer container)
+        {
+            if (behaviour == null || container == null)
+            {
+                return false;
+            }
+
+            TaggedMethodCache cache = GetOrCreateCache(behaviour.GetType());
+            if (!cache.IsConsumer || cache.InjectMethods.Length == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < cache.InjectMethods.Length; i++)
+            {
+                MethodInfo method = cache.InjectMethods[i];
+                if (!container.TryBuildArguments(method.GetParameters(), out object[] arguments))
                 {
                     continue;
                 }
 
                 method.Invoke(behaviour, arguments);
+                return true;
             }
+
+            return false;
+        }
+
+        public static bool TryResolveContainer(out MinebotContainer container)
+        {
+            MonoBehaviour[] behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                MonoBehaviour behaviour = behaviours[i];
+                if (behaviour == null)
+                {
+                    continue;
+                }
+
+                TaggedMethodCache cache = GetOrCreateCache(behaviour.GetType());
+                if (!cache.IsProvider || cache.GetContainerMethod == null)
+                {
+                    continue;
+                }
+
+                if (cache.GetContainerMethod.Invoke(behaviour, NoArguments) is not MinebotContainer candidateContainer || candidateContainer == null)
+                {
+                    continue;
+                }
+
+                container = candidateContainer;
+                return true;
+            }
+
+            container = null;
+            return false;
         }
 
         public static bool TryResolveRuntimeServices(out RuntimeServiceRegistry services, out BootstrapConfig config)
         {
-            MonoBehaviour[] behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            for (int i = 0; i < behaviours.Length; i++)
+            if (!TryResolveContainer(out MinebotContainer container)
+                || !container.TryResolve(out services)
+                || services == null)
             {
-                MonoBehaviour behaviour = behaviours[i];
-                if (behaviour == null)
-                {
-                    continue;
-                }
-
-                TaggedMethodCache cache = GetOrCreateCache(behaviour.GetType());
-                if (!cache.IsProvider || cache.GetServicesMethod == null)
-                {
-                    continue;
-                }
-
-                if (cache.GetServicesMethod.Invoke(behaviour, ProviderConfigArguments) is not RuntimeServiceRegistry candidateServices || candidateServices == null)
-                {
-                    continue;
-                }
-
-                services = candidateServices;
-                config = cache.GetBootstrapConfigMethod != null
-                    ? cache.GetBootstrapConfigMethod.Invoke(behaviour, ProviderConfigArguments) as BootstrapConfig
-                    : null;
-                return true;
+                services = null;
+                config = null;
+                return false;
             }
 
-            services = null;
-            config = null;
-            return false;
+            container.TryResolve(out config);
+            return true;
         }
 
         public static bool TryResolveBootstrapConfig(out BootstrapConfig config)
         {
-            MonoBehaviour[] behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            for (int i = 0; i < behaviours.Length; i++)
+            if (!TryResolveContainer(out MinebotContainer container)
+                || !container.TryResolve(out config)
+                || config == null)
             {
-                MonoBehaviour behaviour = behaviours[i];
-                if (behaviour == null)
-                {
-                    continue;
-                }
-
-                TaggedMethodCache cache = GetOrCreateCache(behaviour.GetType());
-                if (!cache.IsProvider || cache.GetBootstrapConfigMethod == null)
-                {
-                    continue;
-                }
-
-                if (cache.GetBootstrapConfigMethod.Invoke(behaviour, ProviderConfigArguments) is BootstrapConfig candidateConfig && candidateConfig != null)
-                {
-                    config = candidateConfig;
-                    return true;
-                }
+                config = null;
+                return false;
             }
 
-            config = null;
-            return false;
-        }
-
-        private static bool TryGetConsumerInjectionMethod(Type behaviourType, out MethodInfo method)
-        {
-            TaggedMethodCache cache = GetOrCreateCache(behaviourType);
-            method = cache.InjectMethod;
-            return cache.IsConsumer && method != null;
+            return true;
         }
 
         private static TaggedMethodCache GetOrCreateCache(Type behaviourType)
@@ -121,23 +141,31 @@ namespace Minebot.Bootstrap
             {
                 IsProvider = tag != null && tag.Tag == MinebotRuntimeTag.Provider,
                 IsConsumer = tag != null && tag.Tag == MinebotRuntimeTag.Consumer,
-                InjectMethod = ResolveConsumerInjectMethod(behaviourType),
-                GetServicesMethod = ResolveProviderMethod(behaviourType, GetServicesMethodName, typeof(RuntimeServiceRegistry)),
-                GetBootstrapConfigMethod = ResolveProviderMethod(behaviourType, GetBootstrapConfigMethodName, typeof(BootstrapConfig))
+                InjectMethods = ResolveConsumerInjectMethods(behaviourType),
+                GetContainerMethod = ResolveProviderMethod(behaviourType, GetContainerMethodName, typeof(MinebotContainer))
             };
             CacheByType.Add(behaviourType, cache);
             return cache;
         }
 
-        private static MethodInfo ResolveConsumerInjectMethod(Type behaviourType)
+        private static MethodInfo[] ResolveConsumerInjectMethods(Type behaviourType)
         {
-            MethodInfo method = behaviourType.GetMethod(
-                InjectServicesMethodName,
-                BindingFlags.Instance | BindingFlags.Public,
-                null,
-                new[] { typeof(RuntimeServiceRegistry), typeof(BootstrapConfig) },
-                null);
-            return method != null && method.ReturnType == typeof(void) ? method : null;
+            MethodInfo[] methods = behaviourType.GetMethods(BindingFlags.Instance | BindingFlags.Public);
+            var matches = new List<MethodInfo>();
+            for (int i = 0; i < methods.Length; i++)
+            {
+                MethodInfo method = methods[i];
+                if (!string.Equals(method.Name, InjectServicesMethodName, StringComparison.Ordinal)
+                    || method.ReturnType != typeof(void))
+                {
+                    continue;
+                }
+
+                matches.Add(method);
+            }
+
+            matches.Sort((left, right) => right.GetParameters().Length.CompareTo(left.GetParameters().Length));
+            return matches.ToArray();
         }
 
         private static MethodInfo ResolveProviderMethod(Type behaviourType, string methodName, Type returnType)
@@ -155,9 +183,8 @@ namespace Minebot.Bootstrap
         {
             public bool IsProvider;
             public bool IsConsumer;
-            public MethodInfo InjectMethod;
-            public MethodInfo GetServicesMethod;
-            public MethodInfo GetBootstrapConfigMethod;
+            public MethodInfo[] InjectMethods = Array.Empty<MethodInfo>();
+            public MethodInfo GetContainerMethod;
         }
     }
 }

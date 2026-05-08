@@ -25,7 +25,11 @@ namespace Minebot.Presentation
 
         private MinebotInputActions inputActions;
         private MinebotGameplayPresentation presentation;
-        private RuntimeServiceRegistry services;
+        private LogicalGridState grid;
+        private PlayerMiningState playerMiningState;
+        private GameSessionService session;
+        private PlayerVitals vitals;
+        private ExperienceService experience;
         private GridPosition lastDirection = GridPosition.Up;
         private Vector2 currentMoveInput;
         private Vector2 pointerPosition;
@@ -47,14 +51,7 @@ namespace Minebot.Presentation
                 presentation = FindAnyObjectByType<MinebotGameplayPresentation>();
             }
 
-            if (presentation != null && presentation.Services != null)
-            {
-                services = presentation.Services;
-            }
-            else if (MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry runtimeServices, out _))
-            {
-                services = runtimeServices;
-            }
+            EnsureServices();
         }
 
         private void OnEnable()
@@ -161,7 +158,7 @@ namespace Minebot.Presentation
                 return false;
             }
 
-            GridPosition target = services.PlayerMiningState.Position + lastDirection;
+            GridPosition target = playerMiningState.Position + lastDirection;
             return MineTarget(target);
         }
 
@@ -172,9 +169,9 @@ namespace Minebot.Presentation
                 return false;
             }
 
-            GridPosition target = services.PlayerMiningState.Position + lastDirection;
+            GridPosition target = playerMiningState.Position + lastDirection;
             bool canToggle = CanToggleMarker(target, out bool wasMarked);
-            bool marked = services.Session.ToggleMarker(target);
+            bool marked = session.ToggleMarker(target);
             presentation.RefreshAfterMarkerChanged(target);
             if (marked)
             {
@@ -231,14 +228,14 @@ namespace Minebot.Presentation
                     return false;
                 }
 
-                if (services.Session != null && services.Session.IsWaveResolutionActive)
+                if (session != null && session.IsWaveResolutionActive)
                 {
                     presentation.AudioController?.PlayActionDenied();
                     presentation.ShowFeedback("地震结算中，动作已暂停。");
                     return false;
                 }
 
-                if (services.Vitals.IsDead || services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
+                if (vitals.IsDead || experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
                 {
                     presentation.AudioController?.PlayActionDenied();
                     presentation.ShowFeedback("输入已锁定，先处理升级或失败状态。");
@@ -254,7 +251,7 @@ namespace Minebot.Presentation
                 bool canToggle = CanToggleMarker(target, out bool wasMarked);
                 if (canToggle)
                 {
-                    bool marked = services.Session.ToggleMarker(target);
+                    bool marked = session.ToggleMarker(target);
                     presentation.RefreshAfterMarkerChanged(target);
                     if (marked)
                     {
@@ -309,7 +306,7 @@ namespace Minebot.Presentation
             }
 
             bool selected = presentation.SelectUpgradeIndex(index);
-            if (selected && !services.Experience.HasPendingUpgrade && !services.Vitals.IsDead)
+            if (selected && !experience.HasPendingUpgrade && !vitals.IsDead)
             {
                 presentation.SetInteractionMode(GameplayInteractionMode.Normal);
             }
@@ -317,9 +314,19 @@ namespace Minebot.Presentation
             return selected;
         }
 
-        public void InjectServices(RuntimeServiceRegistry injectedServices, BootstrapConfig config)
+        public void InjectServices(
+            LogicalGridState injectedGrid,
+            PlayerMiningState injectedPlayerMiningState,
+            GameSessionService injectedSession,
+            PlayerVitals injectedVitals,
+            ExperienceService injectedExperience,
+            BootstrapConfig config)
         {
-            services = injectedServices;
+            grid = injectedGrid;
+            playerMiningState = injectedPlayerMiningState;
+            session = injectedSession;
+            vitals = injectedVitals;
+            experience = injectedExperience;
         }
 
         private bool CanAcceptGameplayInput(bool suppressWaveLockFeedback = false)
@@ -329,7 +336,7 @@ namespace Minebot.Presentation
                 return false;
             }
 
-            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            if (session != null && session.IsWaveResolutionActive)
             {
                 if (!suppressWaveLockFeedback)
                 {
@@ -340,13 +347,13 @@ namespace Minebot.Presentation
                 return false;
             }
 
-            if (services.Vitals.IsDead)
+            if (vitals.IsDead)
             {
                 presentation.SetInteractionMode(GameplayInteractionMode.GameOver);
                 return false;
             }
 
-            if (services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
+            if (experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
             {
                 presentation.SetInteractionMode(GameplayInteractionMode.UpgradeLocked);
                 presentation.AudioController?.PlayActionDenied();
@@ -364,7 +371,7 @@ namespace Minebot.Presentation
                 return false;
             }
 
-            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            if (session != null && session.IsWaveResolutionActive)
             {
                 if (!suppressWaveLockFeedback)
                 {
@@ -375,13 +382,13 @@ namespace Minebot.Presentation
                 return false;
             }
 
-            if (services.Vitals.IsDead)
+            if (vitals.IsDead)
             {
                 presentation.SetInteractionMode(GameplayInteractionMode.GameOver);
                 return false;
             }
 
-            if (services.Experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
+            if (experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
             {
                 presentation.SetInteractionMode(GameplayInteractionMode.UpgradeLocked);
                 presentation.AudioController?.PlayActionDenied();
@@ -394,27 +401,27 @@ namespace Minebot.Presentation
 
         private bool EnsureServices()
         {
-            if (services == null && presentation != null && presentation.Services != null)
-            {
-                services = presentation.Services;
-            }
-
             if (presentation == null)
             {
                 presentation = FindAnyObjectByType<MinebotGameplayPresentation>();
             }
 
-            if (services == null && presentation != null && presentation.Services != null)
+            if (HasServices)
             {
-                services = presentation.Services;
+                return presentation != null;
             }
 
-            if (services == null && MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry runtimeServices, out _))
+            if (MinebotRuntimeDiscovery.TryInjectInto(this))
             {
-                services = runtimeServices;
+                return HasServices && presentation != null;
             }
 
-            return services != null && presentation != null;
+            if (presentation != null && presentation.Services != null)
+            {
+                AdoptRegistry(presentation.Services);
+            }
+
+            return HasServices && presentation != null;
         }
 
         private void OnMovePerformed(InputAction.CallbackContext context)
@@ -450,7 +457,7 @@ namespace Minebot.Presentation
                 pointerPosition = context.ReadValue<Vector2>();
                 if (presentation != null
                     && presentation.InteractionMode == GameplayInteractionMode.Build
-                    && (services == null || services.Session == null || !services.Session.IsWaveResolutionActive))
+                    && (session == null || !session.IsWaveResolutionActive))
                 {
                     presentation.SetBuildPreview(presentation.ScreenToGridPosition(pointerPosition));
                 }
@@ -472,7 +479,7 @@ namespace Minebot.Presentation
                 return;
             }
 
-            if (services.Session != null && services.Session.IsWaveResolutionActive)
+            if (session != null && session.IsWaveResolutionActive)
             {
                 presentation.AudioController?.PlayActionDenied();
                 presentation.ShowFeedback("地震结算中，动作已暂停。");
@@ -532,8 +539,8 @@ namespace Minebot.Presentation
                 AutoMineContactDecision decision = AutoMineContactResolver.Advance(
                     autoMineState,
                     moveResult,
-                    services.Grid,
-                    services.PlayerMiningState.Position,
+                    grid,
+                    playerMiningState.Position,
                     lastDirection,
                     deltaTime,
                     GetAutoMineInterval());
@@ -570,11 +577,11 @@ namespace Minebot.Presentation
         {
             using (MineTargetProfilerMarker.Auto())
             {
-                MineInteractionResult result = services.Session.Mine(target);
+                MineInteractionResult result = session.Mine(target);
                 presentation.NotifyPlayerMineResolved(target, result);
                 if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
                 {
-                    presentation.RefreshAfterTerrainChanged(services.Session.LastMineResolution.ClearedCells);
+                    presentation.RefreshAfterTerrainChanged(session.LastMineResolution.ClearedCells);
                 }
 
                 bool isAdvancingMine = IsAdvancingMineResult(result);
@@ -614,8 +621,8 @@ namespace Minebot.Presentation
 
         private float GetAutoMineInterval()
         {
-            return services != null
-                ? services.Session.PlayerMiningTickIntervalSeconds
+            return session != null
+                ? session.PlayerMiningTickIntervalSeconds
                 : Mathf.Max(0.02f, autoMineInterval);
         }
 
@@ -629,14 +636,34 @@ namespace Minebot.Presentation
         private bool CanToggleMarker(GridPosition target, out bool wasMarked)
         {
             wasMarked = false;
-            if (services == null || services.Grid == null || !services.Grid.IsInside(target))
+            if (grid == null || !grid.IsInside(target))
             {
                 return false;
             }
 
-            GridCellState cell = services.Grid.GetCell(target);
+            GridCellState cell = grid.GetCell(target);
             wasMarked = cell.IsMarked;
             return cell.IsMineable && !cell.IsRevealed;
+        }
+
+        private bool HasServices => grid != null
+            && playerMiningState != null
+            && session != null
+            && vitals != null
+            && experience != null;
+
+        private void AdoptRegistry(RuntimeServiceRegistry registry)
+        {
+            if (registry == null)
+            {
+                return;
+            }
+
+            grid = registry.Grid;
+            playerMiningState = registry.PlayerMiningState;
+            session = registry.Session;
+            vitals = registry.Vitals;
+            experience = registry.Experience;
         }
     }
 }

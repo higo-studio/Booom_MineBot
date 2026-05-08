@@ -10,7 +10,8 @@ namespace Minebot.UI
         [SerializeField]
         private int candidateCount = 3;
 
-        private RuntimeServiceRegistry services;
+        private UpgradeSelectionService upgrades;
+        private GameSessionService session;
         private bool isSubscribed;
 
         public UpgradeDefinition[] CurrentCandidates { get; private set; } = System.Array.Empty<UpgradeDefinition>();
@@ -28,29 +29,33 @@ namespace Minebot.UI
             Unsubscribe();
         }
 
-        public void InjectServices(RuntimeServiceRegistry injectedServices, BootstrapConfig config)
+        public void InjectServices(
+            UpgradeSelectionService injectedUpgrades,
+            GameSessionService injectedSession,
+            BootstrapConfig config)
         {
-            if (ReferenceEquals(services, injectedServices))
+            if (ReferenceEquals(upgrades, injectedUpgrades) && ReferenceEquals(session, injectedSession))
             {
                 return;
             }
 
             Unsubscribe();
-            services = injectedServices;
+            upgrades = injectedUpgrades;
+            session = injectedSession;
             Subscribe();
             Refresh();
         }
 
         public void Refresh()
         {
-            if (services == null)
+            if (upgrades == null)
             {
                 IsShowing = false;
                 CurrentCandidates = System.Array.Empty<UpgradeDefinition>();
                 return;
             }
 
-            CurrentCandidates = services.Upgrades.GetCandidates(candidateCount);
+            CurrentCandidates = upgrades.GetCandidates(candidateCount);
             IsShowing = CurrentCandidates.Length > 0;
         }
 
@@ -61,51 +66,57 @@ namespace Minebot.UI
                 return false;
             }
 
-            bool selected = services.Upgrades.Select(CurrentCandidates[index]);
+            bool selected = upgrades.Select(CurrentCandidates[index]);
             Refresh();
             return selected;
         }
 
         private void EnsureServices()
         {
-            if (services != null)
+            if (upgrades != null && session != null)
             {
                 return;
             }
 
+            MinebotRuntimeDiscovery.TryInjectInto(this);
             Minebot.Presentation.MinebotGameplayPresentation presentation = GetComponentInParent<Minebot.Presentation.MinebotGameplayPresentation>();
             if (presentation != null && presentation.Services != null)
             {
-                services = presentation.Services;
-                return;
-            }
-
-            if (MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry runtimeServices, out _))
-            {
-                services = runtimeServices;
+                AdoptRegistry(presentation.Services);
             }
         }
 
         private void Subscribe()
         {
-            if (isSubscribed || services?.Session == null)
+            if (isSubscribed || session == null)
             {
                 return;
             }
 
-            services.Session.StateChanged += Refresh;
+            session.StateChanged += Refresh;
             isSubscribed = true;
         }
 
         private void Unsubscribe()
         {
-            if (!isSubscribed || services?.Session == null)
+            if (!isSubscribed || session == null)
             {
                 return;
             }
 
-            services.Session.StateChanged -= Refresh;
+            session.StateChanged -= Refresh;
             isSubscribed = false;
+        }
+
+        private void AdoptRegistry(RuntimeServiceRegistry registry)
+        {
+            if (registry == null)
+            {
+                return;
+            }
+
+            upgrades = registry.Upgrades;
+            session = registry.Session;
         }
     }
 }

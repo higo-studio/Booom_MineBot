@@ -69,6 +69,7 @@ namespace Minebot.Presentation
         [SerializeField]
         private int repairMetalCost = 2;
 
+        private MinebotContainer serviceContainer;
         private RuntimeServiceRegistry services;
         private MinebotPresentationAssets assets;
         private TilemapGridPresentation gridPresentation;
@@ -176,14 +177,73 @@ namespace Minebot.Presentation
             }
         }
 
-        public void InjectServices(RuntimeServiceRegistry injectedServices, BootstrapConfig injectedConfig)
+        public void InjectServices(
+            LogicalGridState grid,
+            PlayerMiningState playerMiningState,
+            MiningService mining,
+            HazardService hazards,
+            GameSessionService session,
+            UpgradeSelectionService upgrades,
+            ScoreService scores,
+            PlayerEconomy economy,
+            PlayerVitals vitals,
+            ExperienceService experience,
+            WorldPickupService worldPickups,
+            BaseOpsService baseOps,
+            BuildingPlacementService buildings,
+            IReadOnlyList<BuildingDefinition> buildingDefinitions,
+            RobotAutomationService robotAutomation,
+            RobotFactoryService robotFactory,
+            IReadOnlyList<RobotState> robots,
+            WaveSurvivalService waves,
+            BootstrapConfig injectedConfig)
         {
-            if (injectedServices == null)
+            if (grid == null
+                || playerMiningState == null
+                || mining == null
+                || hazards == null
+                || session == null
+                || upgrades == null
+                || economy == null
+                || vitals == null
+                || experience == null
+                || worldPickups == null
+                || baseOps == null
+                || buildings == null
+                || robotAutomation == null
+                || robotFactory == null
+                || robots == null
+                || waves == null)
             {
                 return;
             }
 
-            if (ReferenceEquals(services, injectedServices))
+            if (serviceContainer == null && MinebotRuntimeDiscovery.TryResolveContainer(out MinebotContainer runtimeContainer))
+            {
+                serviceContainer = runtimeContainer;
+            }
+
+            var injectedServices = new RuntimeServiceRegistry(
+                grid,
+                playerMiningState,
+                mining,
+                hazards,
+                session,
+                upgrades,
+                scores,
+                economy,
+                vitals,
+                experience,
+                worldPickups,
+                baseOps,
+                buildings,
+                buildingDefinitions,
+                robotAutomation,
+                robotFactory,
+                robots,
+                waves);
+
+            if (services != null && ReferenceEquals(services.Session, injectedServices.Session))
             {
                 if (bootstrapConfig == null && injectedConfig != null)
                 {
@@ -700,20 +760,21 @@ namespace Minebot.Presentation
             {
                 BootstrapConfig config = ResolveBootstrapConfig();
                 Debug.Log($"[MinebotGameplayPresentation] 自动初始化服务，使用配置: {(config != null ? config.name : "null")}");
-                RuntimeServiceRegistry runtimeServices = RuntimeServiceFactory.Create(config);
-                MinebotServices.SetCurrent(runtimeServices);
-                InjectServices(runtimeServices, config);
+                serviceContainer = RuntimeServiceFactory.CreateContainer(config);
+                MinebotServices.SetCurrentContainer(serviceContainer);
+                MinebotRuntimeDiscovery.TryInjectInto(this, serviceContainer);
             }
         }
 
         private bool TryAdoptRuntimeContext()
         {
-            if (!MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry runtimeServices, out BootstrapConfig runtimeConfig))
+            if (!MinebotRuntimeDiscovery.TryResolveContainer(out MinebotContainer runtimeContainer))
             {
                 return false;
             }
 
-            InjectServices(runtimeServices, runtimeConfig);
+            serviceContainer = runtimeContainer;
+            MinebotRuntimeDiscovery.TryInjectInto(this, runtimeContainer);
             return services != null;
         }
 
@@ -737,7 +798,17 @@ namespace Minebot.Presentation
                 return;
             }
 
-            MinebotRuntimeDiscovery.InjectIntoHierarchy(gameObject, services, bootstrapConfig, this);
+            if (serviceContainer == null && MinebotRuntimeDiscovery.TryResolveContainer(out MinebotContainer runtimeContainer))
+            {
+                serviceContainer = runtimeContainer;
+            }
+
+            if (serviceContainer == null)
+            {
+                return;
+            }
+
+            MinebotRuntimeDiscovery.InjectIntoHierarchy(gameObject, serviceContainer, this);
         }
 
         private BootstrapConfig ResolveBootstrapConfig()
