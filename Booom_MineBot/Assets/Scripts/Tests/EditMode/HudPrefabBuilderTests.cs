@@ -28,10 +28,12 @@ namespace Minebot.Tests.EditMode
 
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.StatusPanelAssetPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.WarningPanelAssetPath), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.GameOverPanelAssetPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.MinimapPanelAssetPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.UpgradePanelAssetPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BuildPanelAssetPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BuildingInteractionPanelAssetPath), Is.Not.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BootstrapMenuAssetPath), Is.Not.Null);
 
             GameObject instance = Object.Instantiate(rootPrefab);
             try
@@ -54,6 +56,7 @@ namespace Minebot.Tests.EditMode
                 Assert.That(view.StatusPanel, Is.Null);
                 Assert.That(view.WarningPanel, Is.Null);
                 Assert.That(view.MinimapPanel, Is.Null);
+                Assert.That(view.GameOverPanel, Is.Not.Null);
                 Assert.That(view.UpgradePanel, Is.Not.Null);
                 Assert.That(view.BuildPanel, Is.Null);
                 Assert.That(view.BuildingInteractionPanel, Is.Not.Null);
@@ -66,6 +69,10 @@ namespace Minebot.Tests.EditMode
             {
                 Object.DestroyImmediate(instance);
             }
+
+            GameObject bootstrapMenuPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BootstrapMenuAssetPath);
+            Assert.That(bootstrapMenuPrefab, Is.Not.Null);
+            Assert.That(bootstrapMenuPrefab.GetComponent<MinebotBootstrapMenuView>(), Is.Not.Null);
         }
     }
 }

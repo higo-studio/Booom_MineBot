@@ -89,7 +89,7 @@ namespace Minebot.UI
         private MinebotHudTextPanelView warningPanel;
 
         [SerializeField]
-        private MinebotHudTextPanelView gameOverPanel;
+        private MinebotHudGameOverPanelView gameOverPanel;
 
         [SerializeField]
         private MinebotHudMinimapPanelView minimapPanel;
@@ -122,7 +122,7 @@ namespace Minebot.UI
         public MinebotHudTextPanelView InteractionPanel => interactionPanel;
         public MinebotHudTextPanelView FeedbackPanel => feedbackPanel;
         public MinebotHudTextPanelView WarningPanel => warningPanel;
-        public MinebotHudTextPanelView GameOverPanel => gameOverPanel;
+        public MinebotHudGameOverPanelView GameOverPanel => gameOverPanel;
         public MinebotHudMinimapPanelView MinimapPanel => minimapPanel;
         public MinebotHudOptionPanelView UpgradePanel => upgradePanel;
         public MinebotHudOptionPanelView BuildPanel => buildPanel;
@@ -152,8 +152,8 @@ namespace Minebot.UI
             usingTemplateHud = BindTemplateHud();
             if (usingTemplateHud)
             {
-                // ApplyTemplateFont(runtimeFontAsset);
                 EnsureTemplateOverlayStructure(runtimeFontAsset);
+                ApplyTemplateFont(runtimeFontAsset);
                 HideLegacyPanel(statusPanel);
                 HideLegacyPanel(interactionPanel);
                 HideLegacyPanel(feedbackPanel);
@@ -169,7 +169,7 @@ namespace Minebot.UI
             interactionPanel = EnsureTextPanel(interactionPanel, interactionSlot, MinebotHudDefaults.InteractionPanelObjectName, MinebotHudDefaults.InteractionPanelResourcePath, runtimeFontAsset, MinebotHudDefaults.InteractionText);
             feedbackPanel = EnsureTextPanel(feedbackPanel, feedbackSlot, MinebotHudDefaults.FeedbackPanelObjectName, MinebotHudDefaults.FeedbackPanelResourcePath, runtimeFontAsset, MinebotHudDefaults.FeedbackText);
             warningPanel = EnsureTextPanel(warningPanel, warningSlot, MinebotHudDefaults.WarningPanelObjectName, MinebotHudDefaults.WarningPanelResourcePath, runtimeFontAsset, MinebotHudDefaults.WarningText);
-            gameOverPanel = EnsureTextPanel(gameOverPanel, gameOverSlot, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanelResourcePath, runtimeFontAsset, MinebotHudDefaults.GameOverText);
+            gameOverPanel = EnsureGameOverPanel(gameOverPanel, gameOverSlot, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanelResourcePath, runtimeFontAsset, MinebotHudDefaults.GameOverPanel);
             minimapPanel = EnsureMinimapPanel(minimapPanel, minimapSlot, MinebotHudDefaults.MinimapPanelObjectName, MinebotHudDefaults.MinimapPanelResourcePath, runtimeFontAsset, MinebotHudDefaults.MinimapPanel);
 
             upgradePanel = EnsureOptionPanel(upgradePanel, upgradeSlot, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradePanelResourcePath, runtimeFontAsset, MinebotHudDefaults.UpgradeButtonCount, MinebotHudDefaults.UpgradeOptions, MinebotHudDefaults.UpgradeTitle);
@@ -368,13 +368,20 @@ namespace Minebot.UI
             return panel;
         }
 
+        private static MinebotHudGameOverPanelView EnsureGameOverPanel(MinebotHudGameOverPanelView current, RectTransform slot, string objectName, string resourcePath, TMP_FontAsset runtimeFontAsset, MinebotHudDefaults.GameOverPanelLayout layout)
+        {
+            MinebotHudGameOverPanelView panel = ResolvePanel(current, slot, objectName, resourcePath);
+            panel.EnsureDefaultStructure(runtimeFontAsset, layout);
+            return panel;
+        }
+
         private void EnsureTemplateOverlayStructure(TMP_FontAsset runtimeFontAsset)
         {
             gameOverSlot = MinebotHudUiFactory.EnsureSlot(ref gameOverSlot, transform, GameOverSlotName, MinebotHudDefaults.GameOverSlot);
             upgradeSlot = MinebotHudUiFactory.EnsureSlot(ref upgradeSlot, transform, UpgradeSlotName, MinebotHudDefaults.UpgradeSlot);
             buildingInteractionSlot = MinebotHudUiFactory.EnsureSlot(ref buildingInteractionSlot, transform, BuildingInteractionSlotName, MinebotHudDefaults.BuildingInteractionSlot);
 
-            gameOverPanel = EnsureTextPanel(gameOverPanel, gameOverSlot, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanelResourcePath, runtimeFontAsset, MinebotHudDefaults.GameOverText);
+            gameOverPanel = EnsureGameOverPanel(gameOverPanel, gameOverSlot, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanelResourcePath, runtimeFontAsset, MinebotHudDefaults.GameOverPanel);
             upgradePanel = EnsureOptionPanel(upgradePanel, upgradeSlot, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradePanelResourcePath, runtimeFontAsset, MinebotHudDefaults.UpgradeButtonCount, MinebotHudDefaults.UpgradeOptions, MinebotHudDefaults.UpgradeTitle);
             buildingInteractionPanel = EnsureOptionPanel(buildingInteractionPanel, buildingInteractionSlot, MinebotHudDefaults.BuildingInteractionPanelObjectName, MinebotHudDefaults.BuildingInteractionPanelResourcePath, runtimeFontAsset, MinebotHudDefaults.BuildingInteractionButtonCount, MinebotHudDefaults.BuildingInteractionOptions, MinebotHudDefaults.BuildingInteractionTitle);
             RenameButton(buildingInteractionPanel, 0, RepairStationInteractionButtonName);

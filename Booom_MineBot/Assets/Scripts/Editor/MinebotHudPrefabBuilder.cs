@@ -28,17 +28,19 @@ namespace Minebot.Editor
             EnsureFolder("Assets/Resources/Minebot");
             EnsureFolder("Assets/Resources/Minebot/UI");
             EnsureFolder(MinebotHudDefaults.PanelFolderAssetPath);
+            EnsureFolder(MinebotHudDefaults.ScreenFolderAssetPath);
 
             CreateTextPanelPrefab(MinebotHudDefaults.StatusPanelAssetPath, MinebotHudDefaults.StatusPanelObjectName, MinebotHudDefaults.StatusText);
             CreateTextPanelPrefab(MinebotHudDefaults.InteractionPanelAssetPath, MinebotHudDefaults.InteractionPanelObjectName, MinebotHudDefaults.InteractionText);
             CreateTextPanelPrefab(MinebotHudDefaults.FeedbackPanelAssetPath, MinebotHudDefaults.FeedbackPanelObjectName, MinebotHudDefaults.FeedbackText);
             CreateTextPanelPrefab(MinebotHudDefaults.WarningPanelAssetPath, MinebotHudDefaults.WarningPanelObjectName, MinebotHudDefaults.WarningText);
-            CreateTextPanelPrefab(MinebotHudDefaults.GameOverPanelAssetPath, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverText);
+            CreateGameOverPanelPrefab(MinebotHudDefaults.GameOverPanelAssetPath, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanel);
             CreateMinimapPanelPrefab(MinebotHudDefaults.MinimapPanelAssetPath, MinebotHudDefaults.MinimapPanelObjectName, MinebotHudDefaults.MinimapPanel);
 
             CreateOptionPanelPrefab(MinebotHudDefaults.UpgradePanelAssetPath, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradeOptions, MinebotHudDefaults.UpgradeButtonCount, MinebotHudDefaults.UpgradeTitle);
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildPanelAssetPath, MinebotHudDefaults.BuildPanelObjectName, MinebotHudDefaults.BuildOptions, MinebotHudDefaults.MinimumBuildButtonCount, MinebotHudDefaults.BuildTitle);
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildingInteractionPanelAssetPath, MinebotHudDefaults.BuildingInteractionPanelObjectName, MinebotHudDefaults.BuildingInteractionOptions, MinebotHudDefaults.BuildingInteractionButtonCount, MinebotHudDefaults.BuildingInteractionTitle);
+            CreateBootstrapMenuPrefab(MinebotHudDefaults.BootstrapMenuAssetPath, MinebotHudDefaults.BootstrapMenuObjectName, MinebotHudDefaults.BootstrapMenu);
 
             CreateMainUiPrefab();
             UpdateDefaultHudReference();
@@ -83,6 +85,36 @@ namespace Minebot.Editor
             try
             {
                 MinebotHudMinimapPanelView view = root.GetComponent<MinebotHudMinimapPanelView>();
+                view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), layout);
+                PrefabUtility.SaveAsPrefabAsset(root, assetPath);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static void CreateGameOverPanelPrefab(string assetPath, string objectName, MinebotHudDefaults.GameOverPanelLayout layout)
+        {
+            GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(MinebotHudGameOverPanelView));
+            try
+            {
+                MinebotHudGameOverPanelView view = root.GetComponent<MinebotHudGameOverPanelView>();
+                view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), layout);
+                PrefabUtility.SaveAsPrefabAsset(root, assetPath);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static void CreateBootstrapMenuPrefab(string assetPath, string objectName, MinebotHudDefaults.BootstrapMenuLayout layout)
+        {
+            GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(MinebotBootstrapMenuView));
+            try
+            {
+                MinebotBootstrapMenuView view = root.GetComponent<MinebotBootstrapMenuView>();
                 view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), layout);
                 PrefabUtility.SaveAsPrefabAsset(root, assetPath);
             }

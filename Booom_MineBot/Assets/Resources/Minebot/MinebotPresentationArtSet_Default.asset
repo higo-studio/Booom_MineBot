@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de6847cc913b84e3db634521e89d8c0d, type: 3}
   m_Name: MinebotPresentationArtSet_Default
   m_EditorClassIdentifier: 
-  emptyTile: {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  emptyTile: {fileID: 11400000, guid: 5ad57b9ad8c154a5bacd44942e02de2a, type: 2}
   soilWallTile: {fileID: 11400000, guid: 5393b6caa22924cb280729a580929630, type: 2}
   stoneWallTile: {fileID: 11400000, guid: 97ed4baf97ca5458a826e5117be9aa45, type: 2}
   hardRockWallTile: {fileID: 11400000, guid: 8ef61307a32b14fd4ae047b89b16c836, type: 2}
@@ -20,22 +20,22 @@ MonoBehaviour:
   boundaryTile: {fileID: 11400000, guid: 1a266e63bcdf14e66b0dbea5dfa060fe, type: 2}
   dualGridTerrainProfile: {fileID: 11400000, guid: 65cf992adbb4f41b8b0f349aa9558a60, type: 2}
   floorDualGridTiles:
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
-  - {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
+  - {fileID: 11400000, guid: 963616e63e03d4c07907602a874fd19b, type: 2}
+  - {fileID: 11400000, guid: f10fc6b52c35b41a2b1fb8175d4725e9, type: 2}
+  - {fileID: 11400000, guid: 28253f5a4a77d47e1961672f2e0e66d0, type: 2}
+  - {fileID: 11400000, guid: ffaaaefdf982544f288feb16b99532f8, type: 2}
+  - {fileID: 11400000, guid: e8ab55c364afa4866a8c0f0f7f4b44d8, type: 2}
+  - {fileID: 11400000, guid: 18696442ca4464f4bb11cd036bb58983, type: 2}
+  - {fileID: 11400000, guid: cb02dc02d92294480808e0c2c2c13398, type: 2}
+  - {fileID: 11400000, guid: 7512b3650fe9c4f019e0f63fb26265cd, type: 2}
+  - {fileID: 11400000, guid: aa8ea4d2d77b54b249fa3e296d99d981, type: 2}
+  - {fileID: 11400000, guid: 1ac273ee41dbe4d0f94a064493585d75, type: 2}
+  - {fileID: 11400000, guid: cbc311c5e1d674703896ececbe9e3067, type: 2}
+  - {fileID: 11400000, guid: 7a3b93b06c1584ab99c06859c95932a6, type: 2}
+  - {fileID: 11400000, guid: 070f607da6a5d4a36af867dc1e6e8ef8, type: 2}
+  - {fileID: 11400000, guid: c109424d791814dcda51c2144e78f8da, type: 2}
+  - {fileID: 11400000, guid: af78a62bf1daf456e95a8e364ab230df, type: 2}
+  - {fileID: 11400000, guid: 99080024e77e54cffb3c282bd8bc1337, type: 2}
   soilDualGridTiles:
   - {fileID: 11400000, guid: 04681efc09b1e4bd58b607ebbbd74bdd, type: 2}
   - {fileID: 11400000, guid: 897b3c3959b8f4fe4a26ac5bbd461e56, type: 2}
@@ -155,7 +155,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5f22610bc411448a9ac320d29651375d, type: 2}
   - {fileID: 11400000, guid: cc8e21790ccfa4e7a893644c262ff421, type: 2}
   - {fileID: 11400000, guid: 46dfd4c21825d492fbdebdf3ad9fd37f, type: 2}
-  dangerTile: {fileID: 11400000, guid: 6683ea565f0ba34439b9e239b0bb4c91, type: 2}
+  dangerTile: {fileID: 11400000, guid: 6fd9007294ae34be3a75c6efdcb738f0, type: 2}
   markerTile: {fileID: 11400000, guid: 72aa5024b3fc24142b00e607645a9793, type: 2}
   scanHintTile: {fileID: 11400000, guid: 749469656695a49dfbbcd0a1c1c1c093, type: 2}
   dangerOutlineTiles:
@@ -206,10 +206,10 @@ MonoBehaviour:
   bitmapGlyphAtlas: {fileID: 2800000, guid: 0756fa162f9f249aab6793f908b5097f, type: 3}
   bitmapGlyphDescriptor: {fileID: 4900000, guid: 9560ad685c4ff44a5bfa09673f9fa52c, type: 3}
   bitmapGlyphFont: {fileID: 11400000, guid: 4ab9e547febc54282a5ceaecb887bfe7, type: 2}
-  scanLabelOffset: {x: 0, y: 0}
-  scanLabelColor: {r: 1, g: 1, b: 1, a: 1}
+  scanLabelOffset: {x: 0, y: 0.7}
+  scanLabelColor: {r: 0.62, g: 1, b: 0.96, a: 1}
   scanLabelFontSize: 4
-  scanLabelSortingOrder: 10
+  scanLabelSortingOrder: 35
   repairStationTile: {fileID: 11400000, guid: ca436ca254750406bb49f305c243c706, type: 2}
   robotFactoryTile: {fileID: 11400000, guid: 5aef70b7533ce463e87d2b3b9871f1bb, type: 2}
   playerSprite: {fileID: 21300000, guid: 40c2b58172c7e4280ab3f722a892e2c6, type: 3}
@@ -250,9 +250,9 @@ MonoBehaviour:
     metalPickupPrefab: {fileID: 5540578952216291018, guid: 9a3187b99f5ad4936a813c02472d6918, type: 3}
     energyPickupPrefab: {fileID: 5150366908750135399, guid: fcbb44ffd4a9543ec842d46d8de48e3e, type: 3}
     experiencePickupPrefab: {fileID: 7284440803755123050, guid: f965dc0a2b47444dab62c7092430eac6, type: 3}
-    metalIcon: {fileID: 3294802081377596052, guid: 4a6c3aa8dc73ace499229b9afeed1ae5, type: 3}
-    energyIcon: {fileID: -7388546868702741084, guid: 4a6c3aa8dc73ace499229b9afeed1ae5, type: 3}
-    experienceIcon: {fileID: -4460482279354169577, guid: 4a6c3aa8dc73ace499229b9afeed1ae5, type: 3}
+    metalIcon: {fileID: 21300000, guid: fa0dab51938e84b658468641dae5d260, type: 3}
+    energyIcon: {fileID: 21300000, guid: ec5aa81b13a624bb8876a0a5428d9674, type: 3}
+    experienceIcon: {fileID: 21300000, guid: 528e1aecef24d4a6d94df2ab0587c1e0, type: 3}
   cellFxResources:
     miningCrackPrefab: {fileID: 5403244050406053843, guid: e9c39fc35806b40df90813057802b5ce, type: 3}
     wallBreakPrefab: {fileID: 9056696367042688441, guid: 27f6a45df415f4a74bf7c8fa203c58f3, type: 3}

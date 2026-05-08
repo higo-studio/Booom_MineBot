@@ -8,6 +8,8 @@ namespace Minebot.UI
         public const string RootAssetPath = "Assets/Resources/Minebot/UI/MainUI.prefab";
         public const string PanelFolderResourcePath = "Minebot/UI/Panels";
         public const string PanelFolderAssetPath = "Assets/Resources/Minebot/UI/Panels";
+        public const string ScreenFolderResourcePath = "Minebot/UI/Screens";
+        public const string ScreenFolderAssetPath = "Assets/Resources/Minebot/UI/Screens";
 
         public const string StatusPanelResourcePath = PanelFolderResourcePath + "/StatusPanel";
         public const string InteractionPanelResourcePath = PanelFolderResourcePath + "/InteractionPanel";
@@ -18,6 +20,7 @@ namespace Minebot.UI
         public const string UpgradePanelResourcePath = PanelFolderResourcePath + "/UpgradePanel";
         public const string BuildPanelResourcePath = PanelFolderResourcePath + "/BuildPanel";
         public const string BuildingInteractionPanelResourcePath = PanelFolderResourcePath + "/BuildingInteractionPanel";
+        public const string BootstrapMenuResourcePath = ScreenFolderResourcePath + "/BootstrapMenu";
 
         public const string StatusPanelAssetPath = PanelFolderAssetPath + "/StatusPanel.prefab";
         public const string InteractionPanelAssetPath = PanelFolderAssetPath + "/InteractionPanel.prefab";
@@ -28,6 +31,7 @@ namespace Minebot.UI
         public const string UpgradePanelAssetPath = PanelFolderAssetPath + "/UpgradePanel.prefab";
         public const string BuildPanelAssetPath = PanelFolderAssetPath + "/BuildPanel.prefab";
         public const string BuildingInteractionPanelAssetPath = PanelFolderAssetPath + "/BuildingInteractionPanel.prefab";
+        public const string BootstrapMenuAssetPath = ScreenFolderAssetPath + "/BootstrapMenu.prefab";
 
         public const string StatusPanelObjectName = "Status Panel";
         public const string InteractionPanelObjectName = "Interaction Panel";
@@ -38,6 +42,7 @@ namespace Minebot.UI
         public const string UpgradePanelObjectName = "Upgrade Panel";
         public const string BuildPanelObjectName = "Build Panel";
         public const string BuildingInteractionPanelObjectName = "Building Interaction Panel";
+        public const string BootstrapMenuObjectName = "Bootstrap Menu";
 
         public const string UpgradeTitle = "升级可用：按 1/2 或点击";
         public const string BuildTitle = "建筑模式：选择建筑后点击空地";
@@ -81,7 +86,7 @@ namespace Minebot.UI
             new Vector2(0.5f, 0.5f),
             new Vector2(0.5f, 0.5f),
             Vector2.zero,
-            new Vector2(760f, 160f));
+            new Vector2(760f, 408f));
 
         public static readonly SlotLayout MinimapSlot = new SlotLayout(
             new Vector2(0f, 0f),
@@ -108,8 +113,23 @@ namespace Minebot.UI
         public static readonly TextPanelLayout InteractionText = new TextPanelLayout(20, TextAnchor.MiddleLeft, new Vector4(4f, 4f, 4f, 4f));
         public static readonly TextPanelLayout FeedbackText = new TextPanelLayout(15, TextAnchor.MiddleRight, new Vector4(4f, 4f, 4f, 4f));
         public static readonly TextPanelLayout WarningText = new TextPanelLayout(19, TextAnchor.MiddleCenter, new Vector4(8f, 4f, 8f, 4f));
-        public static readonly TextPanelLayout GameOverText = new TextPanelLayout(42, TextAnchor.MiddleCenter, Vector4.zero);
         public static readonly MinimapPanelLayout MinimapPanel = new MinimapPanelLayout(16f, 16f, 104f, 40f, 18);
+        public static readonly GameOverPanelLayout GameOverPanel = new GameOverPanelLayout(
+            new Color(0.05f, 0.07f, 0.08f, 0.94f),
+            new Color(0.12f, 0.18f, 0.2f, 0.98f),
+            32,
+            22,
+            18,
+            17,
+            16);
+        public static readonly BootstrapMenuLayout BootstrapMenu = new BootstrapMenuLayout(
+            new Color(0.01f, 0.02f, 0.03f, 0.72f),
+            new Color(0.05f, 0.07f, 0.08f, 0.96f),
+            new Color(0.16f, 0.23f, 0.24f, 0.96f),
+            new Vector2(760f, 620f),
+            48,
+            19,
+            18);
 
         public static readonly OptionPanelLayout UpgradeOptions = new OptionPanelLayout(
             new Color(0.05f, 0.07f, 0.08f, 0.92f),
@@ -219,6 +239,50 @@ namespace Minebot.UI
             public float MapSize { get; }
             public float SummaryHeight { get; }
             public int SummaryFontSize { get; }
+        }
+
+        public readonly struct GameOverPanelLayout
+        {
+            public GameOverPanelLayout(Color backgroundColor, Color inputColor, int titleFontSize, int summaryFontSize, int bodyFontSize, int leaderboardFontSize, int nameCharacterLimit)
+            {
+                BackgroundColor = backgroundColor;
+                InputColor = inputColor;
+                TitleFontSize = titleFontSize;
+                SummaryFontSize = summaryFontSize;
+                BodyFontSize = bodyFontSize;
+                LeaderboardFontSize = leaderboardFontSize;
+                NameCharacterLimit = nameCharacterLimit;
+            }
+
+            public Color BackgroundColor { get; }
+            public Color InputColor { get; }
+            public int TitleFontSize { get; }
+            public int SummaryFontSize { get; }
+            public int BodyFontSize { get; }
+            public int LeaderboardFontSize { get; }
+            public int NameCharacterLimit { get; }
+        }
+
+        public readonly struct BootstrapMenuLayout
+        {
+            public BootstrapMenuLayout(Color scrimColor, Color panelColor, Color buttonColor, Vector2 panelSize, int titleFontSize, int subtitleFontSize, int leaderboardFontSize)
+            {
+                ScrimColor = scrimColor;
+                PanelColor = panelColor;
+                ButtonColor = buttonColor;
+                PanelSize = panelSize;
+                TitleFontSize = titleFontSize;
+                SubtitleFontSize = subtitleFontSize;
+                LeaderboardFontSize = leaderboardFontSize;
+            }
+
+            public Color ScrimColor { get; }
+            public Color PanelColor { get; }
+            public Color ButtonColor { get; }
+            public Vector2 PanelSize { get; }
+            public int TitleFontSize { get; }
+            public int SubtitleFontSize { get; }
+            public int LeaderboardFontSize { get; }
         }
 
         public enum OptionPanelFlow
