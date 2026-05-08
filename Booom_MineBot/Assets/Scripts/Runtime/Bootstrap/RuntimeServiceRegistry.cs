@@ -27,6 +27,47 @@ namespace Minebot.Bootstrap
             RobotFactoryService robotFactory,
             IReadOnlyList<RobotState> robots,
             WaveSurvivalService waves)
+            : this(
+                grid,
+                playerMiningState,
+                mining,
+                hazards,
+                session,
+                upgrades,
+                null,
+                economy,
+                vitals,
+                experience,
+                worldPickups,
+                baseOps,
+                buildings,
+                buildingDefinitions,
+                robotAutomation,
+                robotFactory,
+                robots,
+                waves)
+        {
+        }
+
+        public RuntimeServiceRegistry(
+            LogicalGridState grid,
+            PlayerMiningState playerMiningState,
+            MiningService mining,
+            HazardService hazards,
+            GameSessionService session,
+            UpgradeSelectionService upgrades,
+            ScoreService scores,
+            PlayerEconomy economy,
+            PlayerVitals vitals,
+            ExperienceService experience,
+            WorldPickupService worldPickups,
+            BaseOpsService baseOps,
+            BuildingPlacementService buildings,
+            IReadOnlyList<BuildingDefinition> buildingDefinitions,
+            RobotAutomationService robotAutomation,
+            RobotFactoryService robotFactory,
+            IReadOnlyList<RobotState> robots,
+            WaveSurvivalService waves)
         {
             Grid = grid;
             PlayerMiningState = playerMiningState;
@@ -34,6 +75,7 @@ namespace Minebot.Bootstrap
             Hazards = hazards;
             Session = session;
             Upgrades = upgrades;
+            Scores = scores;
             Economy = economy;
             Vitals = vitals;
             Experience = experience;
@@ -53,6 +95,7 @@ namespace Minebot.Bootstrap
         public HazardService Hazards { get; }
         public GameSessionService Session { get; }
         public UpgradeSelectionService Upgrades { get; }
+        public ScoreService Scores { get; }
         public PlayerEconomy Economy { get; }
         public PlayerVitals Vitals { get; }
         public ExperienceService Experience { get; }

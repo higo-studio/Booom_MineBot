@@ -21,6 +21,7 @@ namespace Minebot.Editor
         private const string DefaultInputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string DefaultBalanceAssetName = "GameBlance.asset";
         private const string DefaultUpgradePoolAssetName = "UpgradePool.asset";
+        private const string DefaultScoreConfigAssetName = "Score Config.asset";
         private const string DefaultHazardRulesAssetName = "Hazard Rules.asset";
         private const string DefaultMiningRulesAssetName = "Mining Rules.asset";
         private const string DefaultWaveConfigAssetName = "Wave Config.asset";
@@ -112,6 +113,7 @@ namespace Minebot.Editor
             changed |= EnsureInputActions(serializedObject);
             changed |= EnsureManagedReference<GameBalanceConfig>(serializedObject, "balanceConfig", rootFolder, DefaultBalanceAssetName);
             changed |= EnsureManagedReference<UpgradePoolConfig>(serializedObject, "upgradePool", rootFolder, DefaultUpgradePoolAssetName);
+            changed |= EnsureManagedReference<ScoreConfig>(serializedObject, "scoreConfig", rootFolder, DefaultScoreConfigAssetName);
             changed |= EnsureManagedReference<HazardRules>(serializedObject, "hazardRules", rootFolder, DefaultHazardRulesAssetName);
             changed |= EnsureManagedReference<MiningRules>(serializedObject, "miningRules", rootFolder, DefaultMiningRulesAssetName);
             changed |= EnsureManagedReference<WaveConfig>(serializedObject, "waveConfig", rootFolder, DefaultWaveConfigAssetName);

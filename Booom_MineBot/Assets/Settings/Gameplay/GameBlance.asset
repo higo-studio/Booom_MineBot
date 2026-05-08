@@ -31,6 +31,7 @@ MonoBehaviour:
   robotActionInterval: 0.35
   robotUsesPlayerDrillTier: 1
   robotFixedDrillTier: 0
+  playerMarkerCapacity: 3
   soilMetalRange: {x: 0, y: 0}
   soilEnergyRange: {x: 0, y: 0}
   soilExperienceRange: {x: 0, y: 1}

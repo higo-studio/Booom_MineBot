@@ -106,6 +106,9 @@ namespace Minebot.Presentation
         private bool currentPlayerFacingLeft = false;
         private bool isSubscribed;
         private bool defaultFacilitiesRegistered;
+        private string leaderboardNameInput = "PLAYER";
+        private string leaderboardStatus = string.Empty;
+        private bool leaderboardSubmitted;
 
         public TilemapGridPresentation GridPresentation => gridPresentation;
         public MinebotPickupRenderer PickupRenderer => pickupRenderer;
@@ -201,6 +204,12 @@ namespace Minebot.Presentation
                 return;
             }
 
+            if (!services.Vitals.IsDead)
+            {
+                leaderboardSubmitted = false;
+                leaderboardStatus = string.Empty;
+            }
+
             UpdatePlayerVisualState(Time.deltaTime);
             UpdateCameraFraming();
             audioController?.SyncState(services, playerActorView != null ? playerActorView.transform : transform, GetFirstRobotMiningAnchor());
@@ -265,6 +274,58 @@ namespace Minebot.Presentation
             {
                 RefreshHud();
             }
+        }
+
+        private void OnGUI()
+        {
+            if (services == null || !services.Vitals.IsDead)
+            {
+                return;
+            }
+
+            Rect panel = new Rect(
+                Mathf.Max(24f, (Screen.width - 520f) * 0.5f),
+                Mathf.Max(24f, Screen.height - 360f),
+                Mathf.Min(520f, Screen.width - 48f),
+                320f);
+
+            GUILayout.BeginArea(panel, GUI.skin.window);
+            GUILayout.Label($"本局得分：{services.Scores?.CurrentScore ?? 0}    存活波次：{services.Waves.BestSurvivedWave}");
+
+            if (!leaderboardSubmitted)
+            {
+                GUILayout.Space(8f);
+                GUILayout.Label("输入名字保存本地排行榜：");
+                leaderboardNameInput = GUILayout.TextField(leaderboardNameInput ?? string.Empty, 16);
+                if (GUILayout.Button("保存成绩"))
+                {
+                    bool accepted = LocalLeaderboardService.TryAddEntry(
+                        leaderboardNameInput,
+                        services.Scores?.CurrentScore ?? 0,
+                        services.Waves.BestSurvivedWave,
+                        out int rank);
+                    leaderboardSubmitted = true;
+                    leaderboardStatus = accepted
+                        ? $"已保存到本地排行榜，第 {rank + 1} 名。"
+                        : "成绩未进入前十，但本地排行榜已刷新。";
+                }
+            }
+            else if (!string.IsNullOrEmpty(leaderboardStatus))
+            {
+                GUILayout.Space(8f);
+                GUILayout.Label(leaderboardStatus);
+            }
+
+            GUILayout.Space(12f);
+            GUILayout.Label("本地前十");
+            IReadOnlyList<LocalLeaderboardEntry> entries = LocalLeaderboardService.GetEntries();
+            for (int i = 0; i < entries.Count; i++)
+            {
+                LocalLeaderboardEntry entry = entries[i];
+                GUILayout.Label($"{i + 1}. {entry.playerName}  {entry.score} 分  波次 {entry.survivedWave}");
+            }
+
+            GUILayout.EndArea();
         }
 
         public void RefreshAll()
@@ -466,6 +527,7 @@ namespace Minebot.Presentation
 
             RefreshBuildings();
             UpdateBuildPreviewState(definition, origin);
+            services.Scores?.AddBuildingConstructed(instance.Definition.Id);
             audioController?.PlayBuildPlaceSuccess();
             ShowFeedback($"已建造 {instance.Definition.DisplayName}。");
             return true;
@@ -1122,13 +1184,6 @@ namespace Minebot.Presentation
                 return;
             }
 
-            if (index == 2)
-            {
-                GameplayInputController input = ResolveGameplayInputController();
-                input?.ToggleMarkerMode();
-                return;
-            }
-
             if (index >= availableBuildingDefinitions.Length)
             {
                 return;
@@ -1179,6 +1234,7 @@ namespace Minebot.Presentation
             services.Session.MiningProgressUpdated += OnMiningProgressUpdated;
             services.Session.PassiveHazardSenseUpdated += OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted += OnRobotAutomationCompleted;
+            services.Session.BombsExploded += OnBombsExploded;
             if (services.WorldPickups != null)
             {
                 services.WorldPickups.PickupAbsorbed += OnPickupAbsorbed;
@@ -1200,6 +1256,7 @@ namespace Minebot.Presentation
             services.Session.MiningProgressUpdated -= OnMiningProgressUpdated;
             services.Session.PassiveHazardSenseUpdated -= OnPassiveHazardSenseUpdated;
             services.Session.RobotAutomationCompleted -= OnRobotAutomationCompleted;
+            services.Session.BombsExploded -= OnBombsExploded;
             if (services.WorldPickups != null)
             {
                 services.WorldPickups.PickupAbsorbed -= OnPickupAbsorbed;
@@ -1249,8 +1306,6 @@ namespace Minebot.Presentation
                     break;
                 case RobotAutomationResultKind.TriggeredBomb:
                     destroyedRobotVisualExpiry[result.Robot] = Time.time + 0.35f;
-                    PlayWallBreakFx(result.Target, triggerExplosion: true);
-                    audioController?.PlayExplosion(GridToWorld(result.Target));
                     audioController?.PlayRobotDestroyed(GridToWorld(result.Target));
                     feedbackMessage = result.Reward.Metal > 0 || result.Reward.Energy > 0 || result.Reward.Experience > 0
                         ? $"从属机器人误挖炸药损毁，回收 +{result.Reward.Metal} 金属。"
@@ -1260,12 +1315,6 @@ namespace Minebot.Presentation
                     break;
                 case RobotAutomationResultKind.Destroyed:
                     destroyedRobotVisualExpiry[result.Robot] = Time.time + 0.35f;
-                    if (!result.Target.Equals(GridPosition.Zero) && !string.IsNullOrEmpty(result.Status) && result.Status.Contains("炸药", StringComparison.Ordinal))
-                    {
-                        PlayWallBreakFx(result.Target, triggerExplosion: true);
-                        audioController?.PlayExplosion(GridToWorld(result.Target));
-                    }
-
                     if (!result.Target.Equals(GridPosition.Zero))
                     {
                         audioController?.PlayRobotDestroyed(GridToWorld(result.Target));
@@ -1278,6 +1327,20 @@ namespace Minebot.Presentation
                 case RobotAutomationResultKind.Blocked:
                     feedbackMessage = string.IsNullOrEmpty(result.Status) ? "从属机器人待机。" : result.Status;
                     break;
+            }
+        }
+
+        private void OnBombsExploded(IReadOnlyList<GridPosition> origins)
+        {
+            if (origins == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < origins.Count; i++)
+            {
+                PlayWallBreakFx(origins[i], triggerExplosion: true);
+                audioController?.PlayExplosion(GridToWorld(origins[i]));
             }
         }
 
@@ -1368,8 +1431,6 @@ namespace Minebot.Presentation
                     return;
                 case MineInteractionResult.TriggeredBomb:
                     audioController?.StopPlayerMiningLoop();
-                    PlayWallBreakFx(target, triggerExplosion: true);
-                    audioController?.PlayExplosion(GridToWorld(target));
                     audioController?.PlayPlayerDamage();
                     return;
                 case MineInteractionResult.DrillTooWeak:
@@ -1388,6 +1449,8 @@ namespace Minebot.Presentation
             {
                 playerFreeform = EnsureFreeformActor(playerActorView.gameObject, services.PlayerMiningState.Position);
             }
+
+            playerFreeform.MoveSpeedMultiplier = Mathf.Max(0.1f, services.PlayerMiningState.MoveSpeedMultiplier);
 
             PresentationActorState playerState = services.Vitals.IsDead ? PresentationActorState.Destroyed : playerVisualState;
             playerActorView.ApplyState(assets.PlayerActorStates, playerState, currentPlayerFacingDirection, assets.PlayerSprite, Color.white, currentPlayerFacingLeft);
@@ -1889,7 +1952,9 @@ namespace Minebot.Presentation
             if (hudView.GameOverPanel != null)
             {
                 hudView.GameOverPanel.SetVisible(services.Vitals.IsDead);
-                hudView.GameOverPanel.SetText(services.Vitals.IsDead ? "任务失败\n核心机体已失效" : string.Empty);
+                hudView.GameOverPanel.SetText(services.Vitals.IsDead
+                    ? $"任务失败\n本局得分 {services.Scores?.CurrentScore ?? 0}"
+                    : string.Empty);
             }
 
             DisableMinimapPanel();
@@ -1912,7 +1977,7 @@ namespace Minebot.Presentation
 
         private string BuildInteractionText()
         {
-            const string baseHint = "WASD 移动  贴墙即挖掘  自动感知周边风险  E 标记  点击底栏选建筑  R 开关建造  1-3 升级";
+            const string baseHint = "WASD 移动  贴墙即挖掘  点击墙体标记风险  点击底栏选建筑  R 开关建造  1-2 升级";
             if (services.Session != null && services.Session.IsWaveResolutionActive)
             {
                 return "地震结算中：动作已暂停，等待外围炸弹、危险区重算和塌方完成";
@@ -1920,12 +1985,7 @@ namespace Minebot.Presentation
 
             if (services.Experience.HasPendingUpgrade)
             {
-                return "升级可用：按 1/2/3 或点击右下升级卡片";
-            }
-
-            if (interactionMode == GameplayInteractionMode.Marker)
-            {
-                return "标记模式：点击岩壁切换标记，E / 右键 / Esc 退出";
+                return "升级可用：按 1/2 或点击右下升级卡片";
             }
 
             if (interactionMode == GameplayInteractionMode.Build)
@@ -1961,7 +2021,7 @@ namespace Minebot.Presentation
             return
                 $"HP {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy} | 波次 {services.Waves.CurrentWave}\n" +
                 $"Lv {services.Experience.Level} | XP {services.Experience.Experience}/{services.Experience.NextThreshold} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}\n" +
-                $"坐标 {services.PlayerMiningState.Position} | {BuildRobotStatusText()}";
+                $"分数 {services.Scores?.CurrentScore ?? 0} | 坐标 {services.PlayerMiningState.Position} | {BuildRobotStatusText()}";
         }
 
         private string BuildRobotStatusPanelText()
@@ -1973,11 +2033,12 @@ namespace Minebot.Presentation
                 $"<color=#FFFFFF>在线 {active}</color>";
         }
 
-        private static string BuildResourcePanelText(ResourceAmount resources)
+        private string BuildResourcePanelText(ResourceAmount resources)
         {
             return
                 $"<color=#18F0FF>金属 {resources.Metal}</color>\n" +
-                $"<color=#18F0FF>能量 {resources.Energy}</color>";
+                $"<color=#18F0FF>能量 {resources.Energy}</color>\n" +
+                $"<color=#FFD928>分数 {services.Scores?.CurrentScore ?? 0}</color>";
         }
 
         private string BuildWaveHeaderText()
@@ -2011,11 +2072,6 @@ namespace Minebot.Presentation
             if (interactionMode == GameplayInteractionMode.Build)
             {
                 return "建造";
-            }
-
-            if (interactionMode == GameplayInteractionMode.Marker)
-            {
-                return "标记";
             }
 
             if (PlayerIsInDangerZone())
@@ -2350,11 +2406,6 @@ namespace Minebot.Presentation
                     selected = definition == selectedDefinition;
                     label = $"{i + 1}\n{definition.DisplayName}\n{definition.Cost.Metal}金";
                 }
-                else if (i == 2)
-                {
-                    selected = interactionMode == GameplayInteractionMode.Marker;
-                    label = selected ? "E\n退出\n标记" : "E\n标记\n风险";
-                }
                 else
                 {
                     visible = false;
@@ -2385,10 +2436,9 @@ namespace Minebot.Presentation
             }
 
             bool canUse = CanUseBuildingInteractionButtons();
-            // 已屏蔽开局建筑 - 强制隐藏建筑交互面板
-            bool showRepair = false; // canUse && IsNearRepairStation();
-            bool showFactory = false; // canUse && IsNearRobotFactory();
-            hudView.BuildingInteractionPanel.SetVisible(false); // showRepair || showFactory
+            bool showRepair = canUse && IsNearRepairStation();
+            bool showFactory = canUse && IsNearRobotFactory();
+            hudView.BuildingInteractionPanel.SetVisible(showRepair || showFactory);
             hudView.BuildingInteractionPanel.SetTitle(MinebotHudDefaults.BuildingInteractionTitle);
             hudView.BuildingInteractionPanel.SetButton(0, showRepair, $"维修站：维修（金属 {Mathf.Max(0, repairMetalCost)}）");
             hudView.BuildingInteractionPanel.SetButton(1, showFactory, "机器人工厂：生产从属机器人");
@@ -2405,22 +2455,34 @@ namespace Minebot.Presentation
 
         private static string DescribeUpgrade(UpgradeDefinition upgrade)
         {
-            if (upgrade.drillTierDelta > 0 && upgrade.maxHealthDelta > 0)
+            if (upgrade == null)
             {
-                return $"钻头 +{upgrade.drillTierDelta}，最大生命 +{upgrade.maxHealthDelta}";
+                return string.Empty;
             }
 
-            if (upgrade.drillTierDelta > 0)
-            {
-                return $"钻头 +{upgrade.drillTierDelta}";
-            }
-
+            var parts = new List<string>(4);
             if (upgrade.maxHealthDelta > 0)
             {
-                return $"最大生命 +{upgrade.maxHealthDelta}";
+                parts.Add($"最大生命 +{upgrade.maxHealthDelta}");
             }
 
-            return "立即生效";
+            int drillBonus = Mathf.Max(0, upgrade.drillTierDelta) + Mathf.Max(0, upgrade.miningDamageDelta);
+            if (drillBonus > 0)
+            {
+                parts.Add($"钻头 +{drillBonus}");
+            }
+
+            if (upgrade.moveSpeedMultiplierDelta > 0f)
+            {
+                parts.Add($"移速 +{Mathf.RoundToInt(upgrade.moveSpeedMultiplierDelta * 100f)}%");
+            }
+
+            if (upgrade.markerCapacityDelta > 0)
+            {
+                parts.Add($"标记 +{upgrade.markerCapacityDelta}");
+            }
+
+            return parts.Count > 0 ? string.Join("，", parts) : "立即生效";
         }
 
         private int CountMarkedCells()
