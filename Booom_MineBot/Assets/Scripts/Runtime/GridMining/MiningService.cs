@@ -72,14 +72,25 @@ namespace Minebot.GridMining
 
     public sealed class PlayerMiningState
     {
-        public PlayerMiningState(GridPosition position, HardnessTier drillTier)
+        public PlayerMiningState(
+            GridPosition position,
+            HardnessTier drillTier,
+            int markerCapacity = 0,
+            int miningDamageBonus = 0,
+            float moveSpeedMultiplier = 1f)
         {
             Position = position;
             DrillTier = drillTier;
+            MarkerCapacity = markerCapacity;
+            MiningDamageBonus = miningDamageBonus;
+            MoveSpeedMultiplier = moveSpeedMultiplier;
         }
 
         public GridPosition Position { get; private set; }
         public HardnessTier DrillTier { get; set; }
+        public int MarkerCapacity { get; set; }
+        public int MiningDamageBonus { get; set; }
+        public float MoveSpeedMultiplier { get; set; }
 
         public void Teleport(GridPosition position)
         {
@@ -181,14 +192,20 @@ namespace Minebot.GridMining
 
         public MineResolution TryMineDetailed(PlayerMiningState player, GridPosition target)
         {
-            return TryMineDetailedFrom(player.Position, player.DrillTier, target, includePlayerBaseAttack: true);
+            return TryMineDetailedFrom(
+                player.Position,
+                player.DrillTier,
+                target,
+                includePlayerBaseAttack: true,
+                additionalAttackBonus: player != null ? player.MiningDamageBonus : 0);
         }
 
         public MineResolution TryMineDetailedFrom(
             GridPosition actorPosition,
             HardnessTier drillTier,
             GridPosition target,
-            bool includePlayerBaseAttack = true)
+            bool includePlayerBaseAttack = true,
+            int additionalAttackBonus = 0)
         {
             if (!grid.IsInside(target) || actorPosition.ManhattanDistance(target) != 1)
             {
@@ -201,7 +218,7 @@ namespace Minebot.GridMining
                 return CreateResolution(MineInteractionResult.BlockedByTerrain);
             }
 
-            int attack = EffectiveAttackFor(drillTier, includePlayerBaseAttack);
+            int attack = EffectiveAttackFor(drillTier, includePlayerBaseAttack, additionalAttackBonus);
             int defense = DefenseFor(cell.HardnessTier);
             if (attack <= defense)
             {
@@ -277,7 +294,11 @@ namespace Minebot.GridMining
             return true;
         }
 
-        public bool CanDamageTarget(GridPosition position, HardnessTier drillTier, bool includePlayerBaseAttack = true)
+        public bool CanDamageTarget(
+            GridPosition position,
+            HardnessTier drillTier,
+            bool includePlayerBaseAttack = true,
+            int additionalAttackBonus = 0)
         {
             if (!grid.IsInside(position))
             {
@@ -290,14 +311,18 @@ namespace Minebot.GridMining
                 return false;
             }
 
-            return EffectiveAttackFor(drillTier, includePlayerBaseAttack) > DefenseFor(cell.HardnessTier);
+            return EffectiveAttackFor(drillTier, includePlayerBaseAttack, additionalAttackBonus) > DefenseFor(cell.HardnessTier);
         }
 
-        public int EffectiveAttackFor(HardnessTier drillTier, bool includePlayerBaseAttack = true)
+        public int EffectiveAttackFor(
+            HardnessTier drillTier,
+            bool includePlayerBaseAttack = true,
+            int additionalAttackBonus = 0)
         {
-            return rules != null
+            int attack = rules != null
                 ? rules.EffectiveAttackFor(drillTier, includePlayerBaseAttack)
                 : MiningRules.DefaultEffectiveAttackFor(drillTier, includePlayerBaseAttack);
+            return Mathf.Max(0, attack + Mathf.Max(0, additionalAttackBonus));
         }
 
         private MineResolution CreateResolution(

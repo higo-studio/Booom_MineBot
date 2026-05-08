@@ -26,7 +26,9 @@ namespace Minebot.Presentation
         [SerializeField]
         private bool enableOverlapRecovery = true;
 
-        public float MoveSpeed => Mathf.Max(0.1f, moveSpeed);
+        public float MoveSpeedMultiplier { get; set; } = 1f;
+        public float BaseMoveSpeed => Mathf.Max(0.1f, moveSpeed);
+        public float MoveSpeed => Mathf.Max(0.1f, BaseMoveSpeed * Mathf.Max(0.1f, MoveSpeedMultiplier));
         public float CollisionRadius
         {
             get => Mathf.Clamp(collisionRadius, 0.1f, 0.49f);

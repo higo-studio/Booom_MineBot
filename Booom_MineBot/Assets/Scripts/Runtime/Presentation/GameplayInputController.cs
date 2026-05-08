@@ -178,22 +178,19 @@ namespace Minebot.Presentation
             {
                 presentation.AudioController?.PlayActionDenied();
             }
-            presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
-            return marked;
+
+            bool succeeded = marked || (canToggle && wasMarked);
+            presentation.ShowFeedback(marked
+                ? $"已标记 {target}，机器人会避开该格。"
+                : canToggle && wasMarked
+                    ? $"已取消标记 {target}。"
+                    : $"无法标记 {target}。");
+            return succeeded;
         }
 
         public bool ToggleMarkerMode()
         {
-            if (!CanChangeMode())
-            {
-                return false;
-            }
-
-            bool entering = presentation.InteractionMode != GameplayInteractionMode.Marker;
-            presentation.SetInteractionMode(entering ? GameplayInteractionMode.Marker : GameplayInteractionMode.Normal);
-            presentation.AudioController?.PlayMarkerModeToggle();
-            presentation.ShowFeedback(entering ? "已进入标记模式：点击岩壁标记。" : "已退出标记模式。");
-            return true;
+            return ToggleMarkerFacingCell();
         }
 
         public bool ToggleBuildMode()
@@ -238,16 +235,22 @@ namespace Minebot.Presentation
                     return false;
                 }
 
-                if (presentation.InteractionMode == GameplayInteractionMode.Marker)
+                if (presentation.InteractionMode == GameplayInteractionMode.Build)
                 {
-                    bool canToggle = CanToggleMarker(target, out bool wasMarked);
+                    BuildingDefinition definition = presentation.GetSelectedBuildingOrDefault();
+                    return presentation.TryPlaceBuildingAt(definition, target);
+                }
+
+                bool canToggle = CanToggleMarker(target, out bool wasMarked);
+                if (canToggle)
+                {
                     bool marked = services.Session.ToggleMarker(target);
                     presentation.RefreshAfterMarkerChanged(target);
                     if (marked)
                     {
                         presentation.AudioController?.PlayMarkerSet();
                     }
-                    else if (canToggle && wasMarked)
+                    else if (wasMarked)
                     {
                         presentation.AudioController?.PlayMarkerClear();
                     }
@@ -255,14 +258,13 @@ namespace Minebot.Presentation
                     {
                         presentation.AudioController?.PlayActionDenied();
                     }
-                    presentation.ShowFeedback(marked ? $"已标记 {target}，机器人会避开该格。" : $"已取消或无法标记 {target}。");
-                    return true;
-                }
 
-                if (presentation.InteractionMode == GameplayInteractionMode.Build)
-                {
-                    BuildingDefinition definition = presentation.GetSelectedBuildingOrDefault();
-                    return presentation.TryPlaceBuildingAt(definition, target);
+                    presentation.ShowFeedback(marked
+                        ? $"已标记 {target}，机器人会避开该格。"
+                        : wasMarked
+                            ? $"已取消标记 {target}。"
+                            : $"无法标记 {target}。");
+                    return marked || wasMarked;
                 }
 
                 return false;
@@ -333,7 +335,7 @@ namespace Minebot.Presentation
             {
                 presentation.SetInteractionMode(GameplayInteractionMode.UpgradeLocked);
                 presentation.AudioController?.PlayActionDenied();
-                presentation.ShowFeedback("升级待选择，普通操作已暂停。请按 1/2/3 或点击升级项。");
+                presentation.ShowFeedback("升级待选择，普通操作已暂停。请按 1/2 或点击升级项。");
                 return false;
             }
 
@@ -368,7 +370,7 @@ namespace Minebot.Presentation
             {
                 presentation.SetInteractionMode(GameplayInteractionMode.UpgradeLocked);
                 presentation.AudioController?.PlayActionDenied();
-                presentation.ShowFeedback("升级待选择，模式操作已暂停。请按 1/2/3 或点击升级项。");
+                presentation.ShowFeedback("升级待选择，模式操作已暂停。请按 1/2 或点击升级项。");
                 return false;
             }
 
@@ -408,7 +410,7 @@ namespace Minebot.Presentation
 
         private void OnToggleMarkerModePerformed(InputAction.CallbackContext context)
         {
-            ToggleMarkerMode();
+            ToggleMarkerFacingCell();
         }
 
         private void OnToggleBuildModePerformed(InputAction.CallbackContext context)
@@ -452,18 +454,10 @@ namespace Minebot.Presentation
                 return;
             }
 
-            if (presentation.InteractionMode == GameplayInteractionMode.Marker || presentation.InteractionMode == GameplayInteractionMode.Build)
+            if (presentation.InteractionMode == GameplayInteractionMode.Build)
             {
-                GameplayInteractionMode previousMode = presentation.InteractionMode;
                 presentation.SetInteractionMode(GameplayInteractionMode.Normal);
-                if (previousMode == GameplayInteractionMode.Marker)
-                {
-                    presentation.AudioController?.PlayMarkerModeToggle();
-                }
-                else if (previousMode == GameplayInteractionMode.Build)
-                {
-                    presentation.AudioController?.PlayBuildModeToggle();
-                }
+                presentation.AudioController?.PlayBuildModeToggle();
                 presentation.ShowFeedback("已退出当前模式。");
             }
         }

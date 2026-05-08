@@ -18,6 +18,15 @@ namespace Minebot.Progression
         [InspectorLabel("最大生命增量")]
         public int maxHealthDelta;
 
+        [InspectorLabel("挖掘伤害增量")]
+        public int miningDamageDelta;
+
+        [InspectorLabel("移动速度倍率增量")]
+        public float moveSpeedMultiplierDelta;
+
+        [InspectorLabel("标记上限增量")]
+        public int markerCapacityDelta;
+
         [InspectorLabel("权重")]
         public int weight = 1;
     }

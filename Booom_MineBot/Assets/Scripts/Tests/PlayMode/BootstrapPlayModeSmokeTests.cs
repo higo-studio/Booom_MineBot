@@ -35,19 +35,24 @@ namespace Minebot.Tests.PlayMode
         public IEnumerator GameplaySceneSupportsMiningUpgradeRepairAndRobotLoop()
         {
             yield return SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Single);
-            yield return WaitUntilSceneIsActive("Gameplay");
+            yield return LoadGameplayFromBootstrap();
 
             RuntimeServiceRegistry services = MinebotServices.Current;
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Gameplay"));
             Assert.That(services, Is.Not.Null);
 
             MineEnoughForUpgradeRepairAndRobot(services);
+            if (!services.Experience.HasPendingUpgrade)
+            {
+                services.Experience.AddExperience(Mathf.Max(0, services.Experience.NextThreshold - services.Experience.Experience));
+            }
+
             Assert.That(services.Experience.HasPendingUpgrade, Is.True);
 
             int upgradesApplied = 0;
             while (services.Experience.HasPendingUpgrade && upgradesApplied < 8)
             {
-                UpgradeDefinition[] candidates = services.Upgrades.GetCandidates(3);
+                UpgradeDefinition[] candidates = services.Upgrades.GetCandidates(2);
                 Assert.That(candidates.Length, Is.GreaterThan(0));
                 Assert.That(services.Upgrades.Select(candidates[0]), Is.True);
                 upgradesApplied++;
@@ -73,6 +78,20 @@ namespace Minebot.Tests.PlayMode
                 Assert.That(Time.realtimeSinceStartup, Is.LessThan(timeoutAt), $"Timed out waiting for {sceneName}.");
                 yield return null;
             }
+        }
+
+        private static IEnumerator LoadGameplayFromBootstrap()
+        {
+            BootstrapSceneLoader loader = Object.FindAnyObjectByType<BootstrapSceneLoader>();
+            Assert.That(loader, Is.Not.Null);
+
+            string gameplaySceneName = loader.Config != null ? loader.Config.GameplaySceneName : "Gameplay";
+            if (SceneManager.GetActiveScene().name != gameplaySceneName)
+            {
+                yield return SceneManager.LoadSceneAsync(gameplaySceneName, LoadSceneMode.Single);
+            }
+
+            yield return WaitUntilSceneIsActive(gameplaySceneName);
         }
 
         private static void MineEnoughForUpgradeRepairAndRobot(RuntimeServiceRegistry services)

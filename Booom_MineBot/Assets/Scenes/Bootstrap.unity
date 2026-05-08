@@ -166,6 +166,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   config: {fileID: 11400000, guid: e2c3ea3bcc8374f7684c46c1fbcc4666, type: 2}
   loadGameplayScene: 1
+  showStartPage: 1
 --- !u!114 &100003
 MonoBehaviour:
   m_ObjectHideFlags: 0

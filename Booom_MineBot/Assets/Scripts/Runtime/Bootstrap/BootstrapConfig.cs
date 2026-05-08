@@ -36,6 +36,10 @@ namespace Minebot.Bootstrap
         private UpgradePoolConfig upgradePool;
 
         [SerializeField]
+        [InspectorLabel("计分配置")]
+        private ScoreConfig scoreConfig;
+
+        [SerializeField]
         [InspectorLabel("炸药规则配置")]
         private HazardRules hazardRules;
 
@@ -61,6 +65,7 @@ namespace Minebot.Bootstrap
         public GeneratedMapConfig GeneratedMapConfig => generatedMapConfig ?? (generatedMapConfig = new GeneratedMapConfig());
         public GameBalanceConfig BalanceConfig => balanceConfig;
         public UpgradePoolConfig UpgradePool => upgradePool;
+        public ScoreConfig ScoreConfig => scoreConfig;
         public HazardRules HazardRules => hazardRules;
         public MiningRules MiningRules => miningRules;
         public WaveConfig WaveConfig => waveConfig;
