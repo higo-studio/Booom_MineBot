@@ -122,17 +122,17 @@
 
 失败后如果当前成绩达到可展示范围，HUD 会允许输入名字并保存；启动页读取并展示当前前十。两处新增界面都通过 `Resources/Minebot/UI/...` 下的 prefab 资源提供，由 `BootstrapSceneLoader` 和 `MinebotHudView` 在运行时实例化并绑定，不再直接写 `OnGUI()`。
 
-### 7. 运行时服务组装改为 `composition root + RuntimeContext + 标签发现 + 约定签名注入`
+### 7. 运行时服务组装改为 `composition root + 容器构造 + 标签发现 + 约定签名注入`
 
-保留 `RuntimeServiceRegistry` 作为规则层服务包，但不再让运行时表现脚本主动依赖 `MinebotServices.Current`。新的装配方式是：
+保留 `RuntimeServiceRegistry` 作为兼容层，但真正的组装责任改交给一个轻量运行时容器，方式参考 Unity 生态里常见的 `installer/builder + constructor injection + method injection` 模式。新的装配方式是：
 
-1. `RuntimeServiceFactory` 只负责根据 `BootstrapConfig` 构造 `RuntimeServiceRegistry`
-2. `BootstrapSceneLoader` 作为 composition root，持有 `MinebotRuntimeContext`
-3. `MinebotRuntimeContext` 在场景加载后，只按运行时标签扫描 provider / consumer，不再点名具体表现类
-4. 被标记为 consumer 的组件只要暴露 `InjectServices(RuntimeServiceRegistry, BootstrapConfig)` 这个约定签名，就会被自动注入
-5. 被标记为 provider 的组件只要暴露 `GetServices()` 和 `GetBootstrapConfig()`，表现层就能反向发现当前上下文，而不需要直接依赖 `MinebotRuntimeContext` 类型
+1. `RuntimeServiceFactory` 不再手拼 `RuntimeServiceRegistry`，而是先注册 `BootstrapConfig`、规则配置、基础状态和 service 构造器，再由容器负责实例化整条运行时依赖链。
+2. `BootstrapSceneLoader` 作为 composition root，持有 `MinebotRuntimeContext`；`MinebotRuntimeContext` 只负责初始化容器、缓存根 `RuntimeServiceRegistry`，并在场景加载后触发 consumer 注入。
+3. 被标记为 provider 的组件只暴露 `GetContainer()`；表现层或其它运行时组件需要反向发现上下文时，只拿容器，不再直接依赖 `MinebotRuntimeContext` 具体类型。
+4. 被标记为 consumer 的组件只要暴露 `InjectServices(...)`，容器就会按函数参数类型自动补齐依赖；纯 C# service 走构造注入，MonoBehaviour 走方法注入。
+5. `MinebotGameplayPresentation`、输入控制器和 HUD presenter 都改成显式声明自己真正依赖的 service；`RuntimeServiceRegistry` 只作为旧逻辑兼容包保留在内部，不再作为运行时主注入对象。
 
-`MinebotServices` 仍保留为兼容层和测试辅助入口，但不再作为运行时主读取路径。这样能减少表现层对全局状态和具体实现类的隐式依赖，也让 Bootstrap 场景与 Gameplay 场景之间的装配顺序更容易测试。
+`MinebotServices` 仍保留为兼容层和测试辅助入口，但不再作为运行时主读取路径。这样既能保留现有规则层和测试的大部分接口，又把“谁负责构造”和“谁负责分发依赖”从表现层里剥离出来。
 
 ## Risks / Trade-offs
 
