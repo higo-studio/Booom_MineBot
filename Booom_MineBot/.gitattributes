@@ -1,0 +1,24 @@
+# Unity MCP host binaries
+Packages/com.himimi.unity-mcp-bridge/Published~/host/** filter=lfs diff=lfs merge=lfs -text
+
+# Large runtime fonts and generated TMP assets
+Assets/StreamingAssets/Minebot/Fonts/NotoSansSC-Regular.ttf filter=lfs diff=lfs merge=lfs -text
+"Assets/TextMesh Pro/Fonts/MiSans-Heavy.ttf" filter=lfs diff=lfs merge=lfs -text
+"Assets/TextMesh Pro/Fonts/MiSans-Heavy SDF.asset" filter=lfs diff=lfs merge=lfs -text
+"Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset" filter=lfs diff=lfs merge=lfs -text
+
+# Generated art source sheets and selected exports
+Assets/Art/Minebot/Generated/Selected/minebot-hud-uiux-mockup-source.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/Selected/minebot_actor_optimized_sheet_005_alpha.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/Selected/minebot_contour_family_sheet_005_selected.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/Selected/minebot_pixel_sheet_001_selected.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/Selected/minebot_pixel_sheet_005_selected.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/SourceSheets/minebot_actor_optimized_sheet_002.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/SourceSheets/minebot_actor_optimized_sheet_005.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/SourceSheets/minebot_contour_family_sheet_005_a.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/SourceSheets/minebot_pixel_sheet_001_a.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/SourceSheets/minebot_pixel_sheet_001_b.png filter=lfs diff=lfs merge=lfs -text
+Assets/Art/Minebot/Generated/SourceSheets/minebot_pixel_sheet_005_a.png filter=lfs diff=lfs merge=lfs -text
+
+# Large Unity template asset
+Assets/Settings/Lit2DSceneTemplate.scenetemplate filter=lfs diff=lfs merge=lfs -text
