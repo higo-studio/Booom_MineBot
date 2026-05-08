@@ -18,7 +18,8 @@ using UnityEngine.UI;
 namespace Minebot.Presentation
 {
     [DefaultExecutionOrder(-50)]
-    public sealed class MinebotGameplayPresentation : MonoBehaviour, IMinebotServiceConsumer
+    [MinebotRuntimeTag(MinebotRuntimeTag.Consumer)]
+    public sealed class MinebotGameplayPresentation : MonoBehaviour
     {
         private static readonly ProfilerMarker RefreshAfterTerrainChangedProfilerMarker = new("Minebot.GameplayPresentation.RefreshAfterTerrainChanged");
         private static readonly ProfilerMarker RefreshAfterTerrainChangedDangerProfilerMarker = new("Minebot.GameplayPresentation.RefreshAfterTerrainChanged.DangerZones");
@@ -189,7 +190,7 @@ namespace Minebot.Presentation
                     bootstrapConfig = injectedConfig;
                 }
 
-                InjectKnownServiceConsumers();
+                DiscoverAndInjectTaggedConsumers();
                 return;
             }
 
@@ -205,7 +206,7 @@ namespace Minebot.Presentation
             }
 
             InitializeServiceBackedState();
-            InjectKnownServiceConsumers();
+            DiscoverAndInjectTaggedConsumers();
 
             if (isActiveAndEnabled)
             {
@@ -707,13 +708,12 @@ namespace Minebot.Presentation
 
         private bool TryAdoptRuntimeContext()
         {
-            MinebotRuntimeContext context = FindAnyObjectByType<MinebotRuntimeContext>();
-            if (context == null || !context.IsInitialized)
+            if (!MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry runtimeServices, out BootstrapConfig runtimeConfig))
             {
                 return false;
             }
 
-            InjectServices(context.Services, context.Config);
+            InjectServices(runtimeServices, runtimeConfig);
             return services != null;
         }
 
@@ -730,32 +730,14 @@ namespace Minebot.Presentation
             EnsureAudioController();
         }
 
-        private void InjectKnownServiceConsumers()
+        private void DiscoverAndInjectTaggedConsumers()
         {
             if (services == null)
             {
                 return;
             }
 
-            GameplayInputController controller = ResolveGameplayInputController();
-            if (controller != null)
-            {
-                controller.InjectServices(services, bootstrapConfig);
-            }
-
-            MonoBehaviour[] behaviours = GetComponentsInChildren<MonoBehaviour>(true);
-            for (int i = 0; i < behaviours.Length; i++)
-            {
-                if (ReferenceEquals(behaviours[i], this))
-                {
-                    continue;
-                }
-
-                if (behaviours[i] is IMinebotServiceConsumer consumer)
-                {
-                    consumer.InjectServices(services, bootstrapConfig);
-                }
-            }
+            MinebotRuntimeDiscovery.InjectIntoHierarchy(gameObject, services, bootstrapConfig, this);
         }
 
         private BootstrapConfig ResolveBootstrapConfig()
@@ -766,18 +748,10 @@ namespace Minebot.Presentation
                 return bootstrapConfig;
             }
 
-            MinebotRuntimeContext context = FindAnyObjectByType<MinebotRuntimeContext>();
-            if (context != null && context.Config != null)
+            if (MinebotRuntimeDiscovery.TryResolveBootstrapConfig(out BootstrapConfig runtimeConfig) && runtimeConfig != null)
             {
                 Debug.Log("[MinebotGameplayPresentation] 使用运行时上下文配置");
-                return context.Config;
-            }
-
-            BootstrapSceneLoader loader = FindAnyObjectByType<BootstrapSceneLoader>();
-            if (loader != null && loader.Config != null)
-            {
-                Debug.Log("[MinebotGameplayPresentation] 找到 BootstrapSceneLoader 配置");
-                return loader.Config;
+                return runtimeConfig;
             }
 
             Debug.LogWarning("[MinebotGameplayPresentation] 未能找到 BootstrapConfig，将使用默认配置");
@@ -833,7 +807,7 @@ namespace Minebot.Presentation
             // EnsureDefaultFacilityBuildings(); // 已屏蔽开局建筑生成
             EnsureHud();
             EnsureEventSystem();
-            InjectKnownServiceConsumers();
+            DiscoverAndInjectTaggedConsumers();
         }
 
         private static FreeformActorController EnsureFreeformActor(GameObject target, GridPosition position)
@@ -1232,12 +1206,6 @@ namespace Minebot.Presentation
             }
 
             ShowFeedback($"已选择建筑：{availableBuildingDefinitions[index].DisplayName}，点击空地建造。");
-        }
-
-        private GameplayInputController ResolveGameplayInputController()
-        {
-            GameplayInputController controller = GetComponent<GameplayInputController>();
-            return controller != null ? controller : FindAnyObjectByType<GameplayInputController>();
         }
 
         private static TMP_FontAsset GetDefaultTmpFontAsset()
@@ -2675,12 +2643,6 @@ namespace Minebot.Presentation
             }
 
             return services.Grid.PlayerSpawn;
-        }
-
-        private float GetAutoMineInterval()
-        {
-            GameplayInputController input = ResolveGameplayInputController();
-            return input != null ? input.AutoMineInterval : 0.18f;
         }
 
         /// <summary>

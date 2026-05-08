@@ -122,16 +122,17 @@
 
 失败后如果当前成绩达到可展示范围，HUD 会允许输入名字并保存；启动页读取并展示当前前十。两处新增界面都通过 `Resources/Minebot/UI/...` 下的 prefab 资源提供，由 `BootstrapSceneLoader` 和 `MinebotHudView` 在运行时实例化并绑定，不再直接写 `OnGUI()`。
 
-### 7. 运行时服务组装改为 `composition root + RuntimeContext + 显式注入`
+### 7. 运行时服务组装改为 `composition root + RuntimeContext + 标签发现 + 约定签名注入`
 
 保留 `RuntimeServiceRegistry` 作为规则层服务包，但不再让运行时表现脚本主动依赖 `MinebotServices.Current`。新的装配方式是：
 
 1. `RuntimeServiceFactory` 只负责根据 `BootstrapConfig` 构造 `RuntimeServiceRegistry`
 2. `BootstrapSceneLoader` 作为 composition root，持有 `MinebotRuntimeContext`
-3. `MinebotRuntimeContext` 在场景加载后把 `RuntimeServiceRegistry` 与 `BootstrapConfig` 注入给实现 `IMinebotServiceConsumer` 的组件
-4. `MinebotGameplayPresentation` 再把同一份 registry 继续传给输入控制器和 HUD presenter
+3. `MinebotRuntimeContext` 在场景加载后，只按运行时标签扫描 provider / consumer，不再点名具体表现类
+4. 被标记为 consumer 的组件只要暴露 `InjectServices(RuntimeServiceRegistry, BootstrapConfig)` 这个约定签名，就会被自动注入
+5. 被标记为 provider 的组件只要暴露 `GetServices()` 和 `GetBootstrapConfig()`，表现层就能反向发现当前上下文，而不需要直接依赖 `MinebotRuntimeContext` 类型
 
-`MinebotServices` 仍保留为兼容层和测试辅助入口，但不再作为运行时主读取路径。这样能减少表现层对全局状态的隐式依赖，也让 Bootstrap 场景与 Gameplay 场景之间的装配顺序更容易测试。
+`MinebotServices` 仍保留为兼容层和测试辅助入口，但不再作为运行时主读取路径。这样能减少表现层对全局状态和具体实现类的隐式依赖，也让 Bootstrap 场景与 Gameplay 场景之间的装配顺序更容易测试。
 
 ## Risks / Trade-offs
 

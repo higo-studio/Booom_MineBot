@@ -8,7 +8,8 @@ using UnityEngine.InputSystem;
 
 namespace Minebot.Presentation
 {
-    public sealed class GameplayInputController : MonoBehaviour, IMinebotServiceConsumer
+    [MinebotRuntimeTag(MinebotRuntimeTag.Consumer)]
+    public sealed class GameplayInputController : MonoBehaviour
     {
         private static readonly ProfilerMarker UpdateProfilerMarker = new("Minebot.GameplayInputController.Update");
         private static readonly ProfilerMarker UpdateMoveProfilerMarker = new("Minebot.GameplayInputController.Update.MoveInput");
@@ -49,6 +50,10 @@ namespace Minebot.Presentation
             if (presentation != null && presentation.Services != null)
             {
                 services = presentation.Services;
+            }
+            else if (MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry runtimeServices, out _))
+            {
+                services = runtimeServices;
             }
         }
 
@@ -404,13 +409,9 @@ namespace Minebot.Presentation
                 services = presentation.Services;
             }
 
-            if (services == null)
+            if (services == null && MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry runtimeServices, out _))
             {
-                MinebotRuntimeContext context = FindAnyObjectByType<MinebotRuntimeContext>();
-                if (context != null && context.IsInitialized)
-                {
-                    services = context.Services;
-                }
+                services = runtimeServices;
             }
 
             return services != null && presentation != null;
