@@ -112,6 +112,8 @@ namespace McpBridge.Editor
 
                         _ = ListenAsync(stream, token);
                         EditorApplication.delayCall += McpCompileTracker.TryFlushPending;
+                        EditorApplication.delayCall += McpEditModeTestTracker.TryFlushPending;
+                        EditorApplication.delayCall += McpPlayModeTestTracker.TryFlushPending;
                         return;
                     }
                     catch
@@ -242,16 +244,23 @@ namespace McpBridge.Editor
                 return;
             }
 
-            if (envelope.ToolName == "unity.tests_run" &&
-                IncludesPlayMode(envelope.Arguments, out var mode))
+            if (envelope.ToolName == "unity.tests_run")
             {
-                var immediateResult = McpPlayModeTestTracker.Begin(
-                    envelope.Id,
-                    mode,
-                    GetStringArrayArgument(envelope.Arguments, "testNames"),
-                    GetStringArrayArgument(envelope.Arguments, "groupNames"),
-                    GetStringArrayArgument(envelope.Arguments, "assemblyNames"),
-                    GetBoolArgument(envelope.Arguments, "runSynchronously"));
+                ToolCallResult immediateResult = IncludesPlayMode(envelope.Arguments, out var mode)
+                    ? McpPlayModeTestTracker.Begin(
+                        envelope.Id,
+                        mode,
+                        GetStringArrayArgument(envelope.Arguments, "testNames"),
+                        GetStringArrayArgument(envelope.Arguments, "groupNames"),
+                        GetStringArrayArgument(envelope.Arguments, "assemblyNames"),
+                        GetBoolArgument(envelope.Arguments, "runSynchronously"))
+                    : McpEditModeTestTracker.Begin(
+                        envelope.Id,
+                        mode,
+                        GetStringArrayArgument(envelope.Arguments, "testNames"),
+                        GetStringArrayArgument(envelope.Arguments, "groupNames"),
+                        GetStringArrayArgument(envelope.Arguments, "assemblyNames"),
+                        GetBoolArgument(envelope.Arguments, "runSynchronously"));
 
                 if (immediateResult != null)
                 {

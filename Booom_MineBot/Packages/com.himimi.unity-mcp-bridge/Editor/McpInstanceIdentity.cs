@@ -39,6 +39,12 @@ namespace McpBridge.Editor
                 info.PendingRequestIds.Add(compileRequestId);
             }
 
+            var editModeTestRequestId = McpEditModeTestTracker.GetPendingRequestId();
+            if (!string.IsNullOrWhiteSpace(editModeTestRequestId))
+            {
+                info.PendingRequestIds.Add(editModeTestRequestId);
+            }
+
             var playModeTestRequestId = McpPlayModeTestTracker.GetPendingRequestId();
             if (!string.IsNullOrWhiteSpace(playModeTestRequestId))
             {
