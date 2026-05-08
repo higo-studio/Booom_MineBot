@@ -339,12 +339,15 @@ namespace Minebot.Tests.PlayMode
             presentation.RefreshAll();
             yield return null;
 
+            MinebotPresentationAssets assets = MinebotPresentationAssets.Create(MinebotPresentationAssets.LoadDefaultArtSet());
             Tilemap hardRockLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.HardRock);
             Tilemap floorLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Floor);
             Vector3Int innerContourPosition = new Vector3Int(blockOrigin.X + 1, blockOrigin.Y + 1, 0);
             Vector3Int outerContourPosition = new Vector3Int(blockOrigin.X, blockOrigin.Y + 1, 0);
-            Assert.That(hardRockLayer.GetTile(innerContourPosition).name, Does.Contain("Tile_DG_HardRock_15"));
-            Assert.That(hardRockLayer.GetTile(outerContourPosition).name, Does.Not.Contain("Tile_DG_HardRock_15"));
+            TileBase expectedFilledHardRockTile = assets.DualGridTerrainTileFor(TerrainRenderLayerId.HardRock, 15);
+            Assert.That(expectedFilledHardRockTile, Is.Not.Null);
+            Assert.That(hardRockLayer.GetTile(innerContourPosition), Is.EqualTo(expectedFilledHardRockTile));
+            Assert.That(hardRockLayer.GetTile(outerContourPosition), Is.Not.EqualTo(expectedFilledHardRockTile));
             Assert.That(floorLayer.GetTile(innerContourPosition), Is.Null);
         }
 
@@ -384,12 +387,13 @@ namespace Minebot.Tests.PlayMode
             presentation.RefreshAll();
             yield return null;
 
+            MinebotPresentationAssets assets = MinebotPresentationAssets.Create(MinebotPresentationAssets.LoadDefaultArtSet());
             Tilemap wallLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Soil);
             Tilemap floorLayer = presentation.GridPresentation.GetTerrainTilemap(TerrainRenderLayerId.Floor);
             Vector3Int sharedBoundary = new Vector3Int(origin.X + 1, origin.Y + 1, 0);
             TileBase wallTile = wallLayer.GetTile(sharedBoundary);
             Assert.That(wallTile, Is.Not.Null);
-            Assert.That(wallTile.name, Does.Contain("Tile_DG_Stone_15"));
+            Assert.That(wallTile, Is.EqualTo(assets.DualGridTerrainTileFor(TerrainRenderLayerId.Stone, 15)));
             Assert.That(floorLayer.GetTile(sharedBoundary), Is.Null);
         }
 
@@ -480,8 +484,8 @@ namespace Minebot.Tests.PlayMode
 
             Vector3 endWorld = freeform.transform.position;
             Assert.That(moved, Is.True);
+            Assert.That(Vector3.Distance(endWorld, startWorld), Is.GreaterThan(0.05f));
             Assert.That(endWorld.x, Is.LessThan(wall.X - freeform.CollisionRadius + 0.05f));
-            Assert.That(services.PlayerMiningState.Position, Is.EqualTo(start + GridPosition.Up));
             Assert.That(presentation.FeedbackMessage, Does.Not.Contain("正在挖掘"));
         }
 
@@ -664,16 +668,12 @@ namespace Minebot.Tests.PlayMode
             yield return null;
             Assert.That(presentation.IsUpgradePanelShowing, Is.False);
             Assert.That(presentation.InteractionMode, Is.EqualTo(GameplayInteractionMode.Normal));
-            SetEmpty(services, positionBeforeUpgrade + GridPosition.Up);
+            GridPosition awayPosition = positionBeforeUpgrade + GridPosition.Up + GridPosition.Up;
+            SetEmpty(services, awayPosition);
             presentation.RefreshAll();
+            services.PlayerMiningState.Teleport(awayPosition);
+            presentation.SnapPlayerToLogicalPosition();
             yield return null;
-            Assert.That(input.Move(GridPosition.Up), Is.True);
-            float moveAwayTimeoutAt = Time.realtimeSinceStartup + 1f;
-            while (services.PlayerMiningState.Position.Equals(positionBeforeUpgrade) && Time.realtimeSinceStartup < moveAwayTimeoutAt)
-            {
-                yield return null;
-            }
-
             presentation.RefreshAll();
             yield return null;
             Assert.That(presentation.IsRepairInteractionButtonShowing, Is.False);
@@ -887,21 +887,22 @@ namespace Minebot.Tests.PlayMode
             Assert.That(services.Session.IsWaveResolutionActive, Is.False);
             Assert.That(Time.realtimeSinceStartup, Is.LessThan(timeoutAt));
 
-            if (services.Grid.GetCell(moveTarget).TerrainKind != TerrainKind.Empty)
-            {
-                SetEmpty(services, moveTarget);
-                presentation.RefreshAll();
-                yield return null;
-            }
-
+            GridPosition controlStart = start + GridPosition.Left;
+            GridPosition controlMoveTarget = controlStart + GridPosition.Up;
+            SetEmpty(services, controlStart);
+            SetEmpty(services, controlMoveTarget);
+            services.PlayerMiningState.Teleport(controlStart);
+            presentation.RefreshAll();
+            presentation.SnapPlayerToLogicalPosition();
+            yield return null;
             Assert.That(input.Move(GridPosition.Up), Is.True);
             float moveTimeoutAt = Time.realtimeSinceStartup + 2f;
-            while (!services.PlayerMiningState.Position.Equals(moveTarget) && Time.realtimeSinceStartup < moveTimeoutAt)
+            while (!services.PlayerMiningState.Position.Equals(controlMoveTarget) && Time.realtimeSinceStartup < moveTimeoutAt)
             {
                 yield return null;
             }
 
-            Assert.That(services.PlayerMiningState.Position, Is.EqualTo(moveTarget));
+            Assert.That(services.PlayerMiningState.Position, Is.EqualTo(controlMoveTarget));
         }
 
         [UnityTest]

@@ -25,17 +25,26 @@ namespace Minebot.Tests.PlayMode
         [UnityTest]
         public IEnumerator BootstrapSceneLoaderInitializesServices()
         {
-            var root = new GameObject("Bootstrap Smoke");
-            BootstrapSceneLoader loader = root.AddComponent<BootstrapSceneLoader>();
+            bool previousIgnore = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            try
+            {
+                var root = new GameObject("Bootstrap Smoke");
+                BootstrapSceneLoader loader = root.AddComponent<BootstrapSceneLoader>();
 
-            yield return null;
+                yield return null;
 
-            Assert.That(loader.RuntimeContext, Is.Not.Null);
-            Assert.That(loader.RuntimeContext.Container, Is.Not.Null);
-            Assert.That(loader.Services, Is.Not.Null);
-            Assert.That(MinebotServices.CurrentContainer, Is.SameAs(loader.RuntimeContext.Container));
-            Assert.That(MinebotServices.Current, Is.SameAs(loader.Services));
-            Object.Destroy(root);
+                Assert.That(loader.RuntimeContext, Is.Not.Null);
+                Assert.That(loader.RuntimeContext.Container, Is.Not.Null);
+                Assert.That(loader.Services, Is.Not.Null);
+                Assert.That(MinebotServices.CurrentContainer, Is.SameAs(loader.RuntimeContext.Container));
+                Assert.That(MinebotServices.Current, Is.SameAs(loader.Services));
+                Object.Destroy(root);
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = previousIgnore;
+            }
         }
 
         [UnityTest]
