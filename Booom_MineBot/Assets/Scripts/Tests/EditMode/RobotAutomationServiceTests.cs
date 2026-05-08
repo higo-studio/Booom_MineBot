@@ -291,44 +291,52 @@ namespace Minebot.Tests.EditMode
         [Test]
         public void SessionRobotTickMinesCollapsedWaveWallBetweenWarnings()
         {
-            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
-            GridPosition target = registry.Grid.PlayerSpawn + GridPosition.Up;
+            GridPosition spawn = new GridPosition(3, 3);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), spawn);
+            GridPosition target = spawn + GridPosition.Up;
+            SetWall(grid, target + GridPosition.Up);
+            WaveConfig waveConfig = CreateWaveConfig(dangerRadiusByWave: new[] { 1 }, collapseBombMixRatio: 0f);
+            RuntimeServiceRegistry registry = CreateRuntimeRegistry(grid, waveConfig);
             ref GridCellState cell = ref registry.Grid.GetCellRef(target);
             cell.TerrainKind = TerrainKind.Empty;
-            cell.IsDangerZone = true;
             cell.IsMarked = true;
             cell.StaticFlags |= CellStaticFlags.Bomb;
 
-            registry.Waves.ResolveWave(registry.Grid.PlayerSpawn, registry.Vitals, new List<RobotState>());
+            registry.Waves.ResolveWave(spawn, registry.Vitals, new List<RobotState>());
             registry.Waves.EvaluateDangerZones();
-            Assert.That(registry.Grid.GetCell(registry.Grid.PlayerSpawn).IsDangerZone, Is.True);
+            Assert.That(registry.Grid.GetCell(spawn).IsDangerZone, Is.True);
 
             registry.Economy.Add(new ResourceAmount(5, 0, 0));
-            Assert.That(registry.RobotFactory.TryProduce(registry.Grid.PlayerSpawn, out RobotState robot), Is.True);
+            Assert.That(registry.RobotFactory.TryProduce(spawn, out RobotState robot), Is.True);
 
             RunRobotTicks(registry, 2);
 
             Assert.That(robot.IsActive, Is.True);
             Assert.That(registry.Session.LastRobotAutomationResult.Kind, Is.EqualTo(RobotAutomationResultKind.Mined));
             Assert.That(registry.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+
+            Object.DestroyImmediate(waveConfig);
         }
 
         [Test]
         public void SessionRobotTickAvoidsDangerZoneTargetsDuringWarningWindow()
         {
-            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
-            GridPosition target = registry.Grid.PlayerSpawn + GridPosition.Up;
+            GridPosition spawn = new GridPosition(3, 3);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), spawn);
+            GridPosition target = spawn + GridPosition.Up;
+            WaveConfig waveConfig = CreateWaveConfig(dangerRadiusByWave: new[] { 1 }, collapseBombMixRatio: 0f);
+            RuntimeServiceRegistry registry = CreateRuntimeRegistry(grid, waveConfig);
             ref GridCellState cell = ref registry.Grid.GetCellRef(target);
             cell.TerrainKind = TerrainKind.MineableWall;
             cell.HardnessTier = HardnessTier.Soil;
             cell.Reward = new ResourceAmount(1, 0, 1);
             cell.IsRevealed = false;
             registry.Waves.EvaluateDangerZones();
-            Assert.That(registry.Grid.GetCell(registry.Grid.PlayerSpawn).IsDangerZone, Is.True);
-            Assert.That(registry.Waves.Tick(WaveConfig.DefaultFirstWaveDelay - WaveSurvivalService.DangerWarningLeadTime + 0.1f), Is.False);
+            Assert.That(registry.Grid.GetCell(spawn).IsDangerZone, Is.True);
+            Assert.That(registry.Waves.Tick(registry.Waves.TimeUntilNextWave - WaveSurvivalService.DangerWarningLeadTime + 0.1f), Is.False);
 
             registry.Economy.Add(new ResourceAmount(5, 0, 0));
-            Assert.That(registry.RobotFactory.TryProduce(registry.Grid.PlayerSpawn, out RobotState robot), Is.True);
+            Assert.That(registry.RobotFactory.TryProduce(spawn, out RobotState robot), Is.True);
 
             bool changed = registry.Session.TickRobots(1f);
 
@@ -336,6 +344,8 @@ namespace Minebot.Tests.EditMode
             Assert.That(robot.TargetPosition.HasValue, Is.False);
             Assert.That(registry.Session.LastRobotAutomationResult.Kind, Is.EqualTo(RobotAutomationResultKind.Idle));
             Assert.That(registry.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+
+            Object.DestroyImmediate(waveConfig);
         }
 
         [Test]
@@ -376,14 +386,15 @@ namespace Minebot.Tests.EditMode
 
             Assert.That(changed, Is.True);
             Assert.That(robot.IsActive, Is.False);
-            Assert.That(worldPickups.ActivePickups.Count, Is.EqualTo(1));
+            Assert.That(worldPickups.ActivePickups.Count, Is.EqualTo(3));
             Assert.That(economy.Resources.Metal, Is.EqualTo(0));
 
             bool collected = session.TickWorldPickups(1f, ToWorldCenter(grid.PlayerSpawn));
 
             Assert.That(collected, Is.True);
             Assert.That(worldPickups.ActivePickups, Is.Empty);
-            Assert.That(economy.Resources.Metal, Is.EqualTo(2));
+            Assert.That(economy.Resources.Metal, Is.EqualTo(3));
+            Assert.That(experience.Experience, Is.EqualTo(1));
         }
 
         [Test]
@@ -440,6 +451,60 @@ namespace Minebot.Tests.EditMode
             }
         }
 
+        private static RuntimeServiceRegistry CreateRuntimeRegistry(
+            LogicalGridState grid,
+            WaveConfig waveConfig = null,
+            ResourceAmount robotRecycleDrop = default)
+        {
+            var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
+            var mining = new MiningService(grid);
+            var hazards = new HazardService(grid);
+            var economy = new PlayerEconomy(ResourceAmount.Zero);
+            var experience = new ExperienceService(4);
+            var worldPickups = new WorldPickupService();
+            var vitals = new PlayerVitals(3);
+            var robots = new List<RobotState>();
+            var waves = new WaveSurvivalService(grid, waveConfig);
+            var automation = new RobotAutomationService(grid, 7, 0f);
+            var session = new GameSessionService(
+                grid,
+                player,
+                mining,
+                hazards,
+                null,
+                economy,
+                experience,
+                worldPickups,
+                vitals,
+                automation,
+                robots,
+                waves,
+                robotRecycleDrop,
+                true,
+                HardnessTier.Soil);
+            var upgrades = new UpgradeSelectionService(experience, player, vitals, null, null);
+            var factory = new RobotFactoryService(economy, new ResourceAmount(4, 0, 0), robots);
+
+            return new RuntimeServiceRegistry(
+                grid,
+                player,
+                mining,
+                hazards,
+                session,
+                upgrades,
+                economy,
+                vitals,
+                experience,
+                worldPickups,
+                new BaseOpsService(economy, vitals),
+                new BuildingPlacementService(grid, economy),
+                null,
+                automation,
+                factory,
+                robots,
+                waves);
+        }
+
         private static LogicalGridState CreateOpenGrid(Vector2Int size, GridPosition spawn)
         {
             var cells = new List<GridCellState>(size.x * size.y);
@@ -467,6 +532,31 @@ namespace Minebot.Tests.EditMode
             cell.StaticFlags = flags;
             cell.Reward = new ResourceAmount(1, 0, 1);
             cell.IsRevealed = false;
+        }
+
+        private static WaveConfig CreateWaveConfig(
+            int[] dangerRadiusByWave = null,
+            float? collapseBombMixRatio = null)
+        {
+            var waveConfig = ScriptableObject.CreateInstance<WaveConfig>();
+            var serializedConfig = new SerializedObject(waveConfig);
+            if (dangerRadiusByWave != null)
+            {
+                SerializedProperty radiusTable = serializedConfig.FindProperty("dangerRadiusByWave");
+                radiusTable.arraySize = dangerRadiusByWave.Length;
+                for (int i = 0; i < dangerRadiusByWave.Length; i++)
+                {
+                    radiusTable.GetArrayElementAtIndex(i).intValue = dangerRadiusByWave[i];
+                }
+            }
+
+            if (collapseBombMixRatio.HasValue)
+            {
+                serializedConfig.FindProperty("collapseBombMixRatio").floatValue = collapseBombMixRatio.Value;
+            }
+
+            serializedConfig.ApplyModifiedPropertiesWithoutUndo();
+            return waveConfig;
         }
 
         private static void BlockCell(LogicalGridState grid, GridPosition position)
