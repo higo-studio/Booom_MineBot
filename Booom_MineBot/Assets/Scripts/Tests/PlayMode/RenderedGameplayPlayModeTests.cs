@@ -527,7 +527,7 @@ namespace Minebot.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator CrackSpriteHoldsDuringGraceWindowAndClearsAfterRecoveryTimeout()
+        public IEnumerator CrackSpritePersistsAfterRecoveryTimeoutUntilWallIsOpened()
         {
             yield return LoadBootstrapAndWaitForGameplay();
             yield return null;
@@ -554,7 +554,8 @@ namespace Minebot.Tests.PlayMode
 
             yield return new WaitForSeconds(0.35f);
 
-            Assert.That(FindCrackView(target), Is.Null);
+            Assert.That(FindCrackView(target), Is.Not.Null);
+            Assert.That(GetCrackSprite(target), Is.EqualTo(initialSprite));
             Assert.That(services.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
         }
 

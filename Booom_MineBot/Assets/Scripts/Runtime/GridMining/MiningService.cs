@@ -106,12 +106,10 @@ namespace Minebot.GridMining
             {
                 MaxHealth = Mathf.Max(1, maxHealth);
                 CurrentHealth = MaxHealth;
-                TimeSinceLastInteraction = 0f;
             }
 
             public int MaxHealth { get; }
             public int CurrentHealth { get; set; }
-            public float TimeSinceLastInteraction { get; set; }
         }
 
         private readonly LogicalGridState grid;
@@ -224,7 +222,6 @@ namespace Minebot.GridMining
             {
                 if (progressByCell.TryGetValue(target, out MiningProgressState existingState))
                 {
-                    existingState.TimeSinceLastInteraction = 0f;
                     return CreateResolution(MineInteractionResult.DrillTooWeak, progressSnapshot: CreateSnapshot(target, existingState));
                 }
 
@@ -232,7 +229,6 @@ namespace Minebot.GridMining
             }
 
             MiningProgressState state = GetOrCreateProgressState(target, MaxHealthFor(cell.HardnessTier));
-            state.TimeSinceLastInteraction = 0f;
             int damage = Mathf.Max(0, attack - defense);
             state.CurrentHealth = Mathf.Max(0, state.CurrentHealth - damage);
 
@@ -263,19 +259,10 @@ namespace Minebot.GridMining
                 return false;
             }
 
-            float elapsed = Mathf.Max(0f, deltaTime);
-            float grace = MiningDisengageGraceSeconds;
             expiredProgressBuffer.Clear();
             foreach (KeyValuePair<GridPosition, MiningProgressState> pair in progressByCell)
             {
                 if (!grid.IsInside(pair.Key) || !grid.GetCell(pair.Key).IsMineable)
-                {
-                    expiredProgressBuffer.Add(pair.Key);
-                    continue;
-                }
-
-                pair.Value.TimeSinceLastInteraction += elapsed;
-                if (pair.Value.TimeSinceLastInteraction >= grace)
                 {
                     expiredProgressBuffer.Add(pair.Key);
                 }
