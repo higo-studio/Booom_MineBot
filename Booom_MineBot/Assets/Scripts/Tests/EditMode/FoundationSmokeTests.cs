@@ -177,7 +177,7 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void MiningServiceRestoresDamagedWallAfterGraceTimeout()
+        public void MiningServicePreservesDamagedWallAfterGraceTimeout()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
             GridPosition target = grid.PlayerSpawn + GridPosition.Up;
@@ -192,15 +192,18 @@ namespace Minebot.Tests.EditMode
             var mining = new MiningService(grid, rules);
 
             MineResolution first = mining.TryMineDetailed(player, target);
-            bool restoredEarly = mining.TickMiningRecovery(0.49f);
-            bool restoredLate = mining.TickMiningRecovery(0.02f);
-            MineResolution afterRestore = mining.TryMineDetailed(player, target);
+            bool changedBeforeTimeout = mining.TickMiningRecovery(0.49f);
+            bool changedAfterTimeout = mining.TickMiningRecovery(0.02f);
 
             Assert.That(first.Result, Is.EqualTo(MineInteractionResult.MiningInProgress));
-            Assert.That(restoredEarly, Is.False);
-            Assert.That(restoredLate, Is.True);
-            Assert.That(afterRestore.Result, Is.EqualTo(MineInteractionResult.MiningInProgress));
-            Assert.That(afterRestore.ProgressSnapshot.CurrentHealth, Is.EqualTo(2));
+            Assert.That(changedBeforeTimeout, Is.False);
+            Assert.That(changedAfterTimeout, Is.False);
+            Assert.That(mining.ActiveProgressSnapshots.Count, Is.EqualTo(1));
+            Assert.That(mining.ActiveProgressSnapshots[0].CurrentHealth, Is.EqualTo(2));
+
+            MineResolution resumed = mining.TryMineDetailed(player, target);
+            Assert.That(resumed.Result, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
         }
 
         [Test]
@@ -429,7 +432,7 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void SessionMiningProgressPersistsWithinGraceWindowAndResetsAfterTimeout()
+        public void SessionMiningProgressPersistsWithinGraceWindowAndAfterTimeout()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
             GridPosition target = grid.PlayerSpawn + GridPosition.Up;
@@ -457,10 +460,11 @@ namespace Minebot.Tests.EditMode
             GameSessionService resetSession = CreateSession(resetGrid, ResourceAmount.Zero, out _, out _, null, rules);
 
             Assert.That(resetSession.Mine(target), Is.EqualTo(MineInteractionResult.MiningInProgress));
-            Assert.That(resetSession.TickMiningRecovery(0.51f), Is.True);
+            Assert.That(resetSession.TickMiningRecovery(0.51f), Is.False);
+            Assert.That(resetSession.ActiveMiningProgressSnapshots.Count, Is.EqualTo(1));
+            Assert.That(resetSession.ActiveMiningProgressSnapshots[0].CurrentHealth, Is.EqualTo(2));
+            Assert.That(resetSession.Mine(target), Is.EqualTo(MineInteractionResult.Mined));
             Assert.That(resetSession.ActiveMiningProgressSnapshots, Is.Empty);
-            Assert.That(resetSession.Mine(target), Is.EqualTo(MineInteractionResult.MiningInProgress));
-            Assert.That(resetSession.LastMineResolution.ProgressSnapshot.CurrentHealth, Is.EqualTo(2));
 
             Object.DestroyImmediate(rules);
         }
