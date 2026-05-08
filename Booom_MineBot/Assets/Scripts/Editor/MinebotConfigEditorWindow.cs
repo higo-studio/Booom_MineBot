@@ -323,6 +323,10 @@ namespace Minebot.Editor
                 "升级池",
                 "升级列表与权重。",
                 GetBootstrapReference<ScriptableObject>(bootstrapConfig, "upgradePool")));
+            parent.Add(CreateManagedObjectSection(
+                "计分配置",
+                "岩壁、过波、炸弹和建筑建造得分。",
+                GetBootstrapReference<ScriptableObject>(bootstrapConfig, "scoreConfig")));
         }
 
         private void BuildMiningAndHazardCategory(BootstrapConfig bootstrapConfig, VisualElement parent)

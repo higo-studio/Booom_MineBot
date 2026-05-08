@@ -24,6 +24,8 @@ namespace Minebot.Tests.EditMode
         public void TearDown()
         {
             MinebotServices.ResetForTests();
+            PlayerPrefs.DeleteKey("minebot.local_leaderboard.v1");
+            PlayerPrefs.Save();
         }
 
         [Test]
@@ -652,7 +654,7 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void BombHitDamagesPlayerWithoutClearingAdjacentWalls()
+        public void BombHitDamagesPlayerAndClearsAdjacentBombWalls()
         {
             RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
             GridPosition first = new GridPosition(registry.Grid.PlayerSpawn.X, registry.Grid.PlayerSpawn.Y + 2);
@@ -665,7 +667,8 @@ namespace Minebot.Tests.EditMode
 
             Assert.That(result, Is.EqualTo(MineInteractionResult.TriggeredBomb));
             Assert.That(registry.Vitals.CurrentHealth, Is.EqualTo(registry.Vitals.MaxHealth - 1));
-            Assert.That(registry.Grid.GetCell(second).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+            Assert.That(registry.Grid.GetCell(second).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            Assert.That(registry.Grid.GetCell(second).HasBomb, Is.False);
         }
 
         [Test]
@@ -674,12 +677,24 @@ namespace Minebot.Tests.EditMode
             RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
             registry.Experience.AddExperience(5);
 
-            UpgradeDefinition[] candidates = registry.Upgrades.GetCandidates(3);
-            bool selected = registry.Upgrades.Select(candidates[0]);
+            UpgradeDefinition[] candidates = registry.Upgrades.GetCandidates(4);
+            UpgradeDefinition drillUpgrade = null;
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                if (string.Equals(candidates[i].id, "drill", StringComparison.OrdinalIgnoreCase))
+                {
+                    drillUpgrade = candidates[i];
+                    break;
+                }
+            }
+
+            Assert.That(drillUpgrade, Is.Not.Null);
+            bool selected = registry.Upgrades.Select(drillUpgrade);
 
             Assert.That(selected, Is.True);
             Assert.That(registry.Experience.HasPendingUpgrade, Is.False);
             Assert.That(registry.PlayerMiningState.DrillTier, Is.EqualTo(HardnessTier.Stone));
+            Assert.That(registry.PlayerMiningState.MiningDamageBonus, Is.EqualTo(1));
         }
 
         [Test]
@@ -748,6 +763,128 @@ namespace Minebot.Tests.EditMode
             Assert.That(collapsed.IsMarked, Is.False);
             Assert.That(collapsed.HasBomb, Is.False);
             Assert.That(collapsed.IsRevealed, Is.False);
+        }
+
+        [Test]
+        public void WaveConfigUsesLastDangerRadiusAfterConfiguredTableEnds()
+        {
+            WaveConfig waveConfig = CreateWaveConfig(dangerRadiusByWave: new[] { 1, 3, 5 });
+
+            Assert.That(waveConfig.DangerRadiusForWave(1), Is.EqualTo(1));
+            Assert.That(waveConfig.DangerRadiusForWave(2), Is.EqualTo(3));
+            Assert.That(waveConfig.DangerRadiusForWave(3), Is.EqualTo(5));
+            Assert.That(waveConfig.DangerRadiusForWave(50), Is.EqualTo(5));
+            Assert.That(waveConfig.DangerRadiusForWave(99), Is.EqualTo(5));
+
+            Object.DestroyImmediate(waveConfig);
+        }
+
+        [Test]
+        public void CollapseResolvedDangerZoneSeedsConfiguredBombCount()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(9, 9), new GridPosition(4, 4));
+            GridPosition[] collapsedCells =
+            {
+                new GridPosition(2, 2),
+                new GridPosition(3, 2),
+                new GridPosition(4, 2),
+                new GridPosition(5, 2),
+                new GridPosition(6, 2)
+            };
+
+            for (int i = 0; i < collapsedCells.Length; i++)
+            {
+                ref GridCellState cell = ref grid.GetCellRef(collapsedCells[i]);
+                cell.TerrainKind = TerrainKind.Empty;
+                cell.IsDangerZone = true;
+                cell.IsRevealed = true;
+                cell.IsMarked = true;
+                cell.StaticFlags |= CellStaticFlags.Bomb;
+            }
+
+            WaveConfig waveConfig = CreateWaveConfig(
+                collapseBombMixRatio: 0.4f,
+                collapseBombSeed: 17,
+                dangerRadiusByWave: new[] { 0 });
+            var waves = new WaveSurvivalService(grid, waveConfig);
+
+            InvokePrivateMethod(waves, "CollapseResolvedDangerZone", new WaveResolutionPlan(3, 0));
+
+            int bombCount = 0;
+            for (int i = 0; i < collapsedCells.Length; i++)
+            {
+                GridCellState collapsed = grid.GetCell(collapsedCells[i]);
+                Assert.That(collapsed.TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+                Assert.That(collapsed.IsDangerZone, Is.False);
+                Assert.That(collapsed.IsMarked, Is.False);
+                Assert.That(collapsed.IsRevealed, Is.False);
+                if (collapsed.HasBomb)
+                {
+                    bombCount++;
+                }
+            }
+
+            Assert.That(bombCount, Is.EqualTo(2));
+
+            Object.DestroyImmediate(waveConfig);
+        }
+
+        [Test]
+        public void ScoreServiceAccumulatesConfiguredActionScores()
+        {
+            ScoreConfig config = ScriptableObject.CreateInstance<ScoreConfig>();
+            SetPrivateField(config, "buildingScores", new[]
+            {
+                new BuildingScoreEntry
+                {
+                    buildingId = "radar",
+                    score = 90
+                }
+            });
+
+            var scores = new ScoreService(config);
+            scores.AddManualWallBreak(HardnessTier.Soil);
+            scores.AddManualWallBreak(HardnessTier.UltraHard);
+            scores.AddEarthquakeBombs(2);
+            scores.AddWaveSurvived();
+            scores.AddBuildingConstructed("radar");
+
+            Assert.That(
+                scores.CurrentScore,
+                Is.EqualTo(
+                    ScoreConfig.DefaultSoilWallScore
+                    + ScoreConfig.DefaultUltraHardWallScore
+                    + ScoreConfig.DefaultEarthquakeBombScore * 2
+                    + ScoreConfig.DefaultWaveSurvivedScore
+                    + 90));
+
+            Object.DestroyImmediate(config);
+        }
+
+        [Test]
+        public void LocalLeaderboardServiceKeepsTopTenSortedByScore()
+        {
+            PlayerPrefs.DeleteKey("minebot.local_leaderboard.v1");
+            PlayerPrefs.Save();
+
+            for (int i = 0; i < 12; i++)
+            {
+                bool accepted = LocalLeaderboardService.TryAddEntry($"P{i}", i * 10, i, out _);
+                if (i < LocalLeaderboardService.MaxEntries)
+                {
+                    Assert.That(accepted, Is.True);
+                }
+            }
+
+            IReadOnlyList<LocalLeaderboardEntry> entries = LocalLeaderboardService.GetEntries();
+
+            Assert.That(entries.Count, Is.EqualTo(LocalLeaderboardService.MaxEntries));
+            Assert.That(entries[0].playerName, Is.EqualTo("P11"));
+            Assert.That(entries[0].score, Is.EqualTo(110));
+            Assert.That(entries[entries.Count - 1].playerName, Is.EqualTo("P2"));
+            Assert.That(entries[entries.Count - 1].score, Is.EqualTo(20));
+            Assert.That(LocalLeaderboardService.WouldQualify(15), Is.False);
+            Assert.That(LocalLeaderboardService.WouldQualify(25), Is.True);
         }
 
         [Test]
@@ -2286,7 +2423,10 @@ namespace Minebot.Tests.EditMode
             int? radiusGrowthEveryWaves = null,
             float? perimeterBombPhaseHoldSeconds = null,
             float? dangerRefreshPhaseHoldSeconds = null,
-            float? collapsePhaseHoldSeconds = null)
+            float? collapsePhaseHoldSeconds = null,
+            int[] dangerRadiusByWave = null,
+            float? collapseBombMixRatio = null,
+            int? collapseBombSeed = null)
         {
             var waveConfig = ScriptableObject.CreateInstance<WaveConfig>();
             var serializedConfig = new SerializedObject(waveConfig);
@@ -2296,6 +2436,18 @@ namespace Minebot.Tests.EditMode
             SetFloat(serializedConfig, "perimeterBombPhaseHoldSeconds", perimeterBombPhaseHoldSeconds);
             SetFloat(serializedConfig, "dangerRefreshPhaseHoldSeconds", dangerRefreshPhaseHoldSeconds);
             SetFloat(serializedConfig, "collapsePhaseHoldSeconds", collapsePhaseHoldSeconds);
+            if (dangerRadiusByWave != null)
+            {
+                SerializedProperty radiusTable = serializedConfig.FindProperty("dangerRadiusByWave");
+                radiusTable.arraySize = dangerRadiusByWave.Length;
+                for (int i = 0; i < dangerRadiusByWave.Length; i++)
+                {
+                    radiusTable.GetArrayElementAtIndex(i).intValue = dangerRadiusByWave[i];
+                }
+            }
+
+            SetFloat(serializedConfig, "collapseBombMixRatio", collapseBombMixRatio);
+            SetInt(serializedConfig, "collapseBombSeed", collapseBombSeed);
             serializedConfig.ApplyModifiedPropertiesWithoutUndo();
             return waveConfig;
         }

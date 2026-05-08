@@ -45,11 +45,15 @@ namespace Minebot.Bootstrap
             var experience = new ExperienceService(firstThreshold);
             var worldPickups = new WorldPickupService();
             var robots = new List<RobotState>();
+            var scores = new ScoreService(config != null ? config.ScoreConfig : null);
             WaveConfig waveConfig = config != null ? config.WaveConfig : null;
             var waves = new WaveSurvivalService(grid, waveConfig);
             MiningRules miningRules = config != null ? config.MiningRules : null;
 
-            var miningState = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
+            var miningState = new PlayerMiningState(
+                grid.PlayerSpawn,
+                HardnessTier.Soil,
+                balance != null ? balance.PlayerMarkerCapacity : 0);
             var mining = new MiningService(grid, miningRules);
             var hazards = new HazardService(grid);
             HazardRules hazardRules = config != null ? config.HazardRules : null;
@@ -95,7 +99,8 @@ namespace Minebot.Bootstrap
                 waves,
                 waveConfig != null ? waveConfig.RobotRecycleDrop : ResourceAmount.Zero,
                 balance == null || balance.RobotUsesPlayerDrillTier,
-                balance != null ? balance.RobotFixedDrillTier : HardnessTier.Soil);
+                balance != null ? balance.RobotFixedDrillTier : HardnessTier.Soil,
+                scores);
             var upgrades = new UpgradeSelectionService(
                 experience,
                 miningState,
@@ -118,6 +123,7 @@ namespace Minebot.Bootstrap
                 hazards,
                 session,
                 upgrades,
+                scores,
                 economy,
                 vitals,
                 experience,

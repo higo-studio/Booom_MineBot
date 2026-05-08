@@ -66,6 +66,9 @@ namespace Minebot.WaveSurvival
         public float CollapsePhaseHoldSeconds => config != null
             ? config.CollapsePhaseHoldSeconds
             : WaveConfig.DefaultCollapsePhaseHoldSeconds;
+        public float CollapseBombMixRatio => config != null
+            ? config.CollapseBombMixRatio
+            : WaveConfig.DefaultCollapseBombMixRatio;
 
         public bool Tick(float deltaTime)
         {
@@ -287,7 +290,7 @@ namespace Minebot.WaveSurvival
                 }
             }
 
-            CollapseResolvedDangerZone();
+            CollapseResolvedDangerZone(plan);
             CurrentWave = plan.WaveNumber;
             timeUntilNextWave = config != null ? config.FirstWaveDelay : WaveConfig.DefaultFirstWaveDelay;
 
@@ -316,8 +319,9 @@ namespace Minebot.WaveSurvival
                 : WaveConfig.DefaultBaseDangerRadius + UnityEngine.Mathf.Max(0, wave - 1) / WaveConfig.DefaultRadiusGrowthEveryWaves;
         }
 
-        private void CollapseResolvedDangerZone()
+        private void CollapseResolvedDangerZone(WaveResolutionPlan plan)
         {
+            var collapsedCells = new List<GridPosition>();
             foreach (GridPosition position in grid.Positions())
             {
                 ref GridCellState cell = ref grid.GetCellRef(position);
@@ -333,6 +337,46 @@ namespace Minebot.WaveSurvival
                 cell.IsMarked = false;
                 cell.IsRevealed = false;
                 cell.StaticFlags &= ~CellStaticFlags.Bomb;
+                collapsedCells.Add(position);
+            }
+
+            SeedCollapsedBombs(collapsedCells, plan.WaveNumber);
+        }
+
+        private void SeedCollapsedBombs(List<GridPosition> collapsedCells, int waveNumber)
+        {
+            if (collapsedCells == null || collapsedCells.Count == 0)
+            {
+                return;
+            }
+
+            float ratio = CollapseBombMixRatio;
+            if (ratio <= 0f)
+            {
+                return;
+            }
+
+            int bombCount = UnityEngine.Mathf.Clamp(
+                UnityEngine.Mathf.RoundToInt(collapsedCells.Count * ratio),
+                0,
+                collapsedCells.Count);
+            if (bombCount <= 0)
+            {
+                return;
+            }
+
+            int seed = config != null ? config.CollapseBombSeed : WaveConfig.DefaultCollapseBombSeed;
+            var random = new DeterministicRandom(unchecked(seed ^ (waveNumber * 486187739)));
+            for (int i = collapsedCells.Count - 1; i > 0; i--)
+            {
+                int swapIndex = random.Range(0, i + 1);
+                (collapsedCells[i], collapsedCells[swapIndex]) = (collapsedCells[swapIndex], collapsedCells[i]);
+            }
+
+            for (int i = 0; i < bombCount; i++)
+            {
+                ref GridCellState cell = ref grid.GetCellRef(collapsedCells[i]);
+                cell.StaticFlags |= CellStaticFlags.Bomb;
             }
         }
     }

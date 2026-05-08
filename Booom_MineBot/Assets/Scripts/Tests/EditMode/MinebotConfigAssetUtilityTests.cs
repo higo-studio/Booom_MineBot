@@ -51,6 +51,7 @@ namespace Minebot.Tests.EditMode
             Assert.That(serializedObject.FindProperty("inputActions")?.objectReferenceValue, Is.Not.Null);
             AssertManagedReference(serializedObject, "balanceConfig");
             AssertManagedReference(serializedObject, "upgradePool");
+            AssertManagedReference(serializedObject, "scoreConfig");
             AssertManagedReference(serializedObject, "hazardRules");
             AssertManagedReference(serializedObject, "miningRules");
             AssertManagedReference(serializedObject, "waveConfig");

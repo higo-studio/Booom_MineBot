@@ -54,6 +54,7 @@ namespace Minebot.Bootstrap
         private readonly MiningService mining;
         private readonly HazardService hazards;
         private readonly HazardRules hazardRules;
+        private readonly ScoreService scores;
         private readonly PlayerEconomy economy;
         private readonly ExperienceService experience;
         private readonly WorldPickupService worldPickups;
@@ -89,13 +90,15 @@ namespace Minebot.Bootstrap
             WaveSurvivalService waves,
             ResourceAmount robotRecycleDrop,
             bool robotUsesPlayerDrillTier,
-            HardnessTier robotFixedDrillTier)
+            HardnessTier robotFixedDrillTier,
+            ScoreService scores = null)
         {
             this.grid = grid;
             this.player = player;
             this.mining = mining;
             this.hazards = hazards;
             this.hazardRules = hazardRules;
+            this.scores = scores;
             this.economy = economy;
             this.experience = experience;
             this.worldPickups = worldPickups;
@@ -113,6 +116,7 @@ namespace Minebot.Bootstrap
         public event Action<IReadOnlyList<MiningProgressSnapshot>> MiningProgressUpdated;
         public event Action<IReadOnlyList<ScanReading>> PassiveHazardSenseUpdated;
         public event Action<RobotAutomationResult> RobotAutomationCompleted;
+        public event Action<IReadOnlyList<GridPosition>> BombsExploded;
         public MineResolution LastMineResolution { get; private set; }
         public RobotAutomationResult LastRobotAutomationResult { get; private set; }
         public WaveResolution LastWaveResolution { get; private set; }
@@ -142,20 +146,25 @@ namespace Minebot.Bootstrap
 
         public MineInteractionResult Mine(GridPosition target)
         {
+            TryGetMineableCellInfo(target, out HardnessTier targetHardness, out _);
             MineResolution resolution = mining.TryMineDetailed(player, target);
-            LastMineResolution = resolution;
-            SyncMiningProgressSnapshots();
             MineInteractionResult result = resolution.Result;
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
             {
+                scores?.AddManualWallBreak(targetHardness);
+                if (result == MineInteractionResult.TriggeredBomb)
+                {
+                    int damage = hazardRules != null ? hazardRules.DirectBombDamage : HazardRules.DefaultDirectBombDamage;
+                    vitals.Damage(damage);
+                    ExplosionResolution explosion = ResolveBombExplosion(target, treatOriginAsBomb: true);
+                    resolution = MergeExplosionIntoMineResolution(resolution, explosion);
+                }
+
                 SpawnWorldPickupRewards(resolution.ClearedCells, WorldPickupSource.PlayerMining);
             }
 
-            if (result == MineInteractionResult.TriggeredBomb)
-            {
-                int damage = hazardRules != null ? hazardRules.DirectBombDamage : HazardRules.DefaultDirectBombDamage;
-                vitals.Damage(damage);
-            }
+            LastMineResolution = resolution;
+            SyncMiningProgressSnapshots();
 
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
             {
@@ -224,8 +233,26 @@ namespace Minebot.Bootstrap
 
         public bool ToggleMarker(GridPosition position)
         {
+            bool wasMarked = grid.IsInside(position) && grid.GetCell(position).IsMarked;
+            if (!wasMarked)
+            {
+                if (player.MarkerCapacity <= 0)
+                {
+                    return false;
+                }
+
+                if (hazards.CountMarkedCells() >= Mathf.Max(0, player.MarkerCapacity))
+                {
+                    return false;
+                }
+            }
+
             bool marked = hazards.ToggleMarker(position);
-            StateChanged?.Invoke();
+            if (marked != wasMarked)
+            {
+                StateChanged?.Invoke();
+            }
+
             return marked;
         }
 
@@ -331,8 +358,10 @@ namespace Minebot.Bootstrap
                 }
                 else if (result.Kind == RobotAutomationResultKind.TriggeredBomb)
                 {
-                    SpawnWorldPickupRewards(result.ClearedCells, WorldPickupSource.HelperRobotMining);
-                    RefreshPassiveHazardSenseIfAffected(result.ClearedCells);
+                    ExplosionResolution explosion = ResolveBombExplosion(result.Target, treatOriginAsBomb: true);
+                    IReadOnlyList<MineClearedCell> mergedClearedCells = MergeClearedCells(result.ClearedCells, explosion);
+                    SpawnWorldPickupRewards(mergedClearedCells, WorldPickupSource.HelperRobotMining);
+                    RefreshPassiveHazardSenseIfAffected(mergedClearedCells);
                     robot.Destroy("误挖炸药损毁");
                     if (robotRecycleDrop.Metal > 0 || robotRecycleDrop.Energy > 0 || robotRecycleDrop.Experience > 0)
                     {
@@ -345,7 +374,7 @@ namespace Minebot.Bootstrap
                         result.Target,
                         robotRecycleDrop,
                         "机器人误挖炸药并损毁。",
-                        result.ClearedCells);
+                        mergedClearedCells);
                 }
 
                 LastRobotAutomationResult = result;
@@ -539,6 +568,7 @@ namespace Minebot.Bootstrap
             int explosionRadius = hazardRules != null
                 ? hazardRules.ExplosionRadius
                 : HazardRules.DefaultExplosionRadius;
+            int earthquakeBombsDestroyed = 0;
             for (int i = 0; i < perimeterBombOrigins.Count; i++)
             {
                 GridPosition origin = perimeterBombOrigins[i];
@@ -553,10 +583,13 @@ namespace Minebot.Bootstrap
                     continue;
                 }
 
-                hazards.ResolveExplosion(origin, explosionRadius, directDamage: 0);
+                ExplosionResolution explosion = hazards.ResolveExplosion(origin, explosionRadius, directDamage: 0);
                 detonatedPerimeterBombCount++;
+                earthquakeBombsDestroyed += explosion.DetonatedBombCount;
+                EmitBombExplosions(explosion.DetonatedBombOrigins);
             }
 
+            scores?.AddEarthquakeBombs(earthquakeBombsDestroyed);
             SyncMiningProgressSnapshots();
         }
 
@@ -568,6 +601,11 @@ namespace Minebot.Bootstrap
                 || LastWaveResolution.DroppedResources.Experience > 0)
             {
                 SpawnWorldPickupReward(player.Position, LastWaveResolution.DroppedResources, WorldPickupSource.WaveRecycle);
+            }
+
+            if (!LastWaveResolution.PlayerKilled)
+            {
+                scores?.AddWaveSurvived();
             }
 
             waves.EvaluateDangerZones();
@@ -644,6 +682,123 @@ namespace Minebot.Bootstrap
             return left.Position.Equals(right.Position)
                 && left.CurrentHealth == right.CurrentHealth
                 && left.MaxHealth == right.MaxHealth;
+        }
+
+        private bool TryGetMineableCellInfo(GridPosition position, out HardnessTier hardnessTier, out bool hasBomb)
+        {
+            hardnessTier = HardnessTier.Soil;
+            hasBomb = false;
+            if (!grid.IsInside(position))
+            {
+                return false;
+            }
+
+            GridCellState cell = grid.GetCell(position);
+            if (!cell.IsMineable)
+            {
+                return false;
+            }
+
+            hardnessTier = cell.HardnessTier;
+            hasBomb = cell.HasBomb;
+            return true;
+        }
+
+        private ExplosionResolution ResolveBombExplosion(GridPosition origin, bool treatOriginAsBomb)
+        {
+            if (hazards == null)
+            {
+                return new ExplosionResolution(0, 0, Array.Empty<GridPosition>(), Array.Empty<GridPosition>());
+            }
+
+            int explosionRadius = hazardRules != null
+                ? hazardRules.ExplosionRadius
+                : HazardRules.DefaultExplosionRadius;
+            ExplosionResolution explosion = hazards.ResolveExplosion(origin, explosionRadius, directDamage: 0, treatOriginAsBomb);
+            EmitBombExplosions(explosion.DetonatedBombOrigins);
+            return explosion;
+        }
+
+        private void EmitBombExplosions(IReadOnlyList<GridPosition> origins)
+        {
+            if (origins == null || origins.Count == 0)
+            {
+                return;
+            }
+
+            BombsExploded?.Invoke(origins);
+        }
+
+        private static IReadOnlyList<MineClearedCell> MergeClearedCells(
+            IReadOnlyList<MineClearedCell> clearedCells,
+            ExplosionResolution explosion)
+        {
+            var merged = new List<MineClearedCell>();
+            if (clearedCells != null)
+            {
+                for (int i = 0; i < clearedCells.Count; i++)
+                {
+                    merged.Add(clearedCells[i]);
+                }
+            }
+
+            IReadOnlyList<GridPosition> changedCells = explosion.ChangedCells;
+            for (int i = 0; i < changedCells.Count; i++)
+            {
+                GridPosition position = changedCells[i];
+                if (ContainsClearedCell(merged, position))
+                {
+                    continue;
+                }
+
+                merged.Add(new MineClearedCell(
+                    position,
+                    ResourceAmount.Zero,
+                    ContainsPosition(explosion.DetonatedBombOrigins, position)));
+            }
+
+            return merged;
+        }
+
+        private static MineResolution MergeExplosionIntoMineResolution(MineResolution resolution, ExplosionResolution explosion)
+        {
+            return new MineResolution(
+                resolution.Result,
+                MergeClearedCells(resolution.ClearedCells, explosion),
+                resolution.TotalReward,
+                resolution.ProgressSnapshot,
+                resolution.DamageDealt);
+        }
+
+        private static bool ContainsClearedCell(List<MineClearedCell> clearedCells, GridPosition position)
+        {
+            for (int i = 0; i < clearedCells.Count; i++)
+            {
+                if (clearedCells[i].Position.Equals(position))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ContainsPosition(IReadOnlyList<GridPosition> positions, GridPosition target)
+        {
+            if (positions == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < positions.Count; i++)
+            {
+                if (positions[i].Equals(target))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

@@ -47,6 +47,10 @@ namespace Minebot.Progression
         [InspectorLabel("机器人固定钻头等级")]
         private HardnessTier robotFixedDrillTier = HardnessTier.Soil;
 
+        [SerializeField]
+        [InspectorLabel("初始标记上限")]
+        private int playerMarkerCapacity = 3;
+
         [Header("资源掉落范围配置")]
         [Tooltip("每种墙壁类型对应三种资源（金属/能量/经验）的掉落范围 (min, max)")]
         
@@ -104,6 +108,7 @@ namespace Minebot.Progression
         public float RobotActionInterval => Mathf.Max(0f, robotActionInterval);
         public bool RobotUsesPlayerDrillTier => robotUsesPlayerDrillTier;
         public HardnessTier RobotFixedDrillTier => robotFixedDrillTier;
+        public int PlayerMarkerCapacity => Mathf.Max(0, playerMarkerCapacity);
 
         public Vector2Int GetMetalRange(HardnessTier tier) => tier switch
         {

@@ -39,11 +39,11 @@ namespace Minebot.UI
         public const string BuildPanelObjectName = "Build Panel";
         public const string BuildingInteractionPanelObjectName = "Building Interaction Panel";
 
-        public const string UpgradeTitle = "升级可用：按 1/2/3 或点击";
+        public const string UpgradeTitle = "升级可用：按 1/2 或点击";
         public const string BuildTitle = "建筑模式：选择建筑后点击空地";
         public const string BuildingInteractionTitle = "建筑交互";
 
-        public const int UpgradeButtonCount = 3;
+        public const int UpgradeButtonCount = 2;
         public const int MinimumBuildButtonCount = 4;
         public const int BuildingInteractionButtonCount = 2;
         public const float HudPanelSliceBorder = 12f;

@@ -20,14 +20,23 @@ namespace Minebot.HazardInference
 
     public readonly struct ExplosionResolution
     {
-        public ExplosionResolution(int destroyedCells, int directDamage)
+        public ExplosionResolution(
+            int destroyedCells,
+            int directDamage,
+            IReadOnlyList<GridPosition> changedCells,
+            IReadOnlyList<GridPosition> detonatedBombOrigins)
         {
             DestroyedCells = destroyedCells;
             DirectDamage = directDamage;
+            ChangedCells = changedCells ?? System.Array.Empty<GridPosition>();
+            DetonatedBombOrigins = detonatedBombOrigins ?? System.Array.Empty<GridPosition>();
         }
 
         public int DestroyedCells { get; }
         public int DirectDamage { get; }
+        public IReadOnlyList<GridPosition> ChangedCells { get; }
+        public IReadOnlyList<GridPosition> DetonatedBombOrigins { get; }
+        public int DetonatedBombCount => DetonatedBombOrigins.Count;
     }
 
     public sealed class HazardService
@@ -131,6 +140,20 @@ namespace Minebot.HazardInference
             return cell.IsMarked;
         }
 
+        public int CountMarkedCells()
+        {
+            int count = 0;
+            foreach (GridPosition position in grid.Positions())
+            {
+                if (grid.GetCell(position).IsMarked)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
         public IReadOnlyList<GridPosition> CollectPerimeterBombOrigins()
         {
             var origins = new List<GridPosition>();
@@ -149,10 +172,16 @@ namespace Minebot.HazardInference
             return origins;
         }
 
-        public ExplosionResolution ResolveExplosion(GridPosition origin, int radius, int directDamage)
+        public ExplosionResolution ResolveExplosion(
+            GridPosition origin,
+            int radius,
+            int directDamage,
+            bool treatOriginAsBomb = false)
         {
             var pending = new Queue<GridPosition>();
             var visited = new HashSet<GridPosition>();
+            var changedCells = new List<GridPosition>();
+            var detonatedBombOrigins = new List<GridPosition>();
             pending.Enqueue(origin);
             int destroyed = 0;
 
@@ -165,14 +194,25 @@ namespace Minebot.HazardInference
                 }
 
                 ref GridCellState cell = ref grid.GetCellRef(current);
-                bool hadBomb = cell.HasBomb;
+                bool hadBomb = cell.HasBomb || (treatOriginAsBomb && current.Equals(origin));
+                if (hadBomb)
+                {
+                    detonatedBombOrigins.Add(current);
+                }
+
+                bool currentChanged = false;
                 if (cell.TerrainKind != TerrainKind.Indestructible)
                 {
+                    currentChanged = cell.TerrainKind != TerrainKind.Empty || cell.HasBomb || cell.IsMarked || !cell.IsRevealed;
                     cell.TerrainKind = TerrainKind.Empty;
                     cell.IsRevealed = true;
                     cell.IsMarked = false;
                     cell.ClearBomb();
-                    destroyed++;
+                    if (currentChanged && !changedCells.Contains(current))
+                    {
+                        changedCells.Add(current);
+                        destroyed++;
+                    }
                 }
 
                 foreach (GridPosition position in PositionsInRadius(current, radius))
@@ -185,9 +225,15 @@ namespace Minebot.HazardInference
                     ref GridCellState affected = ref grid.GetCellRef(position);
                     if (affected.TerrainKind != TerrainKind.Indestructible)
                     {
+                        bool affectedChanged = affected.TerrainKind != TerrainKind.Empty || affected.HasBomb || affected.IsMarked || !affected.IsRevealed;
                         affected.TerrainKind = TerrainKind.Empty;
                         affected.IsRevealed = true;
                         affected.IsMarked = false;
+                        if (affectedChanged && !changedCells.Contains(position))
+                        {
+                            changedCells.Add(position);
+                            destroyed++;
+                        }
                     }
 
                     if (hadBomb && affected.HasBomb)
@@ -197,7 +243,7 @@ namespace Minebot.HazardInference
                 }
             }
 
-            return new ExplosionResolution(destroyed, directDamage);
+            return new ExplosionResolution(destroyed, directDamage, changedCells, detonatedBombOrigins);
         }
 
         private bool HasAdjacentEmptyCardinalCell(GridPosition position)
