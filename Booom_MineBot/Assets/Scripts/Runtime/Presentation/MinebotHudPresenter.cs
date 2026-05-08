@@ -3,7 +3,8 @@ using UnityEngine;
 
 namespace Minebot.UI
 {
-    public sealed class MinebotHudPresenter : MonoBehaviour, IMinebotServiceConsumer
+    [MinebotRuntimeTag(MinebotRuntimeTag.Consumer)]
+    public sealed class MinebotHudPresenter : MonoBehaviour
     {
         private RuntimeServiceRegistry services;
         private bool isSubscribed;
@@ -64,10 +65,9 @@ namespace Minebot.UI
                 return;
             }
 
-            MinebotRuntimeContext context = FindAnyObjectByType<MinebotRuntimeContext>();
-            if (context != null && context.IsInitialized)
+            if (MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry runtimeServices, out _))
             {
-                services = context.Services;
+                services = runtimeServices;
             }
         }
 

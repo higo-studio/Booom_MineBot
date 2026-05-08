@@ -3,6 +3,7 @@ using UnityEngine.SceneManagement;
 
 namespace Minebot.Bootstrap
 {
+    [MinebotRuntimeTag(MinebotRuntimeTag.Provider)]
     public sealed class MinebotRuntimeContext : MonoBehaviour
     {
         public RuntimeServiceRegistry Services { get; private set; }
@@ -20,6 +21,16 @@ namespace Minebot.Bootstrap
             Services = RuntimeServiceFactory.Create(config);
             MinebotServices.SetCurrent(Services);
             return Services;
+        }
+
+        public RuntimeServiceRegistry GetServices()
+        {
+            return Services;
+        }
+
+        public BootstrapConfig GetBootstrapConfig()
+        {
+            return Config;
         }
 
         public void InjectIntoScene(Scene scene)
@@ -42,14 +53,7 @@ namespace Minebot.Bootstrap
                 return;
             }
 
-            MonoBehaviour[] behaviours = root.GetComponentsInChildren<MonoBehaviour>(true);
-            for (int i = 0; i < behaviours.Length; i++)
-            {
-                if (behaviours[i] is IMinebotServiceConsumer consumer)
-                {
-                    consumer.InjectServices(Services, Config);
-                }
-            }
+            MinebotRuntimeDiscovery.InjectIntoHierarchy(root, Services, Config);
         }
     }
 }
