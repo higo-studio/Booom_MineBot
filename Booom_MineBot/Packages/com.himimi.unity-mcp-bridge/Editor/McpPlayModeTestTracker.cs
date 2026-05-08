@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Xml.Linq;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.TestTools.TestRunner.Api;
@@ -67,6 +70,7 @@ namespace McpBridge.Editor
                     {
                         RequestId = requestId,
                         Mode = mode,
+                        CreatedUtcTicks = nowUtc.Ticks,
                         Started = false,
                         Finished = false,
                         Succeeded = false,
@@ -81,6 +85,7 @@ namespace McpBridge.Editor
 
                 try
                 {
+                    TryDeletePreviousTestResults();
                     EnsureContextRegistered();
                     var filter = new Filter
                     {
@@ -143,6 +148,7 @@ namespace McpBridge.Editor
             try
             {
                 EnsureContextRegistered();
+                TryCompleteFromResultFile();
             }
             catch (Exception exception)
             {
@@ -199,6 +205,8 @@ namespace McpBridge.Editor
                     succeeded: false);
                 return;
             }
+
+            TryCompleteFromResultFile();
         }
 
         public static void TryFlushPending()
@@ -265,6 +273,16 @@ namespace McpBridge.Editor
             CleanupContext();
         }
 
+        public static string GetPendingRequestId()
+        {
+            lock (s_Gate)
+            {
+                return s_State != null && !s_State.Finished
+                    ? s_State.RequestId
+                    : null;
+            }
+        }
+
         private static string BuildResultText(TestRunState state)
         {
             if (!string.IsNullOrWhiteSpace(state.Message) &&
@@ -300,6 +318,135 @@ namespace McpBridge.Editor
             });
 
             TryFlushPending();
+        }
+
+        private static void TryDeletePreviousTestResults()
+        {
+            try
+            {
+                if (File.Exists(McpBridgePaths.TestResultsPath))
+                {
+                    File.Delete(McpBridgePaths.TestResultsPath);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static void TryCompleteFromResultFile()
+        {
+            TestRunState state;
+            lock (s_Gate)
+            {
+                state = s_State;
+            }
+
+            if (state == null || state.Finished || state.CreatedUtcTicks <= 0)
+            {
+                return;
+            }
+
+            if (EditorApplication.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
+            var testResultsPath = McpBridgePaths.TestResultsPath;
+            if (!File.Exists(testResultsPath))
+            {
+                return;
+            }
+
+            try
+            {
+                var lastWriteUtc = File.GetLastWriteTimeUtc(testResultsPath);
+                if (lastWriteUtc.Ticks < state.CreatedUtcTicks)
+                {
+                    return;
+                }
+
+                if (!TryParseTestResults(testResultsPath, out var parsed))
+                {
+                    return;
+                }
+
+                UpdateState(current =>
+                {
+                    current.Finished = true;
+                    current.Succeeded = parsed.FailCount == 0;
+                    current.Status = parsed.FailCount == 0 ? "passed" : "failed";
+                    current.ResultState = parsed.ResultState;
+                    current.PassCount = parsed.PassCount;
+                    current.FailCount = parsed.FailCount;
+                    current.SkipCount = parsed.SkipCount;
+                    current.InconclusiveCount = parsed.InconclusiveCount;
+                    current.Duration = parsed.Duration;
+                    current.FailedTests = parsed.FailedTests;
+                    current.Message = null;
+                    current.StackTrace = null;
+                    current.Reason = null;
+                });
+
+                TryFlushPending();
+            }
+            catch
+            {
+            }
+        }
+
+        private static bool TryParseTestResults(string path, out ParsedTestRun parsed)
+        {
+            parsed = default;
+
+            var document = XDocument.Load(path, LoadOptions.None);
+            var root = document.Root;
+            if (root == null || !string.Equals(root.Name.LocalName, "test-run", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            parsed = new ParsedTestRun(
+                GetAttribute(root, "result"),
+                ParseIntAttribute(root, "passed"),
+                ParseIntAttribute(root, "failed"),
+                ParseIntAttribute(root, "skipped"),
+                ParseIntAttribute(root, "inconclusive"),
+                ParseDoubleAttribute(root, "duration"),
+                root
+                    .Descendants()
+                    .Where(element =>
+                        string.Equals(element.Name.LocalName, "test-case", StringComparison.Ordinal) &&
+                        GetAttribute(element, "result").StartsWith("Failed", StringComparison.OrdinalIgnoreCase))
+                    .Select(element => new TestFailureRecord
+                    {
+                        Name = GetAttribute(element, "name"),
+                        FullName = GetAttribute(element, "fullname"),
+                        Message = element.Element(XName.Get("failure"))?.Element(XName.Get("message"))?.Value ?? string.Empty,
+                        StackTrace = element.Element(XName.Get("failure"))?.Element(XName.Get("stack-trace"))?.Value ?? string.Empty
+                    })
+                    .ToList());
+
+            return true;
+        }
+
+        private static string GetAttribute(XElement element, string name)
+        {
+            return element.Attribute(name)?.Value ?? string.Empty;
+        }
+
+        private static int ParseIntAttribute(XElement element, string name)
+        {
+            return int.TryParse(GetAttribute(element, name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                ? value
+                : 0;
+        }
+
+        private static double ParseDoubleAttribute(XElement element, string name)
+        {
+            return double.TryParse(GetAttribute(element, name), NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var value)
+                ? value
+                : 0d;
         }
 
         private static void CompleteTerminalStatus(
@@ -553,6 +700,35 @@ namespace McpBridge.Editor
 
             public TestRunnerApi Api { get; }
             public TestCallbacks Callbacks { get; }
+        }
+
+        private readonly struct ParsedTestRun
+        {
+            public ParsedTestRun(
+                string resultState,
+                int passCount,
+                int failCount,
+                int skipCount,
+                int inconclusiveCount,
+                double duration,
+                List<TestFailureRecord> failedTests)
+            {
+                ResultState = resultState;
+                PassCount = passCount;
+                FailCount = failCount;
+                SkipCount = skipCount;
+                InconclusiveCount = inconclusiveCount;
+                Duration = duration;
+                FailedTests = failedTests;
+            }
+
+            public string ResultState { get; }
+            public int PassCount { get; }
+            public int FailCount { get; }
+            public int SkipCount { get; }
+            public int InconclusiveCount { get; }
+            public double Duration { get; }
+            public List<TestFailureRecord> FailedTests { get; }
         }
 
         private sealed class TestCallbacks : ScriptableObject, IErrorCallbacks

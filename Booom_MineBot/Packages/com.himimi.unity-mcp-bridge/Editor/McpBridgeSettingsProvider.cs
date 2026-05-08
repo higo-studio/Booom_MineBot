@@ -32,7 +32,7 @@ namespace McpBridge.Editor
             settings.IpcPort = EditorGUILayout.IntField("IPC 端口", settings.IpcPort);
             var bridgeChanged = EditorGUI.EndChangeCheck();
             EditorGUILayout.HelpBox(
-                "启用桥接时会自动将 Application.runInBackground 设为 true，这样 Unity 窗口失去焦点后仍能继续处理 MCP 请求；停用桥接后会恢复之前的值。",
+                "启用桥接时会自动将 Application.runInBackground 设为 true，并在失焦时持续 Queue Player Loop，这样 Unity 窗口在后台也能继续处理 MCP 请求和运行局内逻辑；停用桥接后会恢复之前的值。",
                 MessageType.None);
 
             EditorGUILayout.Space();

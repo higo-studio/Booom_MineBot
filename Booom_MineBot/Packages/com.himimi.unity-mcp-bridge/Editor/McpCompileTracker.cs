@@ -431,6 +431,16 @@ namespace McpBridge.Editor
             ClearState();
         }
 
+        public static string GetPendingRequestId()
+        {
+            lock (s_Gate)
+            {
+                return s_State != null && !s_State.Finished
+                    ? s_State.RequestId
+                    : null;
+            }
+        }
+
         private static bool HasTimedOut()
         {
             CompileState state;

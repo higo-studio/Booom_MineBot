@@ -41,6 +41,6 @@ This package embeds the Unity-side MCP bridge and its external Streamable HTTP h
 - The bridge now scopes its default HTTP/IPC ports and default Codex server name from the primary project path, so multiple Unity repositories on the same machine do not share one MCP endpoint by default.
 - The host rejects Unity connections whose declared `primaryProjectPath` does not match the host's own primary project path. Mirror instances from the same project are accepted; unrelated projects are ignored.
 - The editor currently selects `osx-arm64`, `osx-x64`, or `win-x64` under `Published~/host` based on the running Unity editor platform, and falls back to a framework-dependent `dotnet + dll` launch only when no matching native/self-contained publish is present.
-- When the bridge is enabled, the editor forces `Application.runInBackground = true` and restores the previous value when the bridge is disabled, so update-driven MCP flows keep running even if the Unity window loses focus.
+- When the bridge is enabled, the editor forces `Application.runInBackground = true`, continuously queues player loop updates while unfocused, and restores the previous run-in-background value when the bridge is disabled so MCP requests and in-editor gameplay logic continue running in the background.
 - Unity gameplay script validation should go through `unity.compile`, not `dotnet build`.
 - During Play Mode transitions and domain reload, reconnect-aware requests wait for the Unity service to come back online until their request timeout expires.
