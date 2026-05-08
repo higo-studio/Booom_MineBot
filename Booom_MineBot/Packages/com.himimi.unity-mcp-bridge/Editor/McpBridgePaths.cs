@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using UnityEditor.PackageManager;
 using UnityEngine;
@@ -46,5 +47,12 @@ namespace McpBridge.Editor
 
         public static string HostPublishRoot =>
             Path.GetFullPath(Path.Combine(PackageRoot, "Published~/host"));
+
+        public static string TestResultsPath =>
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                Application.companyName,
+                Application.productName,
+                "TestResults.xml");
     }
 }

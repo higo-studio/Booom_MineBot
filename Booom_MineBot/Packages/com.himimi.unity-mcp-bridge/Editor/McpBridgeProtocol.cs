@@ -85,10 +85,11 @@ namespace McpBridge.Editor
         public string PrimaryProjectPath;
         public string ProjectName;
         public string ProductName;
+        public List<string> PendingRequestIds = new();
 
         public Dictionary<string, object> ToDictionary()
         {
-            return new Dictionary<string, object>
+            var dictionary = new Dictionary<string, object>
             {
                 ["instanceId"] = InstanceId,
                 ["processId"] = ProcessId,
@@ -97,6 +98,13 @@ namespace McpBridge.Editor
                 ["projectName"] = ProjectName,
                 ["productName"] = ProductName
             };
+
+            if (PendingRequestIds != null)
+            {
+                dictionary["pendingRequestIds"] = PendingRequestIds.ConvertAll(id => (object)id);
+            }
+
+            return dictionary;
         }
 
         public static UnityInstanceInfo FromDictionary(Dictionary<string, object> dictionary)
@@ -108,7 +116,10 @@ namespace McpBridge.Editor
                 ProjectPath = dictionary.TryGetValue("projectPath", out var projectPath) ? projectPath as string : null,
                 PrimaryProjectPath = dictionary.TryGetValue("primaryProjectPath", out var primaryProjectPath) ? primaryProjectPath as string : null,
                 ProjectName = dictionary.TryGetValue("projectName", out var projectName) ? projectName as string : null,
-                ProductName = dictionary.TryGetValue("productName", out var productName) ? productName as string : null
+                ProductName = dictionary.TryGetValue("productName", out var productName) ? productName as string : null,
+                PendingRequestIds = dictionary.TryGetValue("pendingRequestIds", out var pendingRequestIds) && pendingRequestIds is List<object> pendingObjects
+                    ? pendingObjects.ConvertAll(candidate => candidate?.ToString()).FindAll(candidate => !string.IsNullOrWhiteSpace(candidate))
+                    : new List<string>()
             };
         }
     }
@@ -160,6 +171,7 @@ namespace McpBridge.Editor
     {
         public string RequestId;
         public string Mode;
+        public long CreatedUtcTicks;
         public bool Started;
         public bool Finished;
         public bool Succeeded;

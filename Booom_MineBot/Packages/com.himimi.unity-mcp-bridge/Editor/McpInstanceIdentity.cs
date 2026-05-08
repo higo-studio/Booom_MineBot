@@ -12,7 +12,7 @@ namespace McpBridge.Editor
         {
             if (s_Info != null)
             {
-                return s_Info;
+                return UpdatePendingRequestIds(s_Info);
             }
 
             var projectPath = Path.GetFullPath(Directory.GetCurrentDirectory());
@@ -26,7 +26,26 @@ namespace McpBridge.Editor
                 ProjectName = Path.GetFileName(projectPath),
                 ProductName = Application.productName
             };
-            return s_Info;
+            return UpdatePendingRequestIds(s_Info);
+        }
+
+        private static UnityInstanceInfo UpdatePendingRequestIds(UnityInstanceInfo info)
+        {
+            info.PendingRequestIds = new System.Collections.Generic.List<string>();
+
+            var compileRequestId = McpCompileTracker.GetPendingRequestId();
+            if (!string.IsNullOrWhiteSpace(compileRequestId))
+            {
+                info.PendingRequestIds.Add(compileRequestId);
+            }
+
+            var playModeTestRequestId = McpPlayModeTestTracker.GetPendingRequestId();
+            if (!string.IsNullOrWhiteSpace(playModeTestRequestId))
+            {
+                info.PendingRequestIds.Add(playModeTestRequestId);
+            }
+
+            return info;
         }
 
         public static bool IsPrimaryInstance()
