@@ -31,7 +31,9 @@ namespace Minebot.Tests.PlayMode
             yield return null;
 
             Assert.That(loader.RuntimeContext, Is.Not.Null);
+            Assert.That(loader.RuntimeContext.Container, Is.Not.Null);
             Assert.That(loader.Services, Is.Not.Null);
+            Assert.That(MinebotServices.CurrentContainer, Is.SameAs(loader.RuntimeContext.Container));
             Assert.That(MinebotServices.Current, Is.SameAs(loader.Services));
             Object.Destroy(root);
         }
@@ -86,15 +88,19 @@ namespace Minebot.Tests.PlayMode
 
             Assert.That(loader, Is.Not.Null);
             Assert.That(loader.RuntimeContext, Is.Not.Null);
+            Assert.That(loader.RuntimeContext.Container, Is.Not.Null);
             Assert.That(loader.Services, Is.Not.Null);
             Assert.That(presentation, Is.Not.Null);
             Assert.That(presentation.Services, Is.SameAs(loader.Services));
             Assert.That(presentation.ActiveBootstrapConfig, Is.EqualTo(loader.Config));
+            Assert.That(MinebotRuntimeDiscovery.TryResolveContainer(out MinebotContainer discoveredContainer), Is.True);
+            Assert.That(discoveredContainer, Is.SameAs(loader.RuntimeContext.Container));
             Assert.That(MinebotRuntimeDiscovery.TryResolveRuntimeServices(out RuntimeServiceRegistry discoveredServices, out BootstrapConfig discoveredConfig), Is.True);
             Assert.That(discoveredServices, Is.SameAs(loader.Services));
             Assert.That(discoveredConfig, Is.EqualTo(loader.Config));
             Assert.That(MinebotRuntimeDiscovery.TryResolveBootstrapConfig(out BootstrapConfig discoveredOnlyConfig), Is.True);
             Assert.That(discoveredOnlyConfig, Is.EqualTo(loader.Config));
+            Assert.That(MinebotServices.CurrentContainer, Is.SameAs(loader.RuntimeContext.Container));
             Assert.That(MinebotServices.Current, Is.SameAs(loader.Services));
         }
 

@@ -6,31 +6,28 @@ namespace Minebot.Bootstrap
     [MinebotRuntimeTag(MinebotRuntimeTag.Provider)]
     public sealed class MinebotRuntimeContext : MonoBehaviour
     {
+        public MinebotContainer Container { get; private set; }
         public RuntimeServiceRegistry Services { get; private set; }
         public BootstrapConfig Config { get; private set; }
-        public bool IsInitialized => Services != null;
+        public bool IsInitialized => Container != null;
 
         public RuntimeServiceRegistry Initialize(BootstrapConfig config)
         {
-            if (Services != null)
+            if (Container != null)
             {
                 return Services;
             }
 
             Config = config;
-            Services = RuntimeServiceFactory.Create(config);
-            MinebotServices.SetCurrent(Services);
+            Container = RuntimeServiceFactory.CreateContainer(config);
+            Services = Container.Resolve<RuntimeServiceRegistry>();
+            MinebotServices.SetCurrentContainer(Container);
             return Services;
         }
 
-        public RuntimeServiceRegistry GetServices()
+        public MinebotContainer GetContainer()
         {
-            return Services;
-        }
-
-        public BootstrapConfig GetBootstrapConfig()
-        {
-            return Config;
+            return Container;
         }
 
         public void InjectIntoScene(Scene scene)
@@ -53,7 +50,7 @@ namespace Minebot.Bootstrap
                 return;
             }
 
-            MinebotRuntimeDiscovery.InjectIntoHierarchy(root, Services, Config);
+            MinebotRuntimeDiscovery.InjectIntoHierarchy(root, Container);
         }
     }
 }
