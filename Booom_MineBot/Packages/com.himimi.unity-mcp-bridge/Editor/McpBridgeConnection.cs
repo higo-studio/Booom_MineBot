@@ -43,6 +43,7 @@ namespace McpBridge.Editor
 
         public static void EnsureConnected()
         {
+            McpBridgeBackgroundExecution.RefreshNow();
             var settings = McpBridgeSettings.instance;
             settings.EnsureProjectScopedDefaults();
             if (!settings.Enabled) return;
