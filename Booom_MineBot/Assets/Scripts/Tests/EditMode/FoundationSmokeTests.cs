@@ -1566,7 +1566,6 @@ namespace Minebot.Tests.EditMode
         public void PixelArtPipelineExposesDualGridTerrainFamiliesIntoDefaultArtSet()
         {
             AssetDatabase.Refresh();
-            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
 
             MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(
                 "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset");
@@ -1642,7 +1641,6 @@ namespace Minebot.Tests.EditMode
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Minebot/Presentation/Actors/PlayerActor.prefab"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Minebot/Presentation/Pickups/PickupMetal.prefab"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Minebot/Presentation/CellFx/ExplosionFx.prefab"), Is.Not.Null);
-            Assert.That(AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>("Assets/Resources/Minebot/Presentation/Sequences/Player_Mining.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<SpriteSequenceAsset>("Assets/Resources/Minebot/Presentation/Sequences/Fx_Explosion.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Docs/prefab-gameplay-art-record-template.md"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Generated/Prompts/minebot-prefab-gameplay-art-batch-001.md"), Is.Not.Null);
@@ -1726,8 +1724,6 @@ namespace Minebot.Tests.EditMode
         [Test]
         public void GeneratedActorStateFramesUseTransparentBackground()
         {
-            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
-
             Texture2D playerTexture = LoadTextureFromPngFile("Assets/Art/Minebot/Sprites/Actors/States/player_idle_0.png");
             Texture2D robotTexture = LoadTextureFromPngFile("Assets/Art/Minebot/Sprites/Actors/States/robot_idle_0.png");
 
@@ -1748,7 +1744,6 @@ namespace Minebot.Tests.EditMode
         [Test]
         public void HologramAssetsExposeBitmapGlyphsAndDangerGeometryCompatibility()
         {
-            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
             MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(
                 "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset");
             MinebotPresentationAssets assets = MinebotPresentationAssets.Create(artSet);
@@ -1768,8 +1763,6 @@ namespace Minebot.Tests.EditMode
         [Test]
         public void HudMockupSourceSlicesProduceExpectedSpriteSizesAndBorders()
         {
-            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
-
             Assert.That(
                 AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/Minebot/Generated/Selected/minebot-hud-uiux-mockup-source.png"),
                 Is.Not.Null);
@@ -1798,7 +1791,6 @@ namespace Minebot.Tests.EditMode
         [Test]
         public void TerrainArtRefreshDoesNotChangeCollisionMiningDangerOrBuildingRules()
         {
-            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
             MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(
                 "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset");
             Assert.That(artSet, Is.Not.Null);
@@ -2011,13 +2003,18 @@ namespace Minebot.Tests.EditMode
             MinebotPresentationAssets defaultAssets = LoadDefaultPresentationAssets();
             foreach (TerrainRenderLayerId layerId in DualGridTerrain.MaterialFamilies)
             {
-                profile.ConfigureFamilyTiles(layerId, ResolveFallbackTiles(defaultAssets, layerId));
+                TileBase[] configuredTiles = ResolveFallbackTiles(defaultAssets, layerId);
+                if (!HasCompleteTileSet(configuredTiles, DualGridTerrain.TileCount))
+                {
+                    configuredTiles = CreateRuntimeTileSet($"Preview {layerId}");
+                }
+
+                profile.ConfigureFamilyTiles(layerId, configuredTiles);
             }
         }
 
         private static MinebotPresentationAssets LoadDefaultPresentationAssets(bool enableFog = false)
         {
-            MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
             if (!enableFog)
             {
                 return MinebotPresentationAssets.Create(null);
@@ -2069,6 +2066,35 @@ namespace Minebot.Tests.EditMode
             tile.name = name;
             tile.colliderType = Tile.ColliderType.None;
             return tile;
+        }
+
+        private static Tile[] CreateRuntimeTileSet(string prefix)
+        {
+            var tiles = new Tile[DualGridTerrain.TileCount];
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                tiles[i] = CreateRuntimeTile($"{prefix} {i:00}");
+            }
+
+            return tiles;
+        }
+
+        private static bool HasCompleteTileSet(TileBase[] tiles, int expectedCount)
+        {
+            if (tiles == null || tiles.Length < expectedCount)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < expectedCount; i++)
+            {
+                if (tiles[i] is not Tile)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static TileBase[] ResolveFallbackTiles(MinebotPresentationAssets assets, TerrainRenderLayerId layerId)

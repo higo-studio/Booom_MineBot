@@ -12,36 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c36918a755bac4dd280982b2579ab416, type: 3}
   m_Name: UpgradePool
   m_EditorClassIdentifier: 
-  upgrades:
-  - id: health
-    displayName: "\u751F\u547D\u6269\u5BB9"
-    drillTierDelta: 0
-    maxHealthDelta: 1
-    miningDamageDelta: 0
-    moveSpeedMultiplierDelta: 0
-    markerCapacityDelta: 0
-    weight: 1
-  - id: drill
-    displayName: "\u94BB\u5934\u5347\u7EA7"
-    drillTierDelta: 1
-    maxHealthDelta: 0
-    miningDamageDelta: 1
-    moveSpeedMultiplierDelta: 0
-    markerCapacityDelta: 0
-    weight: 1
-  - id: move
-    displayName: "\u79FB\u52A8\u63D0\u901F"
-    drillTierDelta: 0
-    maxHealthDelta: 0
-    miningDamageDelta: 0
-    moveSpeedMultiplierDelta: 0.15
-    markerCapacityDelta: 0
-    weight: 1
-  - id: marker
-    displayName: "\u6807\u8BB0\u6269\u5BB9"
-    drillTierDelta: 0
-    maxHealthDelta: 0
-    miningDamageDelta: 0
-    moveSpeedMultiplierDelta: 0
-    markerCapacityDelta: 1
-    weight: 1
+  upgrades: []
