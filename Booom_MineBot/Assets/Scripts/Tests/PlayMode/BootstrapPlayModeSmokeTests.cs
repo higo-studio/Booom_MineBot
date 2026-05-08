@@ -3,7 +3,9 @@ using Minebot.Automation;
 using Minebot.Bootstrap;
 using Minebot.Common;
 using Minebot.GridMining;
+using Minebot.Presentation;
 using Minebot.Progression;
+using Minebot.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -17,17 +19,20 @@ namespace Minebot.Tests.PlayMode
         public void TearDown()
         {
             MinebotServices.ResetForTests();
+            PlayerPrefs.DeleteKey("minebot.local_leaderboard.v1");
         }
 
         [UnityTest]
         public IEnumerator BootstrapSceneLoaderInitializesServices()
         {
             var root = new GameObject("Bootstrap Smoke");
-            root.AddComponent<BootstrapSceneLoader>();
+            BootstrapSceneLoader loader = root.AddComponent<BootstrapSceneLoader>();
 
             yield return null;
 
-            Assert.That(MinebotServices.IsInitialized, Is.True);
+            Assert.That(loader.RuntimeContext, Is.Not.Null);
+            Assert.That(loader.Services, Is.Not.Null);
+            Assert.That(MinebotServices.Current, Is.SameAs(loader.Services));
             Object.Destroy(root);
         }
 
@@ -37,7 +42,7 @@ namespace Minebot.Tests.PlayMode
             yield return SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Single);
             yield return LoadGameplayFromBootstrap();
 
-            RuntimeServiceRegistry services = MinebotServices.Current;
+            RuntimeServiceRegistry services = ResolveRuntimeServices();
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Gameplay"));
             Assert.That(services, Is.Not.Null);
 
@@ -68,6 +73,49 @@ namespace Minebot.Tests.PlayMode
             Assert.That(services.RobotFactory.TryProduce(services.Grid.PlayerSpawn, out RobotState robot), Is.True);
             Assert.That(robot, Is.Not.Null);
             Assert.That(services.Robots.Count, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayPresentationReceivesInjectedServicesFromRuntimeContext()
+        {
+            yield return SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Single);
+            yield return LoadGameplayFromBootstrap();
+
+            BootstrapSceneLoader loader = Object.FindAnyObjectByType<BootstrapSceneLoader>();
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+
+            Assert.That(loader, Is.Not.Null);
+            Assert.That(loader.RuntimeContext, Is.Not.Null);
+            Assert.That(loader.Services, Is.Not.Null);
+            Assert.That(presentation, Is.Not.Null);
+            Assert.That(presentation.Services, Is.SameAs(loader.Services));
+            Assert.That(presentation.ActiveBootstrapConfig, Is.EqualTo(loader.Config));
+            Assert.That(MinebotServices.Current, Is.SameAs(loader.Services));
+        }
+
+        [UnityTest]
+        public IEnumerator BootstrapStartPageUsesPrefabUiAndCanLoadGameplay()
+        {
+            LocalLeaderboardService.TryAddEntry("AAA", 123, 7, out _);
+
+            yield return SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Single);
+            yield return null;
+
+            BootstrapSceneLoader loader = Object.FindAnyObjectByType<BootstrapSceneLoader>();
+            Assert.That(loader, Is.Not.Null);
+            Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Bootstrap"));
+
+            MinebotBootstrapMenuView menu = Object.FindAnyObjectByType<MinebotBootstrapMenuView>();
+            Assert.That(menu, Is.Not.Null);
+            Assert.That(menu.StartButton, Is.Not.Null);
+            Assert.That(menu.QuitButton, Is.Not.Null);
+            Assert.That(menu.LeaderboardEntriesText, Is.Not.Null);
+            Assert.That(menu.LeaderboardEntriesText.text, Does.Contain("AAA"));
+
+            menu.StartButton.onClick.Invoke();
+            yield return WaitUntilSceneIsActive(loader.Config != null ? loader.Config.GameplaySceneName : "Gameplay");
+
+            Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo(loader.Config != null ? loader.Config.GameplaySceneName : "Gameplay"));
         }
 
         private static IEnumerator WaitUntilSceneIsActive(string sceneName)
@@ -178,6 +226,17 @@ namespace Minebot.Tests.PlayMode
         private static GridPosition Offset(GridPosition origin, int x, int y)
         {
             return new GridPosition(origin.X + x, origin.Y + y);
+        }
+
+        private static RuntimeServiceRegistry ResolveRuntimeServices()
+        {
+            BootstrapSceneLoader loader = Object.FindAnyObjectByType<BootstrapSceneLoader>();
+            if (loader != null && loader.Services != null)
+            {
+                return loader.Services;
+            }
+
+            return MinebotServices.Current;
         }
     }
 }

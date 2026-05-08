@@ -18,7 +18,7 @@ using UnityEngine.UI;
 namespace Minebot.Presentation
 {
     [DefaultExecutionOrder(-50)]
-    public sealed class MinebotGameplayPresentation : MonoBehaviour
+    public sealed class MinebotGameplayPresentation : MonoBehaviour, IMinebotServiceConsumer
     {
         private static readonly ProfilerMarker RefreshAfterTerrainChangedProfilerMarker = new("Minebot.GameplayPresentation.RefreshAfterTerrainChanged");
         private static readonly ProfilerMarker RefreshAfterTerrainChangedDangerProfilerMarker = new("Minebot.GameplayPresentation.RefreshAfterTerrainChanged.DangerZones");
@@ -140,6 +140,8 @@ namespace Minebot.Presentation
         public bool IsGameOver => services != null && services.Vitals.IsDead;
         public bool IsUsingConfiguredArtSet => assets != null && assets.IsUsingConfiguredArtSet;
         public GameplayInteractionMode InteractionMode => interactionMode;
+        public RuntimeServiceRegistry Services => services;
+        public BootstrapConfig ActiveBootstrapConfig => bootstrapConfig;
         internal MinebotGameplayAudioController AudioController => audioController;
         public Vector2 PlayerWorldPosition => playerFreeform != null
             ? playerFreeform.WorldPosition
@@ -170,6 +172,49 @@ namespace Minebot.Presentation
             {
                 currentPlayerFacingDirection = ActorFacingDirection.Front;
                 currentPlayerFacingLeft = false;
+            }
+        }
+
+        public void InjectServices(RuntimeServiceRegistry injectedServices, BootstrapConfig injectedConfig)
+        {
+            if (injectedServices == null)
+            {
+                return;
+            }
+
+            if (ReferenceEquals(services, injectedServices))
+            {
+                if (bootstrapConfig == null && injectedConfig != null)
+                {
+                    bootstrapConfig = injectedConfig;
+                }
+
+                InjectKnownServiceConsumers();
+                return;
+            }
+
+            if (isSubscribed)
+            {
+                UnsubscribeFromServices();
+            }
+
+            services = injectedServices;
+            if (injectedConfig != null)
+            {
+                bootstrapConfig = injectedConfig;
+            }
+
+            InitializeServiceBackedState();
+            InjectKnownServiceConsumers();
+
+            if (isActiveAndEnabled)
+            {
+                SubscribeToServices();
+            }
+
+            if (gridPresentation != null)
+            {
+                RefreshAll();
             }
         }
 
@@ -274,58 +319,6 @@ namespace Minebot.Presentation
             {
                 RefreshHud();
             }
-        }
-
-        private void OnGUI()
-        {
-            if (services == null || !services.Vitals.IsDead)
-            {
-                return;
-            }
-
-            Rect panel = new Rect(
-                Mathf.Max(24f, (Screen.width - 520f) * 0.5f),
-                Mathf.Max(24f, Screen.height - 360f),
-                Mathf.Min(520f, Screen.width - 48f),
-                320f);
-
-            GUILayout.BeginArea(panel, GUI.skin.window);
-            GUILayout.Label($"本局得分：{services.Scores?.CurrentScore ?? 0}    存活波次：{services.Waves.BestSurvivedWave}");
-
-            if (!leaderboardSubmitted)
-            {
-                GUILayout.Space(8f);
-                GUILayout.Label("输入名字保存本地排行榜：");
-                leaderboardNameInput = GUILayout.TextField(leaderboardNameInput ?? string.Empty, 16);
-                if (GUILayout.Button("保存成绩"))
-                {
-                    bool accepted = LocalLeaderboardService.TryAddEntry(
-                        leaderboardNameInput,
-                        services.Scores?.CurrentScore ?? 0,
-                        services.Waves.BestSurvivedWave,
-                        out int rank);
-                    leaderboardSubmitted = true;
-                    leaderboardStatus = accepted
-                        ? $"已保存到本地排行榜，第 {rank + 1} 名。"
-                        : "成绩未进入前十，但本地排行榜已刷新。";
-                }
-            }
-            else if (!string.IsNullOrEmpty(leaderboardStatus))
-            {
-                GUILayout.Space(8f);
-                GUILayout.Label(leaderboardStatus);
-            }
-
-            GUILayout.Space(12f);
-            GUILayout.Label("本地前十");
-            IReadOnlyList<LocalLeaderboardEntry> entries = LocalLeaderboardService.GetEntries();
-            for (int i = 0; i < entries.Count; i++)
-            {
-                LocalLeaderboardEntry entry = entries[i];
-                GUILayout.Label($"{i + 1}. {entry.playerName}  {entry.score} 分  波次 {entry.survivedWave}");
-            }
-
-            GUILayout.EndArea();
         }
 
         public void RefreshAll()
@@ -697,48 +690,89 @@ namespace Minebot.Presentation
                 return;
             }
 
-            // 如果服务已被 BootstrapSceneLoader 正确初始化，直接使用
-            if (MinebotServices.IsInitialized)
+            if (TryAdoptRuntimeContext())
             {
-                services = MinebotServices.Current;
-                repairStationPosition = PickFacilityPosition(GridPosition.Left);
-                robotFactoryPosition = PickFacilityPosition(GridPosition.Right);
-                availableBuildingDefinitions = ResolveBuildingDefinitions();
-                selectedBuildingDefinition = availableBuildingDefinitions.Length > 0 ? availableBuildingDefinitions[0] : null;
-                EnsureAudioController();
                 return;
             }
 
-            // 只有在允许自动初始化且服务未初始化时才初始化
             if (autoInitializeServices)
             {
-                // 优先使用序列化配置的 BootstrapConfig，如果没有则尝试自动查找
                 BootstrapConfig config = ResolveBootstrapConfig();
                 Debug.Log($"[MinebotGameplayPresentation] 自动初始化服务，使用配置: {(config != null ? config.name : "null")}");
-                MinebotServices.Initialize(config);
-                
-                if (MinebotServices.IsInitialized)
+                RuntimeServiceRegistry runtimeServices = RuntimeServiceFactory.Create(config);
+                MinebotServices.SetCurrent(runtimeServices);
+                InjectServices(runtimeServices, config);
+            }
+        }
+
+        private bool TryAdoptRuntimeContext()
+        {
+            MinebotRuntimeContext context = FindAnyObjectByType<MinebotRuntimeContext>();
+            if (context == null || !context.IsInitialized)
+            {
+                return false;
+            }
+
+            InjectServices(context.Services, context.Config);
+            return services != null;
+        }
+
+        private void InitializeServiceBackedState()
+        {
+            repairStationPosition = PickFacilityPosition(GridPosition.Left);
+            robotFactoryPosition = PickFacilityPosition(GridPosition.Right);
+            availableBuildingDefinitions = ResolveBuildingDefinitions();
+            if (selectedBuildingDefinition == null && availableBuildingDefinitions.Length > 0)
+            {
+                selectedBuildingDefinition = availableBuildingDefinitions[0];
+            }
+
+            EnsureAudioController();
+        }
+
+        private void InjectKnownServiceConsumers()
+        {
+            if (services == null)
+            {
+                return;
+            }
+
+            GameplayInputController controller = ResolveGameplayInputController();
+            if (controller != null)
+            {
+                controller.InjectServices(services, bootstrapConfig);
+            }
+
+            MonoBehaviour[] behaviours = GetComponentsInChildren<MonoBehaviour>(true);
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                if (ReferenceEquals(behaviours[i], this))
                 {
-                    services = MinebotServices.Current;
-                    repairStationPosition = PickFacilityPosition(GridPosition.Left);
-                    robotFactoryPosition = PickFacilityPosition(GridPosition.Right);
-                    availableBuildingDefinitions = ResolveBuildingDefinitions();
-                    selectedBuildingDefinition = availableBuildingDefinitions.Length > 0 ? availableBuildingDefinitions[0] : null;
-                    EnsureAudioController();
+                    continue;
+                }
+
+                if (behaviours[i] is IMinebotServiceConsumer consumer)
+                {
+                    consumer.InjectServices(services, bootstrapConfig);
                 }
             }
         }
 
         private BootstrapConfig ResolveBootstrapConfig()
         {
-            // 1. 如果已经序列化了配置，优先使用
             if (bootstrapConfig != null)
             {
                 Debug.Log("[MinebotGameplayPresentation] 使用序列化的配置");
                 return bootstrapConfig;
             }
 
-            // 2. 尝试在场景中找到 BootstrapSceneLoader 的配置
+            MinebotRuntimeContext context = FindAnyObjectByType<MinebotRuntimeContext>();
+            if (context != null && context.Config != null)
+            {
+                Debug.Log("[MinebotGameplayPresentation] 使用运行时上下文配置");
+                return context.Config;
+            }
+
             BootstrapSceneLoader loader = FindAnyObjectByType<BootstrapSceneLoader>();
             if (loader != null && loader.Config != null)
             {
@@ -799,6 +833,7 @@ namespace Minebot.Presentation
             // EnsureDefaultFacilityBuildings(); // 已屏蔽开局建筑生成
             EnsureHud();
             EnsureEventSystem();
+            InjectKnownServiceConsumers();
         }
 
         private static FreeformActorController EnsureFreeformActor(GameObject target, GridPosition position)
@@ -1949,13 +1984,7 @@ namespace Minebot.Presentation
                     services.Waves.WaveInterval);
             }
 
-            if (hudView.GameOverPanel != null)
-            {
-                hudView.GameOverPanel.SetVisible(services.Vitals.IsDead);
-                hudView.GameOverPanel.SetText(services.Vitals.IsDead
-                    ? $"任务失败\n本局得分 {services.Scores?.CurrentScore ?? 0}"
-                    : string.Empty);
-            }
+            RefreshGameOverPanel();
 
             DisableMinimapPanel();
             RefreshUpgradePanel();
@@ -1973,6 +2002,63 @@ namespace Minebot.Presentation
             hudView.MinimapPanel.SetTexture(null);
             hudView.MinimapPanel.SetSummary(string.Empty);
             hudView.MinimapPanel.SetVisible(false);
+        }
+
+        private void RefreshGameOverPanel()
+        {
+            if (hudView == null || hudView.GameOverPanel == null)
+            {
+                return;
+            }
+
+            bool isDead = services != null && services.Vitals.IsDead;
+            MinebotHudGameOverPanelView panel = hudView.GameOverPanel;
+            panel.SetVisible(isDead);
+            if (!isDead)
+            {
+                panel.SetSummary(string.Empty);
+                panel.SetStatus(string.Empty);
+                panel.SetLeaderboardSummary(string.Empty);
+                panel.SetSubmissionEnabled(false);
+                return;
+            }
+
+            panel.BindNameChanged(value => leaderboardNameInput = value);
+            panel.BindSubmit(HandleLeaderboardSubmit);
+            panel.SetSummary(
+                $"本局得分 {services.Scores?.CurrentScore ?? 0}\n" +
+                $"存活波次 {services.Waves.BestSurvivedWave}");
+            panel.SetPrompt("输入名字保存本地排行榜：");
+            panel.SetNameInput(leaderboardNameInput);
+            panel.SetStatus(leaderboardSubmitted ? leaderboardStatus : string.Empty);
+            panel.SetLeaderboardSummary(BuildLeaderboardSummary());
+            panel.SetSubmissionEnabled(!leaderboardSubmitted);
+        }
+
+        private void HandleLeaderboardSubmit(string rawName)
+        {
+            if (services == null || !services.Vitals.IsDead || leaderboardSubmitted)
+            {
+                return;
+            }
+
+            leaderboardNameInput = rawName;
+            bool accepted = LocalLeaderboardService.TryAddEntry(
+                leaderboardNameInput,
+                services.Scores?.CurrentScore ?? 0,
+                services.Waves.BestSurvivedWave,
+                out int rank);
+            leaderboardSubmitted = true;
+            leaderboardStatus = accepted
+                ? $"已保存到本地排行榜，第 {rank + 1} 名。"
+                : "成绩未进入前十，但本地排行榜已刷新。";
+            RefreshHud();
+        }
+
+        private static string BuildLeaderboardSummary()
+        {
+            IReadOnlyList<LocalLeaderboardEntry> entries = LocalLeaderboardService.GetEntries();
+            return LocalLeaderboardSummaryFormatter.Format(entries);
         }
 
         private string BuildInteractionText()

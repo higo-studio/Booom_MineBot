@@ -24,6 +24,7 @@ namespace Minebot.Tests.PlayMode
         public void TearDown()
         {
             MinebotServices.ResetForTests();
+            PlayerPrefs.DeleteKey("minebot.local_leaderboard.v1");
         }
 
         [UnityTest]
@@ -33,8 +34,9 @@ namespace Minebot.Tests.PlayMode
             yield return null;
 
             MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
-            RuntimeServiceRegistry services = MinebotServices.Current;
+            RuntimeServiceRegistry services = presentation != null ? presentation.Services : ResolveRuntimeServices();
             Assert.That(presentation, Is.Not.Null);
+            Assert.That(presentation.Services, Is.Not.Null);
             Assert.That(presentation.IsUsingConfiguredArtSet, Is.True);
             Assert.That(Camera.main, Is.Not.Null);
             Assert.That(Object.FindAnyObjectByType<GameplayInputController>(), Is.Not.Null);
@@ -95,10 +97,12 @@ namespace Minebot.Tests.PlayMode
             for (int i = 0; i < terrainFamilies.Count; i++)
             {
                 TerrainRenderLayerId layerId = DualGridTerrain.OrderedLayers[i];
+                Vector3 expectedDisplayOffset = layerId == TerrainRenderLayerId.Floor ? Vector3.zero : DualGridTerrain.DisplayOffset;
+                int expectedSortingOrder = layerId == TerrainRenderLayerId.Floor ? 0 : 10;
                 Assert.That(terrainFamilies[i], Is.Not.Null);
                 Assert.That(terrainFamilies[i].name, Is.EqualTo(DualGridTerrain.GetTilemapName(layerId)));
-                Assert.That(terrainFamilies[i].transform.localPosition, Is.EqualTo(DualGridTerrain.DisplayOffset));
-                Assert.That(terrainFamilies[i].GetComponent<TilemapRenderer>().sortingOrder, Is.EqualTo(DualGridTerrain.GetSortingOrder(layerId)));
+                Assert.That(terrainFamilies[i].transform.localPosition, Is.EqualTo(expectedDisplayOffset));
+                Assert.That(terrainFamilies[i].GetComponent<TilemapRenderer>().sortingOrder, Is.EqualTo(expectedSortingOrder));
             }
 
             GameObject fogNearObject = GameObject.Find(MinebotGameplayPresentation.FogNearTilemapName);
@@ -195,6 +199,7 @@ namespace Minebot.Tests.PlayMode
 
             RuntimeServiceRegistry services = MinebotServices.Current;
             MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            MinebotHudView hudView = Object.FindAnyObjectByType<MinebotHudView>();
             GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
             GridPosition start = services.PlayerMiningState.Position;
             GridPosition minedPosition = new GridPosition(start.X, start.Y + 2);
@@ -432,6 +437,7 @@ namespace Minebot.Tests.PlayMode
 
             RuntimeServiceRegistry services = MinebotServices.Current;
             MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            MinebotHudView hudView = Object.FindAnyObjectByType<MinebotHudView>();
             GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
             FreeformActorController freeform = GameObject.Find(MinebotGameplayPresentation.PlayerViewName).GetComponent<FreeformActorController>();
             GridPosition start = services.PlayerMiningState.Position;
@@ -461,6 +467,7 @@ namespace Minebot.Tests.PlayMode
 
             RuntimeServiceRegistry services = MinebotServices.Current;
             MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            MinebotHudView hudView = Object.FindAnyObjectByType<MinebotHudView>();
             GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
             GridPosition target = services.Grid.PlayerSpawn + GridPosition.Up;
 
@@ -601,6 +608,7 @@ namespace Minebot.Tests.PlayMode
 
             RuntimeServiceRegistry services = MinebotServices.Current;
             MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            MinebotHudView hudView = Object.FindAnyObjectByType<MinebotHudView>();
             GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
 
             services.Experience.AddExperience(services.Experience.NextThreshold);
@@ -733,6 +741,10 @@ namespace Minebot.Tests.PlayMode
             presentation.RefreshAll();
             yield return null;
             Assert.That(presentation.IsGameOver, Is.True);
+            Assert.That(hudView, Is.Not.Null);
+            Assert.That(hudView.GameOverPanel, Is.Not.Null);
+            Assert.That(hudView.GameOverPanel.NameInputField, Is.Not.Null);
+            Assert.That(hudView.GameOverPanel.SubmitButton, Is.Not.Null);
             int robotsBeforeGameOverClick = services.Robots.Count;
             int healthBeforeGameOverClick = services.Vitals.CurrentHealth;
             repairButton.onClick.Invoke();
@@ -740,6 +752,12 @@ namespace Minebot.Tests.PlayMode
             yield return null;
             Assert.That(services.Vitals.CurrentHealth, Is.EqualTo(healthBeforeGameOverClick));
             Assert.That(services.Robots.Count, Is.EqualTo(robotsBeforeGameOverClick));
+            hudView.GameOverPanel.SetNameInput("BOT");
+            hudView.GameOverPanel.SubmitButton.onClick.Invoke();
+            yield return null;
+            Assert.That(LocalLeaderboardService.GetEntries().Count, Is.EqualTo(1));
+            Assert.That(LocalLeaderboardService.GetEntries()[0].playerName, Is.EqualTo("BOT"));
+            Assert.That(hudView.GameOverPanel.StatusText.text, Does.Contain("已保存"));
         }
 
         [UnityTest]
@@ -1145,6 +1163,23 @@ namespace Minebot.Tests.PlayMode
             }
 
             return count;
+        }
+
+        private static RuntimeServiceRegistry ResolveRuntimeServices()
+        {
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            if (presentation != null && presentation.Services != null)
+            {
+                return presentation.Services;
+            }
+
+            BootstrapSceneLoader loader = Object.FindAnyObjectByType<BootstrapSceneLoader>();
+            if (loader != null && loader.Services != null)
+            {
+                return loader.Services;
+            }
+
+            return MinebotServices.Current;
         }
 
         private static Vector2 ToWorldCenter(GridPosition position)
