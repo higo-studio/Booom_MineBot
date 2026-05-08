@@ -25,6 +25,7 @@ namespace McpBridge.Editor
 
         public static void EnsureDesiredState()
         {
+            McpBridgeBackgroundExecution.RefreshNow();
             var settings = McpBridgeSettings.instance;
             settings.EnsureProjectScopedDefaults();
             if (!settings.Enabled) { StopHost(); return; }
