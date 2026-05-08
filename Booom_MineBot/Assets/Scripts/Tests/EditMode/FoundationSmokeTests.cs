@@ -727,17 +727,23 @@ namespace Minebot.Tests.EditMode
         [Test]
         public void WaveResolutionKillsPlayerAndRecyclesRobotInDangerZone()
         {
-            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
-            var robot = new RobotState(registry.Grid.PlayerSpawn);
+            GridPosition spawn = new GridPosition(3, 3);
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), spawn);
+            SetMineableWall(grid, spawn + GridPosition.Up, false);
+            WaveConfig waveConfig = CreateWaveConfig(dangerRadiusByWave: new[] { 1 }, collapseBombMixRatio: 0f);
+            var waves = new WaveSurvivalService(grid, waveConfig);
+            var vitals = new PlayerVitals(3);
+            var robot = new RobotState(spawn);
             var robots = new System.Collections.Generic.List<RobotState> { robot };
-            registry.Grid.GetCellRef(registry.Grid.PlayerSpawn).IsDangerZone = true;
 
-            WaveResolution resolution = registry.Waves.ResolveWave(registry.Grid.PlayerSpawn, registry.Vitals, robots);
+            WaveResolution resolution = waves.ResolveWave(spawn, vitals, robots);
 
             Assert.That(resolution.PlayerKilled, Is.True);
-            Assert.That(registry.Vitals.IsDead, Is.True);
+            Assert.That(vitals.IsDead, Is.True);
             Assert.That(resolution.RobotsDestroyed, Is.EqualTo(1));
-            Assert.That(registry.Waves.BestSurvivedWave, Is.EqualTo(0));
+            Assert.That(waves.BestSurvivedWave, Is.EqualTo(0));
+
+            Object.DestroyImmediate(waveConfig);
         }
 
         [Test]
@@ -745,13 +751,15 @@ namespace Minebot.Tests.EditMode
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
             GridPosition collapsedCell = new GridPosition(3, 2);
+            SetMineableWall(grid, new GridPosition(2, 2), false);
             ref GridCellState cell = ref grid.GetCellRef(collapsedCell);
             cell.TerrainKind = TerrainKind.Empty;
-            cell.IsDangerZone = true;
             cell.IsMarked = true;
+            cell.IsRevealed = true;
             cell.StaticFlags |= CellStaticFlags.Bomb;
 
-            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+            WaveConfig waveConfig = CreateWaveConfig(dangerRadiusByWave: new[] { 1 }, collapseBombMixRatio: 0f);
+            var waves = new WaveSurvivalService(grid, waveConfig);
             WaveResolution resolution = waves.ResolveWave(grid.PlayerSpawn, new PlayerVitals(3), new List<RobotState>());
             GridCellState collapsed = grid.GetCell(collapsedCell);
 
@@ -763,6 +771,8 @@ namespace Minebot.Tests.EditMode
             Assert.That(collapsed.IsMarked, Is.False);
             Assert.That(collapsed.HasBomb, Is.False);
             Assert.That(collapsed.IsRevealed, Is.False);
+
+            Object.DestroyImmediate(waveConfig);
         }
 
         [Test]
@@ -1014,10 +1024,12 @@ namespace Minebot.Tests.EditMode
             }
 
             var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
-            waves.ResolveWave(new GridPosition(4, 4), new PlayerVitals(3), new List<RobotState>());
-            waves.ResolveWave(new GridPosition(4, 4), new PlayerVitals(3), new List<RobotState>());
+            waves.EvaluateDangerZones(1);
 
-            waves.EvaluateDangerZones();
+            Assert.That(grid.GetCell(new GridPosition(3, 4)).IsDangerZone, Is.True);
+            Assert.That(grid.GetCell(new GridPosition(4, 4)).IsDangerZone, Is.False);
+
+            waves.EvaluateDangerZones(2);
 
             Assert.That(grid.GetCell(new GridPosition(3, 4)).IsDangerZone, Is.True);
             Assert.That(grid.GetCell(new GridPosition(4, 4)).IsDangerZone, Is.True);
@@ -1167,7 +1179,7 @@ namespace Minebot.Tests.EditMode
                 SetMineableWall(grid, new GridPosition(2, y), false);
             }
 
-            WaveConfig waveConfig = BuildWaveConfig(baseDangerRadius: 1, radiusGrowthEveryWaves: 1);
+            WaveConfig waveConfig = CreateWaveConfig(dangerRadiusByWave: new[] { 1, 2, 2 }, collapseBombMixRatio: 0f);
             var waves = new WaveSurvivalService(grid, waveConfig);
 
             WaveResolution resolution = waves.ResolveWave(spawn, new PlayerVitals(3), new List<RobotState>());
@@ -1195,6 +1207,8 @@ namespace Minebot.Tests.EditMode
                 (GridPosition position, bool isDangerZone) = previewSnapshot[i];
                 Assert.That(grid.GetCell(position).IsDangerZone, Is.EqualTo(isDangerZone), $"Preview mismatch at {position}.");
             }
+
+            Object.DestroyImmediate(waveConfig);
         }
 
         [Test]
@@ -1459,7 +1473,7 @@ namespace Minebot.Tests.EditMode
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
-                    LoadDefaultPresentationAssets());
+                    LoadDefaultPresentationAssets(enableFog: true));
 
                 presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
                 Dictionary<Vector3Int, string> before = SnapshotTerrainDisplay(terrainTilemaps);
@@ -1494,12 +1508,13 @@ namespace Minebot.Tests.EditMode
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
             GridPosition collapsedCell = new GridPosition(3, 2);
+            SetMineableWall(grid, new GridPosition(2, 2), false);
             ref GridCellState cell = ref grid.GetCellRef(collapsedCell);
             cell.TerrainKind = TerrainKind.Empty;
-            cell.IsDangerZone = true;
             cell.IsRevealed = true;
 
-            var waves = new WaveSurvivalService(grid, ScriptableObject.CreateInstance<WaveConfig>());
+            WaveConfig waveConfig = CreateWaveConfig(dangerRadiusByWave: new[] { 1 }, collapseBombMixRatio: 0f);
+            var waves = new WaveSurvivalService(grid, waveConfig);
             RuntimeServiceRegistry services = CreatePresentationRegistry(grid);
             var root = new GameObject("FogCollapseEditModeTest");
             try
@@ -1516,22 +1531,33 @@ namespace Minebot.Tests.EditMode
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
-                    LoadDefaultPresentationAssets());
+                    LoadDefaultPresentationAssets(enableFog: true));
 
                 presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
-                Assert.That(HasAnyDisplayTileAroundCell(fogNearTilemap, collapsedCell), Is.False);
-                Assert.That(HasAnyDisplayTileAroundCell(fogDeepTilemap, collapsedCell), Is.False);
+                Dictionary<Vector3Int, string> fogNearBefore = SnapshotTilemapDisplay(fogNearTilemap);
+                Dictionary<Vector3Int, string> fogDeepBefore = SnapshotTilemapDisplay(fogDeepTilemap);
+                Assert.That(DualGridFog.IsNear(grid, collapsedCell), Is.False);
+                Assert.That(DualGridFog.IsDeep(grid, collapsedCell), Is.False);
 
                 waves.ResolveWave(grid.PlayerSpawn, new PlayerVitals(3), new List<RobotState>());
                 presentation.Refresh(services, new GridPosition(-1, -1), new GridPosition(-2, -2));
+                Dictionary<Vector3Int, string> fogNearAfter = SnapshotTilemapDisplay(fogNearTilemap);
+                Dictionary<Vector3Int, string> fogDeepAfter = SnapshotTilemapDisplay(fogDeepTilemap);
+                IReadOnlyCollection<Vector3Int> changedFogNearDisplayCells = CollectChangedDisplayCells(fogNearBefore, fogNearAfter);
+                IReadOnlyCollection<Vector3Int> changedFogDeepDisplayCells = CollectChangedDisplayCells(fogDeepBefore, fogDeepAfter);
 
                 Assert.That(grid.GetCell(collapsedCell).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
                 Assert.That(grid.GetCell(collapsedCell).IsRevealed, Is.False);
+                Assert.That(DualGridFog.IsNear(grid, collapsedCell), Is.True);
+                Assert.That(DualGridFog.IsDeep(grid, collapsedCell), Is.False);
+                Assert.That(changedFogNearDisplayCells, Has.Some.EqualTo(new Vector3Int(collapsedCell.X, collapsedCell.Y, 0)));
+                Assert.That(changedFogDeepDisplayCells, Is.Empty);
                 Assert.That(HasAnyDisplayTileAroundCell(fogNearTilemap, collapsedCell), Is.True);
                 Assert.That(HasAnyDisplayTileAroundCell(fogDeepTilemap, collapsedCell), Is.False);
             }
             finally
             {
+                Object.DestroyImmediate(waveConfig);
                 Object.DestroyImmediate(root);
             }
         }
@@ -1989,10 +2015,29 @@ namespace Minebot.Tests.EditMode
             }
         }
 
-        private static MinebotPresentationAssets LoadDefaultPresentationAssets()
+        private static MinebotPresentationAssets LoadDefaultPresentationAssets(bool enableFog = false)
         {
             MinebotPixelArtAssetPipeline.EnsureDefaultAssets();
-            return MinebotPresentationAssets.Create(null);
+            if (!enableFog)
+            {
+                return MinebotPresentationAssets.Create(null);
+            }
+
+            MinebotPresentationArtSet defaultArtSet = MinebotPresentationAssets.LoadDefaultArtSet();
+            Assert.That(defaultArtSet, Is.Not.Null);
+
+            MinebotPresentationArtSet artSetInstance = Object.Instantiate(defaultArtSet);
+            try
+            {
+                SerializedObject serializedArtSet = new SerializedObject(artSetInstance);
+                serializedArtSet.FindProperty("debugShowFog").boolValue = true;
+                serializedArtSet.ApplyModifiedPropertiesWithoutUndo();
+                return MinebotPresentationAssets.Create(artSetInstance);
+            }
+            finally
+            {
+                Object.DestroyImmediate(artSetInstance);
+            }
         }
 
         private static void ConfigureBakeProfileForSingleTile(
