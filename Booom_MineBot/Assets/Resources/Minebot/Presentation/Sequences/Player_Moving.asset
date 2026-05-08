@@ -10,12 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b4f508aa9da984f0eb6f433eec45f01b, type: 3}
-  m_Name: Fx_MiningCrack
+  m_Name: Player_Moving
   m_EditorClassIdentifier: 
   frames:
-  - {fileID: 21300000, guid: a3afe812c47fb459fa8fdf33c251475d, type: 3}
-  - {fileID: 21300000, guid: 59b79884dc3c549c394eb22380ca8124, type: 3}
-  - {fileID: 21300000, guid: 35081d21ded0c49c7a29f6a6ea1cfa4c, type: 3}
-  - {fileID: 21300000, guid: 9ae22f13b1f324f01ae54e39ed69beaf, type: 3}
-  frameDuration: 0.08
+  - {fileID: 21300000, guid: 68699fd60e2f0454eb4172bc49a0d772, type: 3}
+  - {fileID: 21300000, guid: e7aa28ecc8130483c933b6e21b095a87, type: 3}
+  frameDuration: 0.12
   loop: 1

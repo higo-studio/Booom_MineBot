@@ -1,6 +1,6 @@
 ## Context
 
-当前运行时链路依旧是 `BootstrapSceneLoader -> MinebotServices.Initialize -> RuntimeServiceRegistry -> MinebotGameplayPresentation.Update()`。第四轮反馈涉及的现状问题主要有五类：
+第四轮反馈最初落地时，运行时链路还是 `BootstrapSceneLoader -> MinebotServices.Initialize -> RuntimeServiceRegistry -> MinebotGameplayPresentation.Update()`。在补齐 UI、排行榜和波次逻辑后，又暴露出一个额外问题：`GameplayInputController`、HUD presenter 和表现层初始化都还在直接读取全局 `MinebotServices`，导致场景耦合偏高，PlayMode 注入顺序也不够清晰。除原有问题外，本轮还顺手把运行时组装改为显式注入。
 
 - `GameSessionService.Mine()` 与机器人误挖炸药路径只会把目标格打开并返回 `TriggeredBomb`，但没有继续调用 `HazardService.ResolveExplosion(...)`，因此连锁破坏被截断。
 - `WaveSurvivalService.CollapseResolvedDangerZone()` 会把危险区空地直接回填成普通墙体，且没有独立的“回填墙体混雷”配置，也没有稳定配额抽样逻辑。
@@ -12,7 +12,7 @@
 
 - 规则真相留在纯 C# 服务，不把计分或波次厚度写死在 MonoBehaviour。
 - 数值优先进入 `ScriptableObject`：危险区逐波厚度、塌方混雷比例、升级项效果、计分规则都走配置资产。
-- 启动页和排行榜表现由运行时 UI 创建，不引入新的第三方 UI 框架。
+- 启动页和排行榜表现继续走项目现有 `Runtime/UI + Resources prefab + prefab builder` 体系，不再使用即时模式 `OnGUI`。
 
 ## Goals / Non-Goals
 
@@ -120,7 +120,18 @@
 - 每条记录包含名字、分数、波次和时间戳
 - 数据序列化后写入一个 `PlayerPrefs` key
 
-失败后如果当前成绩达到可展示范围，HUD 会允许输入名字并保存；启动页读取并展示当前前十。启动页本身由 `BootstrapSceneLoader` 在 `Bootstrap` 场景中创建简单 UI，并暴露开始与退出按钮。
+失败后如果当前成绩达到可展示范围，HUD 会允许输入名字并保存；启动页读取并展示当前前十。两处新增界面都通过 `Resources/Minebot/UI/...` 下的 prefab 资源提供，由 `BootstrapSceneLoader` 和 `MinebotHudView` 在运行时实例化并绑定，不再直接写 `OnGUI()`。
+
+### 7. 运行时服务组装改为 `composition root + RuntimeContext + 显式注入`
+
+保留 `RuntimeServiceRegistry` 作为规则层服务包，但不再让运行时表现脚本主动依赖 `MinebotServices.Current`。新的装配方式是：
+
+1. `RuntimeServiceFactory` 只负责根据 `BootstrapConfig` 构造 `RuntimeServiceRegistry`
+2. `BootstrapSceneLoader` 作为 composition root，持有 `MinebotRuntimeContext`
+3. `MinebotRuntimeContext` 在场景加载后把 `RuntimeServiceRegistry` 与 `BootstrapConfig` 注入给实现 `IMinebotServiceConsumer` 的组件
+4. `MinebotGameplayPresentation` 再把同一份 registry 继续传给输入控制器和 HUD presenter
+
+`MinebotServices` 仍保留为兼容层和测试辅助入口，但不再作为运行时主读取路径。这样能减少表现层对全局状态的隐式依赖，也让 Bootstrap 场景与 Gameplay 场景之间的装配顺序更容易测试。
 
 ## Risks / Trade-offs
 

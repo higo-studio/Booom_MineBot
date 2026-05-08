@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 
 namespace Minebot.Presentation
 {
-    public sealed class GameplayInputController : MonoBehaviour
+    public sealed class GameplayInputController : MonoBehaviour, IMinebotServiceConsumer
     {
         private static readonly ProfilerMarker UpdateProfilerMarker = new("Minebot.GameplayInputController.Update");
         private static readonly ProfilerMarker UpdateMoveProfilerMarker = new("Minebot.GameplayInputController.Update.MoveInput");
@@ -45,11 +45,16 @@ namespace Minebot.Presentation
             {
                 presentation = FindAnyObjectByType<MinebotGameplayPresentation>();
             }
+
+            if (presentation != null && presentation.Services != null)
+            {
+                services = presentation.Services;
+            }
         }
 
         private void OnEnable()
         {
-            services = MinebotServices.Current;
+            EnsureServices();
             inputActions = new MinebotInputActions();
 
             MinebotInputActions.PlayerActions player = inputActions.Player;
@@ -307,6 +312,11 @@ namespace Minebot.Presentation
             return selected;
         }
 
+        public void InjectServices(RuntimeServiceRegistry injectedServices, BootstrapConfig config)
+        {
+            services = injectedServices;
+        }
+
         private bool CanAcceptGameplayInput(bool suppressWaveLockFeedback = false)
         {
             if (!EnsureServices())
@@ -379,14 +389,28 @@ namespace Minebot.Presentation
 
         private bool EnsureServices()
         {
-            if (services == null && MinebotServices.IsInitialized)
+            if (services == null && presentation != null && presentation.Services != null)
             {
-                services = MinebotServices.Current;
+                services = presentation.Services;
             }
 
             if (presentation == null)
             {
                 presentation = FindAnyObjectByType<MinebotGameplayPresentation>();
+            }
+
+            if (services == null && presentation != null && presentation.Services != null)
+            {
+                services = presentation.Services;
+            }
+
+            if (services == null)
+            {
+                MinebotRuntimeContext context = FindAnyObjectByType<MinebotRuntimeContext>();
+                if (context != null && context.IsInitialized)
+                {
+                    services = context.Services;
+                }
             }
 
             return services != null && presentation != null;

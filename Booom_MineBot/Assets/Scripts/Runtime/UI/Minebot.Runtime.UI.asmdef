@@ -2,7 +2,6 @@
   "name": "Minebot.Runtime.UI",
   "rootNamespace": "Minebot.UI",
   "references": [
-    "Minebot.Runtime.Bootstrap",
     "Minebot.Runtime.Common",
     "Minebot.Runtime.Progression",
     "Minebot.Runtime.WaveSurvival",

@@ -9,7 +9,10 @@
     "Minebot.Runtime.Progression",
     "Minebot.Runtime.Automation",
     "Minebot.Runtime.WaveSurvival",
-    "Unity.InputSystem"
+    "Minebot.Runtime.UI",
+    "Unity.InputSystem",
+    "UnityEngine.UI",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
