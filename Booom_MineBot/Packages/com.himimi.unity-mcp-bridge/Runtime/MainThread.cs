@@ -12,12 +12,15 @@ namespace McpBridge
         private static readonly TimeSpan DefaultQueueWaitTimeout = TimeSpan.FromSeconds(10);
         private readonly ConcurrentQueue<WorkItem> m_WorkItems = new();
         private int m_MainThreadId;
+        private int m_FlushQueued;
+        private SynchronizationContext m_SynchronizationContext;
 
         public static MainThread Instance { get; } = new();
 
         private MainThread()
         {
             m_MainThreadId = Thread.CurrentThread.ManagedThreadId;
+            m_SynchronizationContext = SynchronizationContext.Current;
 #if UNITY_EDITOR
             EditorApplication.update -= Flush;
             EditorApplication.update += Flush;
@@ -42,6 +45,7 @@ namespace McpBridge
 
             var workItem = new WorkItem(action);
             m_WorkItems.Enqueue(workItem);
+            RequestFlush();
             if (!workItem.Wait(DefaultQueueWaitTimeout))
             {
                 workItem.Cancel();
@@ -53,12 +57,42 @@ namespace McpBridge
             return workItem.GetResult<T>();
         }
 
+        private void RequestFlush()
+        {
+            if (Interlocked.Exchange(ref m_FlushQueued, 1) != 0)
+            {
+                return;
+            }
+
+            var synchronizationContext = m_SynchronizationContext;
+            if (synchronizationContext == null)
+            {
+                return;
+            }
+
+            try
+            {
+                synchronizationContext.Post(_ => Flush(), null);
+            }
+            catch
+            {
+                Interlocked.Exchange(ref m_FlushQueued, 0);
+            }
+        }
+
         private void Flush()
         {
             m_MainThreadId = Thread.CurrentThread.ManagedThreadId;
+            m_SynchronizationContext ??= SynchronizationContext.Current;
+            Interlocked.Exchange(ref m_FlushQueued, 0);
             while (m_WorkItems.TryDequeue(out var workItem))
             {
                 workItem.Execute();
+            }
+
+            if (!m_WorkItems.IsEmpty)
+            {
+                RequestFlush();
             }
         }
 

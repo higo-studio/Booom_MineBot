@@ -36,7 +36,7 @@ namespace McpBridge.Editor
             settings.EnsureProjectScopedDefaults();
             if (!settings.Enabled) return;
             if (IsConnected) return;
-            EnsureConnected();
+            McpBridgeProcessManager.EnsureDesiredState();
         }
 
         public static bool IsConnected => s_Client is { Connected: true };
@@ -152,7 +152,7 @@ namespace McpBridge.Editor
             {
                 UnityEngine.Debug.Log("[McpBridge] connection reset");
                 ResetConnection();
-                EditorApplication.delayCall += EnsureConnected;
+                EditorApplication.delayCall += McpBridgeProcessManager.EnsureDesiredState;
             }
         }
 

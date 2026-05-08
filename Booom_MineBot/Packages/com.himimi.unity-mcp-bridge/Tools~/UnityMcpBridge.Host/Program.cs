@@ -850,6 +850,7 @@ internal sealed class UnityBridgeHub
         string primaryProjectPath;
         string projectName;
         string productName;
+        HashSet<string>? pendingRequestIds = null;
 
         if (hello["instance"] is JsonObject instance)
         {
@@ -859,6 +860,14 @@ internal sealed class UnityBridgeHub
             primaryProjectPath = instance["primaryProjectPath"]?.GetValue<string>() ?? string.Empty;
             projectName = instance["projectName"]?.GetValue<string>() ?? string.Empty;
             productName = instance["productName"]?.GetValue<string>() ?? string.Empty;
+            if (instance["pendingRequestIds"] is JsonArray pendingArray)
+            {
+                pendingRequestIds = new HashSet<string>(
+                    pendingArray
+                        .Select(node => node?.GetValue<string>() ?? string.Empty)
+                        .Where(id => !string.IsNullOrWhiteSpace(id)),
+                    StringComparer.Ordinal);
+            }
         }
         else
         {
@@ -924,6 +933,7 @@ internal sealed class UnityBridgeHub
         _connections[instanceId] = connection;
         _socketToInstance[client] = instanceId;
         SignalConnectionChanged();
+        FailOrphanedPendingRequests(instanceId, pendingRequestIds);
         ResumePendingRequests(instanceId);
         RetryPendingRequests(instanceId);
 
@@ -960,6 +970,26 @@ internal sealed class UnityBridgeHub
         foreach (var pair in _pending)
         {
             pair.Value.TryHandleReconnect(instanceId);
+        }
+    }
+
+    private void FailOrphanedPendingRequests(string instanceId, HashSet<string>? activeRequestIds)
+    {
+        if (activeRequestIds == null)
+        {
+            return;
+        }
+
+        foreach (var pair in _pending)
+        {
+            if (!string.Equals(pair.Value.InstanceId, instanceId, StringComparison.Ordinal) ||
+                !pair.Value.CanBeRecoveredByEditorState ||
+                activeRequestIds.Contains(pair.Key))
+            {
+                continue;
+            }
+
+            pair.Value.TrySetOrphanedAfterReconnect(instanceId);
         }
     }
 
@@ -1171,6 +1201,7 @@ internal sealed class UnityBridgeHub
         public Task<JsonObject?> Task => _tcs.Task;
         private bool WaitingForReconnect => (Resilience & RequestResilience.WaitForReconnect) != 0;
         private bool ReplayOnReconnect => (Resilience & RequestResilience.ReplayOnReconnect) != 0;
+        public bool CanBeRecoveredByEditorState => WaitingForReconnect && !ReplayOnReconnect;
 
         public void TrySetResult(JsonObject result)
         {
@@ -1237,6 +1268,17 @@ internal sealed class UnityBridgeHub
         public void MarkReplayed(string instanceId)
         {
             InstanceId = instanceId;
+        }
+
+        public void TrySetOrphanedAfterReconnect(string instanceId)
+        {
+            ClearDisconnectWait();
+            _tcs.TrySetResult(new JsonObject
+            {
+                ["type"] = "response",
+                ["success"] = false,
+                ["error"] = BuildOrphanedReconnectError(instanceId)
+            });
         }
 
         private async Task MonitorReconnectAsync(
@@ -1313,6 +1355,11 @@ internal sealed class UnityBridgeHub
         private static string BuildDisconnectError(string instanceId)
         {
             return $"Unity instance '{instanceId}' disconnected while handling the request. This usually happens during Play Mode transitions or domain reload. Retry after the editor reconnects.";
+        }
+
+        private string BuildOrphanedReconnectError(string instanceId)
+        {
+            return $"Unity instance '{instanceId}' reconnected, but the editor no longer reports pending request '{ToolName}'. The request was likely lost during domain reload or Test Runner restart. Retry the command.";
         }
     }
 }
