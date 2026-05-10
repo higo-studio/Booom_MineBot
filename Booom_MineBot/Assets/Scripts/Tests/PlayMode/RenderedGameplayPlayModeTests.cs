@@ -145,9 +145,11 @@ namespace Minebot.Tests.PlayMode
             }
 
             Tilemap marker = GameObject.Find(MinebotGameplayPresentation.MarkerTilemapName).GetComponent<Tilemap>();
+            Tilemap gmBomb = GameObject.Find(MinebotGameplayPresentation.GmBombTilemapName).GetComponent<Tilemap>();
             Tilemap danger = GameObject.Find(MinebotGameplayPresentation.DangerTilemapName).GetComponent<Tilemap>();
             Tilemap buildPreview = GameObject.Find(MinebotGameplayPresentation.BuildPreviewTilemapName).GetComponent<Tilemap>();
             Assert.That(marker, Is.Not.Null);
+            Assert.That(gmBomb, Is.Not.Null);
             Assert.That(danger, Is.Not.Null);
             Assert.That(buildPreview, Is.Not.Null);
             Assert.That(GameObject.Find(MinebotGameplayPresentation.ScanIndicatorRootName), Is.Not.Null);
@@ -197,6 +199,44 @@ namespace Minebot.Tests.PlayMode
             Assert.That(radarButton.gameObject.activeSelf, Is.False);
             Assert.That(hudView.transform.Find(MinebotHudView.BuildingInteractionSlotName), Is.Not.Null);
             Assert.That(CountImagesWithAssignedSprite(hudView.GetComponentsInChildren<Image>(true)), Is.GreaterThanOrEqualTo(8));
+        }
+
+        [UnityTest]
+        public IEnumerator GmBombRevealModeShowsAndHidesBombOverlay()
+        {
+            yield return LoadBootstrapAndWaitForGameplay();
+            yield return null;
+
+            MinebotGameplayPresentation presentation = Object.FindAnyObjectByType<MinebotGameplayPresentation>();
+            GameplayInputController input = Object.FindAnyObjectByType<GameplayInputController>();
+            RuntimeServiceRegistry services = presentation != null ? presentation.Services : ResolveRuntimeServices();
+            Assert.That(presentation, Is.Not.Null);
+            Assert.That(input, Is.Not.Null);
+            Assert.That(services, Is.Not.Null);
+
+            GridPosition bombCell = services.Grid.PlayerSpawn + GridPosition.Right + GridPosition.Right;
+            SetBombWall(services, bombCell);
+
+            presentation.RefreshAll();
+            yield return null;
+
+            Tilemap gmBomb = presentation.GridPresentation.GmBombTilemap;
+            Assert.That(gmBomb, Is.Not.Null);
+            Assert.That(presentation.IsGmBombRevealEnabled, Is.False);
+            Assert.That(HasTileAt(gmBomb, bombCell), Is.False);
+
+            Assert.That(input.ToggleGmBombReveal(), Is.True);
+            yield return null;
+
+            Assert.That(presentation.IsGmBombRevealEnabled, Is.True);
+            Assert.That(HasTileAt(gmBomb, bombCell), Is.True);
+
+            Assert.That(input.ToggleGmBombReveal(), Is.True);
+            yield return null;
+
+            Assert.That(presentation.IsGmBombRevealEnabled, Is.False);
+            Assert.That(HasTileAt(gmBomb, bombCell), Is.False);
+            Assert.That(HasAnyTile(gmBomb), Is.False);
         }
 
         [UnityTest]
@@ -1097,6 +1137,11 @@ namespace Minebot.Tests.PlayMode
             }
 
             return false;
+        }
+
+        private static bool HasTileAt(Tilemap tilemap, GridPosition position)
+        {
+            return tilemap != null && tilemap.GetTile(TilemapGridPresentation.ToTilePosition(position)) != null;
         }
 
         private static int ActiveScanLabelCount()

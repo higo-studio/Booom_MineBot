@@ -47,6 +47,7 @@ namespace Minebot.Presentation
         // Caches for overlay tilemaps to preserve animated tile state
         private Dictionary<Vector3Int, TileBase> facilityTileCache = new Dictionary<Vector3Int, TileBase>();
         private Dictionary<Vector3Int, TileBase> markerTileCache = new Dictionary<Vector3Int, TileBase>();
+        private Dictionary<Vector3Int, TileBase> gmBombTileCache = new Dictionary<Vector3Int, TileBase>();
         private Dictionary<Vector3Int, TileBase> dangerTileCache = new Dictionary<Vector3Int, TileBase>();
         private Dictionary<Vector3Int, TileBase> buildPreviewTileCache = new Dictionary<Vector3Int, TileBase>();
         private HashSet<Vector3Int> lastDangerPositions = new HashSet<Vector3Int>();
@@ -54,6 +55,7 @@ namespace Minebot.Presentation
         private float lastFlashTime;
         private bool isFlashingVisible = true;
         private bool isWaveCountdownPaused;
+        private bool gmBombRevealEnabled;
         private Tween dangerOpacityTween;
         private float currentDangerOpacity = 1f;
 
@@ -63,6 +65,7 @@ namespace Minebot.Presentation
         public Tilemap FogDeepTilemap { get; private set; }
         public Tilemap FacilityTilemap { get; private set; }
         public Tilemap MarkerTilemap { get; private set; }
+        public Tilemap GmBombTilemap { get; private set; }
         public Tilemap DangerTilemap { get; private set; }
         public Tilemap BuildPreviewTilemap { get; private set; }
         public float TimeUntilNextWave { get; private set; }
@@ -73,6 +76,7 @@ namespace Minebot.Presentation
             Tilemap fogDeepTilemap,
             Tilemap facilityTilemap,
             Tilemap markerTilemap,
+            Tilemap gmBombTilemap,
             Tilemap dangerTilemap,
             Tilemap buildPreviewTilemap,
             MinebotPresentationAssets presentationAssets)
@@ -82,9 +86,24 @@ namespace Minebot.Presentation
             FogDeepTilemap = fogDeepTilemap;
             FacilityTilemap = facilityTilemap;
             MarkerTilemap = markerTilemap;
+            GmBombTilemap = gmBombTilemap;
             DangerTilemap = dangerTilemap;
             BuildPreviewTilemap = buildPreviewTilemap;
             assets = presentationAssets;
+        }
+
+        public void SetGmBombRevealEnabled(bool enabled)
+        {
+            if (gmBombRevealEnabled == enabled)
+            {
+                return;
+            }
+
+            gmBombRevealEnabled = enabled;
+            if (!enabled)
+            {
+                ClearOverlayTilemap(GmBombTilemap, gmBombTileCache);
+            }
         }
 
         public void ShowBuildPreview(BuildingDefinition definition, GridPosition? origin, bool isValid)
@@ -178,6 +197,7 @@ namespace Minebot.Presentation
             UpdateTerrainCache(grid, terrainDirtyCells);
             UpdateFogCache(grid, fogDirtyCells);
             RefreshMarkerCells(grid, markerDirtyCells);
+            RefreshGmBombRevealCells(grid, terrainDirtyCells);
             RefreshTerrain(grid, false, terrainDirtyCells);
             RefreshFog(grid, false, fogDirtyCells);
         }
@@ -327,6 +347,7 @@ namespace Minebot.Presentation
                 // Collect all positions that should have tiles
                 var facilityPositions = new HashSet<Vector3Int>();
                 var markerPositions = new HashSet<Vector3Int>();
+                var gmBombPositions = new HashSet<Vector3Int>();
                 var dangerPositions = new HashSet<Vector3Int>();
 
                 using (RefreshScanGridProfilerMarker.Auto())
@@ -349,6 +370,11 @@ namespace Minebot.Presentation
                         if (cell.IsMarked)
                         {
                             markerPositions.Add(tilePosition);
+                        }
+
+                        if (gmBombRevealEnabled && cell.IsMineable && cell.HasBomb)
+                        {
+                            gmBombPositions.Add(tilePosition);
                         }
 
                         bool dangerMask = cell.TerrainKind == TerrainKind.Empty && cell.IsDangerZone;
@@ -378,6 +404,7 @@ namespace Minebot.Presentation
                 {
                     RefreshOverlayTilemapWithFacility(FacilityTilemap, facilityPositions, facilityTileCache, repairStationPosition, robotFactoryPosition);
                     RefreshOverlayTilemap(MarkerTilemap, markerPositions, markerTileCache, _ => assets.MarkerTile);
+                    RefreshGmBombOverlayTilemap(gmBombPositions);
 
                     // Danger zone: always refresh to keep animations in sync
                     RefreshDangerOverlayTilemap(DangerTilemap, dangerPositions, dangerTileCache,
@@ -407,6 +434,7 @@ namespace Minebot.Presentation
                     FogDeepTilemap?.CompressBounds();
                     FacilityTilemap.CompressBounds();
                     MarkerTilemap.CompressBounds();
+                    GmBombTilemap?.CompressBounds();
                     DangerTilemap.CompressBounds();
                     BuildPreviewTilemap.CompressBounds();
                 }
@@ -444,6 +472,17 @@ namespace Minebot.Presentation
                 cache[pos] = newTile;
                 tilemap.SetTile(pos, newTile);
             }
+        }
+
+        private void ClearOverlayTilemap(Tilemap tilemap, Dictionary<Vector3Int, TileBase> cache)
+        {
+            if (tilemap == null)
+            {
+                return;
+            }
+
+            tilemap.ClearAllTiles();
+            cache.Clear();
         }
         
         private void RefreshOverlayTilemapWithFacility(Tilemap tilemap, HashSet<Vector3Int> activePositions, Dictionary<Vector3Int, TileBase> cache, GridPosition repairStationPosition, GridPosition robotFactoryPosition)
@@ -507,6 +546,17 @@ namespace Minebot.Presentation
                 cache[pos] = newTile;
                 tilemap.SetTile(pos, newTile);
             }
+        }
+
+        private void RefreshGmBombOverlayTilemap(HashSet<Vector3Int> activePositions)
+        {
+            if (!gmBombRevealEnabled)
+            {
+                ClearOverlayTilemap(GmBombTilemap, gmBombTileCache);
+                return;
+            }
+
+            RefreshOverlayTilemap(GmBombTilemap, activePositions, gmBombTileCache, _ => ResolveGmBombTile());
         }
 
         private void RefreshBuildPreviewOverlay(LogicalGridState grid)
@@ -581,6 +631,41 @@ namespace Minebot.Presentation
                 markerTileCache.Remove(tilePosition);
                 MarkerTilemap.SetTile(tilePosition, null);
             }
+        }
+
+        private void RefreshGmBombRevealCells(LogicalGridState grid, ICollection<GridPosition> changedCells)
+        {
+            if (GmBombTilemap == null)
+            {
+                return;
+            }
+
+            if (!gmBombRevealEnabled)
+            {
+                ClearOverlayTilemap(GmBombTilemap, gmBombTileCache);
+                return;
+            }
+
+            TileBase tile = ResolveGmBombTile();
+            foreach (GridPosition position in changedCells)
+            {
+                Vector3Int tilePosition = ToTilePosition(position);
+                GridCellState cell = grid.GetCell(position);
+                if (cell.IsMineable && cell.HasBomb && tile != null)
+                {
+                    gmBombTileCache[tilePosition] = tile;
+                    GmBombTilemap.SetTile(tilePosition, tile);
+                    continue;
+                }
+
+                gmBombTileCache.Remove(tilePosition);
+                GmBombTilemap.SetTile(tilePosition, null);
+            }
+        }
+
+        private TileBase ResolveGmBombTile()
+        {
+            return assets.ScanHintTile ?? assets.DangerTile ?? assets.MarkerTile;
         }
 
         private void RefreshTerrain(LogicalGridState grid, bool fullRebuild, ICollection<GridPosition> changedTerrainCells)

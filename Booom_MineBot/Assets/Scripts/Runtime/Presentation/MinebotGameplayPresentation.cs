@@ -35,6 +35,7 @@ namespace Minebot.Presentation
         public static readonly string TerrainTilemapName = DgFloorTilemapName;
         public const string FacilityTilemapName = "Facility Tilemap";
         public const string MarkerTilemapName = "Marker Tilemap";
+        public const string GmBombTilemapName = "GM Bomb Tilemap";
         public const string DangerTilemapName = "Danger Tilemap";
         public const string BuildPreviewTilemapName = "Build Preview Tilemap";
         public const string ScanIndicatorRootName = "Scan Indicator Root";
@@ -102,6 +103,7 @@ namespace Minebot.Presentation
         private BuildingDefinition buildPreviewDefinition;
         private GridPosition? buildPreviewOrigin;
         private bool buildPreviewIsValid;
+        private bool gmBombRevealEnabled;
         private string feedbackMessage = "准备就绪 | 朝岩壁推进即可自动挖掘";
         private GameplayInteractionMode interactionMode = GameplayInteractionMode.Normal;
         private PresentationActorState playerVisualState = PresentationActorState.Idle;
@@ -142,6 +144,7 @@ namespace Minebot.Presentation
         public bool IsRepairInteractionButtonShowing => hudView != null && hudView.RepairStationInteractionButton != null && hudView.RepairStationInteractionButton.gameObject.activeInHierarchy;
         public bool IsRobotFactoryInteractionButtonShowing => hudView != null && hudView.RobotFactoryInteractionButton != null && hudView.RobotFactoryInteractionButton.gameObject.activeInHierarchy;
         public bool IsGameOver => services != null && services.Vitals.IsDead;
+        public bool IsGmBombRevealEnabled => gmBombRevealEnabled;
         public bool IsUsingConfiguredArtSet => assets != null && assets.IsUsingConfiguredArtSet;
         public GameplayInteractionMode InteractionMode => interactionMode;
         public RuntimeServiceRegistry Services => services;
@@ -474,6 +477,18 @@ namespace Minebot.Presentation
             RefreshHud();
         }
 
+        public bool ToggleGmBombReveal()
+        {
+            gmBombRevealEnabled = !gmBombRevealEnabled;
+            gridPresentation?.SetGmBombRevealEnabled(gmBombRevealEnabled);
+            if (services != null)
+            {
+                RefreshFromCurrentGridState();
+            }
+
+            return gmBombRevealEnabled;
+        }
+
         public void RefreshAfterTerrainChanged(IReadOnlyList<MineClearedCell> clearedCells)
         {
             using (RefreshAfterTerrainChangedProfilerMarker.Auto())
@@ -491,7 +506,7 @@ namespace Minebot.Presentation
                 using (RefreshAfterTerrainChangedGridProfilerMarker.Auto())
                 {
                     HashSet<GridPosition> changedCells = CollectClearedPositions(clearedCells);
-                    if (changedCells.Count > 0)
+                    if (changedCells.Count > 0 && !gmBombRevealEnabled)
                     {
                         gridPresentation.RefreshLocalTerrainChange(services, repairStationPosition, robotFactoryPosition, changedCells);
                         gridPresentation.RefreshDangerOverlayOnly(services);
@@ -879,6 +894,7 @@ namespace Minebot.Presentation
             Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, assets?.DangerSortingOrder ?? 10);
             Tilemap facility = EnsureTilemapLayer(gridRoot, FacilityTilemapName, assets?.FacilitySortingOrder ?? 15);
             Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, assets?.MarkerSortingOrder ?? 20);
+            Tilemap gmBomb = EnsureTilemapLayer(gridRoot, GmBombTilemapName, (assets?.MarkerSortingOrder ?? 20) + 1);
             Tilemap buildPreview = EnsureTilemapLayer(gridRoot, BuildPreviewTilemapName, assets?.BuildPreviewSortingOrder ?? 25);
             scanIndicatorPresenter = EnsureScanIndicatorPresenter(EnsureChild(gridRoot, ScanIndicatorRootName));
             scanIndicatorPresenter.Configure(assets);
@@ -889,7 +905,8 @@ namespace Minebot.Presentation
                 gridPresentation = gridRoot.gameObject.AddComponent<TilemapGridPresentation>();
             }
 
-            gridPresentation.Configure(terrainFamilies, fogNear, fogDeep, facility, marker, danger, buildPreview, assets);
+            gridPresentation.Configure(terrainFamilies, fogNear, fogDeep, facility, marker, gmBomb, danger, buildPreview, assets);
+            gridPresentation.SetGmBombRevealEnabled(gmBombRevealEnabled);
             playerActorView = EnsureActorView(actorRoot, PlayerViewName, assets.PlayerActorPrefab, assets.PlayerSprite, assets.PlayerSortingOrder);
             playerView = playerActorView.BodyRenderer;
             playerFreeform = EnsureFreeformActor(playerActorView.gameObject, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
@@ -2124,12 +2141,12 @@ namespace Minebot.Presentation
             const string baseHint = "WASD 移动  贴墙即挖掘  点击墙体标记风险  点击底栏选建筑  R 开关建造  1-2 升级";
             if (services.Session != null && services.Session.IsWaveResolutionActive)
             {
-                return "地震结算中：动作已暂停，等待外围炸弹、危险区重算和塌方完成";
+                return AppendGmBombHint("地震结算中：动作已暂停，等待外围炸弹、危险区重算和塌方完成");
             }
 
             if (services.Experience.HasPendingUpgrade)
             {
-                return "升级可用：按 1/2 或点击右下升级卡片";
+                return AppendGmBombHint("升级可用：按 1/2 或点击右下升级卡片");
             }
 
             if (interactionMode == GameplayInteractionMode.Build)
@@ -2138,25 +2155,25 @@ namespace Minebot.Presentation
                 string preview = buildPreviewOrigin.HasValue
                     ? (buildPreviewIsValid ? "当前位置可建" : "当前位置不可建")
                     : "移动鼠标选空地";
-                return $"建筑模式：{selected} | {preview} | 点击底栏切换，R / 右键 / Esc 退出";
+                return AppendGmBombHint($"建筑模式：{selected} | {preview} | 点击底栏切换，R / 右键 / Esc 退出");
             }
 
             if (IsNearRepairStation() && IsNearRobotFactory())
             {
-                return "可交互：右侧卡片可维修或生产从属机器人";
+                return AppendGmBombHint("可交互：右侧卡片可维修或生产从属机器人");
             }
 
             if (IsNearRepairStation())
             {
-                return "可交互：右侧卡片可在维修站恢复生命";
+                return AppendGmBombHint("可交互：右侧卡片可在维修站恢复生命");
             }
 
             if (IsNearRobotFactory())
             {
-                return "可交互：右侧卡片可生产从属机器人";
+                return AppendGmBombHint("可交互：右侧卡片可生产从属机器人");
             }
 
-            return baseHint;
+            return AppendGmBombHint(baseHint);
         }
 
         private string BuildLegacyHudSummary()
@@ -2165,7 +2182,13 @@ namespace Minebot.Presentation
             return
                 $"HP {services.Vitals.CurrentHealth}/{services.Vitals.MaxHealth} | 金属 {resources.Metal} | 能量 {resources.Energy} | 波次 {services.Waves.CurrentWave}\n" +
                 $"Lv {services.Experience.Level} | XP {services.Experience.Experience}/{services.Experience.NextThreshold} | 钻头 {ToChineseHardnessText(services.PlayerMiningState.DrillTier)}\n" +
-                $"分数 {services.Scores?.CurrentScore ?? 0} | 坐标 {services.PlayerMiningState.Position} | {BuildRobotStatusText()}";
+                $"分数 {services.Scores?.CurrentScore ?? 0} | 坐标 {services.PlayerMiningState.Position} | {BuildRobotStatusText()} | GM炸药 {(gmBombRevealEnabled ? "ON" : "OFF")}";
+        }
+
+        private string AppendGmBombHint(string text)
+        {
+            string suffix = gmBombRevealEnabled ? "GM炸药 ON" : "F6 GM炸药";
+            return string.IsNullOrEmpty(text) ? suffix : $"{text} | {suffix}";
         }
 
         private string BuildRobotStatusPanelText()

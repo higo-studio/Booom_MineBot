@@ -1506,6 +1506,7 @@ namespace Minebot.Tests.EditMode
                     fogDeepTilemap,
                     CreateTilemap(root.transform, "Facility Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "GM Bomb Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
                     LoadDefaultPresentationAssets(enableFog: true));
@@ -1564,6 +1565,7 @@ namespace Minebot.Tests.EditMode
                     fogDeepTilemap,
                     CreateTilemap(root.transform, "Facility Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "GM Bomb Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
                     LoadDefaultPresentationAssets(enableFog: true));
@@ -1908,6 +1910,7 @@ namespace Minebot.Tests.EditMode
                     CreateTilemap(root.transform, "Fog Deep Test Tilemap", DualGridFog.DisplayOffset),
                     CreateTilemap(root.transform, "Facility Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero),
+                    CreateTilemap(root.transform, "GM Bomb Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Danger Test Tilemap", Vector3.zero),
                     CreateTilemap(root.transform, "Build Preview Test Tilemap", Vector3.zero),
                     useConfiguredArt ? MinebotPresentationAssets.Create(artSet) : LoadDefaultPresentationAssets());

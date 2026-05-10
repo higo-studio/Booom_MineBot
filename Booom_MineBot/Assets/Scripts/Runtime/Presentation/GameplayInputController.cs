@@ -100,6 +100,16 @@ namespace Minebot.Presentation
             inputActions = null;
         }
 
+        private void Update()
+        {
+            if (Keyboard.current == null || !Keyboard.current.f6Key.wasPressedThisFrame)
+            {
+                return;
+            }
+
+            ToggleGmBombReveal();
+        }
+
         private void FixedUpdate()
         {
             using (UpdateProfilerMarker.Auto())
@@ -216,6 +226,18 @@ namespace Minebot.Presentation
 
             presentation.AudioController?.PlayBuildModeToggle();
             presentation.ShowFeedback(entering ? "已进入建筑模式：选择建筑后点击空地。" : "已退出建筑模式。");
+            return true;
+        }
+
+        public bool ToggleGmBombReveal()
+        {
+            if (presentation == null && !EnsureServices())
+            {
+                return false;
+            }
+
+            bool enabled = presentation.ToggleGmBombReveal();
+            presentation.ShowFeedback(enabled ? "GM炸药 ON" : "GM炸药 OFF");
             return true;
         }
 
