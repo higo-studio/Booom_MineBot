@@ -16,7 +16,6 @@ namespace Minebot.Editor
         private const int GlyphPixelsPerUnit = 32;
         private const float DefaultScanLabelFontSize = 4f;
         private const string ArtSetPath = "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset";
-        private const string DualGridTerrainProfilePath = "Assets/Resources/Minebot/MinebotDualGridTerrainProfile_Default.asset";
         private const string BitmapGlyphFontAssetPath = "Assets/Resources/Minebot/MinebotBitmapGlyphFont_Default.asset";
         private const string PalettePrefabPath = "Assets/Art/Minebot/Palettes/MinebotTilePalette.prefab";
         private const string DualGridSpriteDirectory = "Assets/Art/Minebot/Sprites/Tiles/DualGridTerrain";
@@ -90,7 +89,6 @@ namespace Minebot.Editor
             EnsureTileAssets();
             EnsureBitmapGlyphFontAsset();
             MinebotPrefabGameplayArtSupport.EnsureGeneratedAssets();
-            EnsureDualGridTerrainProfile();
             EnsureArtSet();
             EnsurePalettePrefab();
             AssetDatabase.SaveAssets();
@@ -189,17 +187,9 @@ namespace Minebot.Editor
                 return;
             }
 
-            DualGridTerrainProfile profile = AssetDatabase.LoadAssetAtPath<DualGridTerrainProfile>(DualGridTerrainProfilePath);
-            if (profile == null)
+            foreach (string issue in artSet.GetDualGridValidationIssues())
             {
-                errors.Add($"{DualGridTerrainProfilePath}：缺少默认双网格地形配置");
-            }
-            else
-            {
-                foreach (string issue in profile.GetValidationIssues())
-                {
-                    errors.Add($"{DualGridTerrainProfilePath}：{issue}");
-                }
+                errors.Add($"{ArtSetPath} / DualGrid：{issue}");
             }
 
             if (artSet.BitmapGlyphFont == null)
@@ -335,23 +325,18 @@ namespace Minebot.Editor
         private static void EnsureArtSet()
         {
             MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(ArtSetPath);
-            if (artSet == null)
+            if (artSet != null)
             {
-                artSet = ScriptableObject.CreateInstance<MinebotPresentationArtSet>();
-                AssetDatabase.CreateAsset(artSet, ArtSetPath);
+                return;
             }
+
+            artSet = ScriptableObject.CreateInstance<MinebotPresentationArtSet>();
+            AssetDatabase.CreateAsset(artSet, ArtSetPath);
 
             Sprite player = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/Actors/actor_player_minebot.png");
             Sprite robot = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Minebot/Sprites/Actors/actor_helper_robot.png");
             BitmapGlyphFontDefinition bitmapGlyphFont = EnsureBitmapGlyphFontAsset();
-            DualGridTerrainProfile dualGridTerrainProfile = EnsureDualGridTerrainProfile();
             artSet.Configure(
-                LoadTile(FloorTilePath),
-                LoadTile(SoilWallTilePath),
-                LoadTile(StoneWallTilePath),
-                LoadTile(HardRockWallTilePath),
-                LoadTile(UltraHardWallTilePath),
-                LoadTile(BoundaryTilePath),
                 LoadTile(DangerTilePath),
                 LoadTile(MarkerTilePath),
                 LoadTile(ScanHintTilePath),
@@ -376,7 +361,7 @@ namespace Minebot.Editor
                 LoadDualGridTiles(TerrainRenderLayerId.Boundary),
                 LoadFogDualGridTiles(DualGridFogBandKind.Near),
                 LoadFogDualGridTiles(DualGridFogBandKind.Deep),
-                dualGridTerrainProfile,
+                null,
                 bitmapGlyphFont,
                 AssetDatabase.LoadAssetAtPath<Texture2D>(BitmapGlyphAtlasPath),
                 AssetDatabase.LoadAssetAtPath<TextAsset>(BitmapGlyphDescriptorPath),
@@ -391,32 +376,9 @@ namespace Minebot.Editor
 
         internal static MinebotPresentationArtSet EnsureDefaultDualGridConfiguration()
         {
-            EnsureDualGridTerrainProfile();
             EnsureArtSet();
             AssetDatabase.SaveAssets();
             return AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(ArtSetPath);
-        }
-
-        internal static DualGridTerrainProfile EnsureDualGridTerrainProfile()
-        {
-            DualGridTerrainProfile profile = AssetDatabase.LoadAssetAtPath<DualGridTerrainProfile>(DualGridTerrainProfilePath);
-            if (profile == null)
-            {
-                profile = ScriptableObject.CreateInstance<DualGridTerrainProfile>();
-                AssetDatabase.CreateAsset(profile, DualGridTerrainProfilePath);
-            }
-
-            profile.ConfigureLayout(DualGridTerrainLayoutSettings.CreateDefault());
-            foreach (TerrainRenderLayerId layerId in DualGridFamilies)
-            {
-                profile.ConfigureFamilyTiles(layerId, LoadDualGridTiles(layerId));
-            }
-
-            profile.ConfigureLegacyTopology(
-                LoadIndexedTiles("Assets/Art/Minebot/Tiles/Tile_WallContour_{0:00}.asset"),
-                LoadIndexedTiles("Assets/Art/Minebot/Tiles/Tile_DangerContour_{0:00}.asset"));
-            EditorUtility.SetDirty(profile);
-            return profile;
         }
 
         private static void EnsurePalettePrefab()

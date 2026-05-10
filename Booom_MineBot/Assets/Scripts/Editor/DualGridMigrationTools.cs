@@ -1,50 +1,73 @@
-using System;
 using System.Collections.Generic;
-using System.IO;
 using Minebot.Presentation;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Tilemaps;
 
 namespace Minebot.Editor
 {
     public static class DualGridMigrationTools
     {
-        [MenuItem("Minebot/双网格/迁移默认配置")]
-        public static void MigrateDefaultConfiguration()
+        [MenuItem("Minebot/双网格/迁移并清理默认配置")]
+        public static void NormalizeDefaultConfiguration()
         {
             MinebotPresentationArtSet artSet = MinebotPixelArtAssetPipeline.EnsureDefaultDualGridConfiguration();
-            Debug.Log(
-                artSet != null && artSet.DualGridTerrainProfile != null
-                    ? $"已将默认双网格配置迁移到 '{AssetDatabase.GetAssetPath(artSet.DualGridTerrainProfile)}'。"
-                    : "迁移默认双网格配置失败。");
-        }
-
-        [MenuItem("Minebot/双网格/迁移所选美术集", true)]
-        private static bool CanMigrateSelectedArtSets()
-        {
-            return Selection.GetFiltered<MinebotPresentationArtSet>(SelectionMode.Assets).Length > 0;
-        }
-
-        [MenuItem("Minebot/双网格/迁移所选美术集")]
-        public static void MigrateSelectedArtSets()
-        {
-            MinebotPresentationArtSet[] artSets = Selection.GetFiltered<MinebotPresentationArtSet>(SelectionMode.Assets);
-            if (artSets.Length == 0)
+            if (artSet == null)
             {
-                Debug.LogWarning("请至少选择一个表现美术集资源再执行迁移。");
+                Debug.LogWarning("迁移默认双网格配置失败。");
                 return;
             }
 
-            var migratedProfiles = new List<string>(artSets.Length);
-            foreach (MinebotPresentationArtSet artSet in artSets)
+            bool changed = MinebotConfigAssetUtility.NormalizeDualGridConfiguration(artSet);
+            changed |= DeleteDefaultLegacyProfileAsset();
+
+            Debug.Log(changed
+                ? $"已迁移并清理默认双网格配置：'{AssetDatabase.GetAssetPath(artSet)}'。"
+                : "默认双网格配置已经是清理后的内联结构，无需再次迁移。");
+        }
+
+        [MenuItem("Minebot/双网格/迁移并清理所选资源", true)]
+        private static bool CanMergeSelectedArtSets()
+        {
+            return Selection.GetFiltered<MinebotPresentationArtSet>(SelectionMode.Assets).Length > 0
+                || Selection.GetFiltered<DualGridTerrainProfile>(SelectionMode.Assets).Length > 0;
+        }
+
+        [MenuItem("Minebot/双网格/迁移并清理所选资源")]
+        public static void NormalizeSelectedAssets()
+        {
+            MinebotPresentationArtSet[] artSets = Selection.GetFiltered<MinebotPresentationArtSet>(SelectionMode.Assets);
+            DualGridTerrainProfile[] profiles = Selection.GetFiltered<DualGridTerrainProfile>(SelectionMode.Assets);
+            if (artSets.Length == 0 && profiles.Length == 0)
             {
-                DualGridTerrainProfile profile = MigrateArtSet(artSet);
-                migratedProfiles.Add($"{artSet.name} -> {AssetDatabase.GetAssetPath(profile)}");
+                Debug.LogWarning("请至少选择一个双网格相关资源再执行迁移。");
+                return;
+            }
+
+            var changedAssets = new List<string>(artSets.Length + profiles.Length);
+            for (int i = 0; i < artSets.Length; i++)
+            {
+                MinebotPresentationArtSet artSet = artSets[i];
+                if (artSet != null && artSet.NormalizeDualGridConfiguration())
+                {
+                    EditorUtility.SetDirty(artSet);
+                    changedAssets.Add(artSet.name);
+                }
+            }
+
+            for (int i = 0; i < profiles.Length; i++)
+            {
+                DualGridTerrainProfile profile = profiles[i];
+                if (profile != null && profile.NormalizeLegacyConfiguration())
+                {
+                    EditorUtility.SetDirty(profile);
+                    changedAssets.Add(profile.name);
+                }
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log($"已迁移 {artSets.Length} 个双网格美术集：\n{string.Join("\n", migratedProfiles)}");
+            Debug.Log(changedAssets.Count > 0
+                ? $"已迁移并清理 {changedAssets.Count} 个双网格资源：\n{string.Join("\n", changedAssets)}"
+                : "所选资源都已经是清理后的结构，无需再次迁移。");
         }
 
         [MenuItem("Minebot/双网格/校验所选资源", true)]
@@ -63,19 +86,12 @@ namespace Minebot.Editor
 
             foreach (MinebotPresentationArtSet artSet in artSets)
             {
-                DualGridTerrainProfile profile = artSet.DualGridTerrainProfile;
-                if (profile == null)
-                {
-                    messages.Add($"{artSet.name}：缺少双网格地形配置引用。");
-                    continue;
-                }
-
-                AppendProfileIssues(profile, $"{artSet.name}", messages);
+                AppendIssues(artSet.GetDualGridValidationIssues(), artSet.name, messages);
             }
 
             foreach (DualGridTerrainProfile profile in profiles)
             {
-                AppendProfileIssues(profile, profile.name, messages);
+                AppendIssues(profile.GetValidationIssues(), profile.name, messages);
             }
 
             if (messages.Count == 0)
@@ -87,44 +103,10 @@ namespace Minebot.Editor
             Debug.LogWarning($"所选双网格资源发现 {messages.Count} 个问题：\n{string.Join("\n", messages)}");
         }
 
-        private static DualGridTerrainProfile MigrateArtSet(MinebotPresentationArtSet artSet)
-        {
-            if (artSet == null)
-            {
-                throw new ArgumentNullException(nameof(artSet));
-            }
-
-            DualGridTerrainProfile profile = artSet.DualGridTerrainProfile;
-            if (profile == null)
-            {
-                string profilePath = BuildProfilePath(artSet);
-                profile = AssetDatabase.LoadAssetAtPath<DualGridTerrainProfile>(profilePath);
-                if (profile == null)
-                {
-                    profile = ScriptableObject.CreateInstance<DualGridTerrainProfile>();
-                    AssetDatabase.CreateAsset(profile, profilePath);
-                }
-            }
-
-            profile.ConfigureLayout(artSet.TerrainLayoutSettings);
-            foreach (TerrainRenderLayerId layerId in DualGridTerrain.MaterialFamilies)
-            {
-                profile.ConfigureFamilyTiles(layerId, CopyTiles(artSet.GetLegacyConfiguredDualGridTiles(layerId)));
-            }
-
-            profile.ConfigureLegacyTopology(
-                CopyTiles(artSet.GetLegacyConfiguredWallContourTiles()),
-                CopyTiles(artSet.GetLegacyConfiguredDangerContourTiles()));
-            artSet.AssignDualGridTerrainProfile(profile);
-            EditorUtility.SetDirty(profile);
-            EditorUtility.SetDirty(artSet);
-            return profile;
-        }
-
-        private static void AppendProfileIssues(DualGridTerrainProfile profile, string label, ICollection<string> messages)
+        private static void AppendIssues(IEnumerable<string> issues, string label, ICollection<string> messages)
         {
             bool hasIssues = false;
-            foreach (string issue in profile.GetValidationIssues())
+            foreach (string issue in issues)
             {
                 messages.Add($"{label}：{issue}");
                 hasIssues = true;
@@ -136,29 +118,15 @@ namespace Minebot.Editor
             }
         }
 
-        private static Tile[] CopyTiles(TileBase[] source)
+        private static bool DeleteDefaultLegacyProfileAsset()
         {
-            if (source == null || source.Length == 0)
+            const string defaultProfilePath = "Assets/Resources/Minebot/MinebotDualGridTerrainProfile_Default.asset";
+            if (AssetDatabase.LoadAssetAtPath<DualGridTerrainProfile>(defaultProfilePath) == null)
             {
-                return Array.Empty<Tile>();
+                return false;
             }
 
-            var copy = new Tile[source.Length];
-            for (int i = 0; i < source.Length; i++)
-            {
-                copy[i] = source[i] as Tile;
-            }
-
-            return copy;
-        }
-
-        private static string BuildProfilePath(MinebotPresentationArtSet artSet)
-        {
-            string artSetPath = AssetDatabase.GetAssetPath(artSet);
-            string directory = Path.GetDirectoryName(artSetPath) ?? "Assets";
-            string fileName = $"{Path.GetFileNameWithoutExtension(artSetPath)}_DualGridTerrainProfile.asset";
-            string combinedPath = Path.Combine(directory, fileName).Replace('\\', '/');
-            return AssetDatabase.GenerateUniqueAssetPath(combinedPath);
+            return AssetDatabase.DeleteAsset(defaultProfilePath);
         }
     }
 }

@@ -1990,12 +1990,11 @@ namespace Minebot.Presentation
 
             if (instance.Id.Contains("factory", StringComparison.OrdinalIgnoreCase) && assets.RobotFactoryTile != null)
             {
-                return (assets.RobotFactoryTile as Tile)?.sprite ?? (assets.EmptyTile as Tile)?.sprite;
+                return (assets.RobotFactoryTile as Tile)?.sprite;
             }
 
             Tile repairStationTile = assets.RepairStationTile as Tile;
-            Tile emptyTile = assets.EmptyTile as Tile;
-            return repairStationTile != null ? repairStationTile.sprite : emptyTile?.sprite;
+            return repairStationTile != null ? repairStationTile.sprite : null;
         }
 
         private void RefreshHud()

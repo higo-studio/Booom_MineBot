@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using JSAM;
 using Minebot.Bootstrap;
 using Minebot.GridMining;
+using Minebot.Presentation;
 using Minebot.Progression;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -228,6 +229,7 @@ namespace Minebot.Editor
             categories.Clear();
             categories.Add(new ConfigCategory("启动与场景", "维护场景入口与输入资源。", BuildBootstrapCategory));
             categories.Add(new ConfigCategory("地图", "管理 authored 地图引用与程序地图参数。", BuildMapCategory));
+            categories.Add(new ConfigCategory("Tile", "管理默认表现美术集里的瓦片、双网格和 Tilemap 层级。", BuildTileCategory));
             categories.Add(new ConfigCategory("成长与经济", "管理玩家成长、资源掉落与升级池。", BuildProgressionCategory));
             categories.Add(new ConfigCategory("挖掘与风险", "管理挖掘规则和炸药感知规则。", BuildMiningAndHazardCategory));
             categories.Add(new ConfigCategory("波次", "管理地震波节奏与回收奖励。", BuildWaveCategory));
@@ -311,6 +313,76 @@ namespace Minebot.Editor
             }
 
             parent.Add(buttonRow);
+        }
+
+        private void BuildTileCategory(BootstrapConfig bootstrapConfig, VisualElement parent)
+        {
+            parent.Add(new HelpBox(
+                $"运行时固定从 {MinebotConfigAssetUtility.DefaultPresentationArtSetPath} 读取默认 Tile 配置。\n这里聚焦瓦片、双网格配置和 Tilemap 层级；角色/HUD 等其它表现资源仍可通过定位该资产继续在 Inspector 中编辑。",
+                HelpBoxMessageType.Info));
+
+            MinebotPresentationArtSet artSet = MinebotConfigAssetUtility.GetDefaultPresentationArtSet();
+            if (artSet == null)
+            {
+                parent.Add(new HelpBox(
+                    "当前还没有默认 Tile 配置资产。点击下方按钮会按现有像素资产管线生成一套默认配置，并写回固定 Resources 路径。",
+                    HelpBoxMessageType.Warning));
+
+                var buttonRow = CreateButtonRow();
+                buttonRow.Add(CreateActionButton("生成默认 Tile 配置", () =>
+                {
+                    MinebotPresentationArtSet generatedArtSet = MinebotPixelArtAssetPipeline.EnsureDefaultDualGridConfiguration();
+                    if (generatedArtSet != null)
+                    {
+                        Selection.activeObject = generatedArtSet;
+                        EditorGUIUtility.PingObject(generatedArtSet);
+                    }
+
+                    RefreshCurrentBootstrap(bootstrapConfig);
+                }));
+                parent.Add(buttonRow);
+                return;
+            }
+
+            parent.Add(CreateAssetSummaryCard(
+                "默认 Tile 配置",
+                "统一承载地形、雾层、覆盖层、设施瓦片和 Tilemap 层级。下方分组会直接编辑这个默认 MinebotPresentationArtSet。",
+                artSet));
+            parent.Add(CreateDualGridAuthoringSection(
+                "Dual Grid Tile",
+                "参考 RuleTile 的方向输入方式，把双网格地形、轮廓和雾层一起放到可视化面板里编辑，并在同一处查看最终 16 格预览。",
+                artSet));
+            parent.Add(CreatePropertySection(
+                "覆盖与设施 Tile",
+                "危险区、标记、探测提示、建造预览、设施和墙体细节瓦片。",
+                artSet,
+                "dangerTile",
+                "markerTile",
+                "scanHintTile",
+                "dangerOutlineTiles",
+                "soilDetailTile",
+                "stoneDetailTile",
+                "hardRockDetailTile",
+                "ultraHardDetailTile",
+                "buildPreviewValidTile",
+                "buildPreviewInvalidTile",
+                "repairStationTile",
+                "robotFactoryTile"));
+            parent.Add(CreatePropertySection(
+                "层级与偏移",
+                "雾层开关、Tilemap 排序层级和地板显示偏移。",
+                artSet,
+                "debugShowFog",
+                "floorSortingOrder",
+                "wallSortingOrder",
+                "boundarySortingOrder",
+                "floorDisplayOffset",
+                "fogDeepSortingOrder",
+                "fogNearSortingOrder",
+                "dangerSortingOrder",
+                "facilitySortingOrder",
+                "markerSortingOrder",
+                "buildPreviewSortingOrder"));
         }
 
         private void BuildProgressionCategory(BootstrapConfig bootstrapConfig, VisualElement parent)
@@ -520,6 +592,34 @@ namespace Minebot.Editor
             }
 
             container.Add(CreatePropertyFields(new SerializedObject(target), propertyPaths));
+            return container;
+        }
+
+        private VisualElement CreateDualGridAuthoringSection(string title, string description, MinebotPresentationArtSet artSet)
+        {
+            var container = CreateCard();
+            container.Add(CreateCardHeader(title, description, artSet));
+            if (artSet == null)
+            {
+                container.Add(new HelpBox("默认 Tile 配置为空，无法展示 Dual Grid 面板。", HelpBoxMessageType.Warning));
+                return container;
+            }
+
+            var inspector = new IMGUIContainer(() =>
+            {
+                var serializedArtSet = new SerializedObject(artSet);
+                serializedArtSet.Update();
+                DualGridAuthoringInspector.DrawArtSetConfigurationFields(serializedArtSet);
+                if (serializedArtSet.ApplyModifiedProperties())
+                {
+                    EditorUtility.SetDirty(artSet);
+                }
+
+                GUILayout.Space(8f);
+                DualGridAuthoringInspector.DrawValidationMessages(artSet.GetDualGridValidationIssues());
+            });
+            inspector.style.marginTop = 4f;
+            container.Add(inspector);
             return container;
         }
 

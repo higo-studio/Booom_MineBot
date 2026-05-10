@@ -5,6 +5,7 @@ using JSAM;
 using Minebot.Bootstrap;
 using Minebot.GridMining;
 using Minebot.HazardInference;
+using Minebot.Presentation;
 using Minebot.Progression;
 using Minebot.WaveSurvival;
 using UnityEditor;
@@ -16,6 +17,7 @@ namespace Minebot.Editor
     public static class MinebotConfigAssetUtility
     {
         public const string DefaultConfigRoot = "Assets/Settings/Gameplay";
+        public const string DefaultPresentationArtSetPath = "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset";
 
         private const string DefaultBootstrapAssetName = "Bootstrap.asset";
         private const string DefaultInputActionsPath = "Assets/InputSystem_Actions.inputactions";
@@ -234,6 +236,23 @@ namespace Minebot.Editor
         public static JSAMSettings GetOrCreateJsamSettingsAsset()
         {
             return GetOrCreateJsamSettingsAsset(out _);
+        }
+
+        public static MinebotPresentationArtSet GetDefaultPresentationArtSet()
+        {
+            return AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(DefaultPresentationArtSetPath);
+        }
+
+        public static bool NormalizeDualGridConfiguration(MinebotPresentationArtSet artSet)
+        {
+            if (artSet == null || !artSet.NormalizeDualGridConfiguration())
+            {
+                return false;
+            }
+
+            EditorUtility.SetDirty(artSet);
+            AssetDatabase.SaveAssets();
+            return true;
         }
 
         public static string GetAssetRootFolder(BootstrapConfig bootstrapConfig)

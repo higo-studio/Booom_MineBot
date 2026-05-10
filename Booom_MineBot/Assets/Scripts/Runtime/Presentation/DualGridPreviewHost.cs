@@ -131,12 +131,13 @@ namespace Minebot.Presentation
                 issues.Add("缺少表现美术集或双网格配置覆盖项。");
             }
 
-            DualGridTerrainProfile profile = profileOverride != null
-                ? profileOverride
-                : artSet != null ? artSet.DualGridTerrainProfile : null;
-            if (profile != null)
+            if (profileOverride != null)
             {
-                issues.AddRange(profile.GetValidationIssues());
+                issues.AddRange(profileOverride.GetValidationIssues());
+            }
+            else if (artSet != null)
+            {
+                issues.AddRange(artSet.GetDualGridValidationIssues());
             }
 
             return issues;

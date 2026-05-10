@@ -1602,19 +1602,18 @@ namespace Minebot.Tests.EditMode
         [Test]
         public void PixelArtPipelineExposesDualGridTerrainFamiliesIntoDefaultArtSet()
         {
-            AssetDatabase.Refresh();
+            const string defaultArtSetPath = "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset";
+            AssetDatabase.ImportAsset(defaultArtSetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+            EditorUtility.UnloadUnusedAssetsImmediate();
 
-            MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(
-                "Assets/Resources/Minebot/MinebotPresentationArtSet_Default.asset");
+            MinebotPresentationArtSet artSet = AssetDatabase.LoadAssetAtPath<MinebotPresentationArtSet>(defaultArtSetPath);
             var serializedArtSet = new SerializedObject(artSet);
-            DualGridTerrainProfile dualGridProfile = AssetDatabase.LoadAssetAtPath<DualGridTerrainProfile>(
-                "Assets/Resources/Minebot/MinebotDualGridTerrainProfile_Default.asset");
+            SerializedProperty familiesProperty = serializedArtSet.FindProperty("families");
+            string artSetYaml = File.ReadAllText(defaultArtSetPath);
 
             Assert.That(artSet, Is.Not.Null);
-            Assert.That(dualGridProfile, Is.Not.Null);
-            Assert.That(artSet.DualGridTerrainProfile, Is.EqualTo(dualGridProfile));
-            Assert.That(dualGridProfile.Families.Length, Is.EqualTo(DualGridTerrain.MaterialFamilies.Length));
-            Assert.That(dualGridProfile.LayoutSettings.DisplayOffset, Is.EqualTo(DualGridTerrain.DisplayOffset));
+            Assert.That(artSet.HasInlineDualGridConfiguration, Is.True);
+            Assert.That(artSet.TerrainLayoutSettings.DisplayOffset, Is.EqualTo(DualGridTerrain.DisplayOffset));
             Assert.That(artSet.FloorDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(artSet.SoilDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(artSet.StoneDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
@@ -1623,14 +1622,33 @@ namespace Minebot.Tests.EditMode
             Assert.That(artSet.BoundaryDualGridTiles.Length, Is.EqualTo(DualGridTerrain.TileCount));
             Assert.That(artSet.FogNearDualGridTiles.Length, Is.EqualTo(DualGridFog.TileCount));
             Assert.That(artSet.FogDeepDualGridTiles.Length, Is.EqualTo(DualGridFog.TileCount));
-            Assert.That(serializedArtSet.FindProperty("floorDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
-            Assert.That(serializedArtSet.FindProperty("soilDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
-            Assert.That(serializedArtSet.FindProperty("stoneDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
-            Assert.That(serializedArtSet.FindProperty("hardRockDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
-            Assert.That(serializedArtSet.FindProperty("ultraHardDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
-            Assert.That(serializedArtSet.FindProperty("boundaryDualGridTiles").arraySize, Is.EqualTo(DualGridTerrain.TileCount));
+            Assert.That(familiesProperty.arraySize, Is.EqualTo(DualGridTerrain.MaterialFamilies.Length));
             Assert.That(serializedArtSet.FindProperty("fogNearDualGridTiles").arraySize, Is.EqualTo(DualGridFog.TileCount));
             Assert.That(serializedArtSet.FindProperty("fogDeepDualGridTiles").arraySize, Is.EqualTo(DualGridFog.TileCount));
+            Assert.That(serializedArtSet.FindProperty("dualGridTerrainProfile").objectReferenceValue, Is.Null);
+            Assert.That(serializedArtSet.FindProperty("allowLegacyArtSetFallback").boolValue, Is.False);
+            Assert.That(serializedArtSet.FindProperty("floorDualGridTiles").arraySize, Is.Zero);
+            Assert.That(serializedArtSet.FindProperty("soilDualGridTiles").arraySize, Is.Zero);
+            Assert.That(serializedArtSet.FindProperty("stoneDualGridTiles").arraySize, Is.Zero);
+            Assert.That(serializedArtSet.FindProperty("hardRockDualGridTiles").arraySize, Is.Zero);
+            Assert.That(serializedArtSet.FindProperty("ultraHardDualGridTiles").arraySize, Is.Zero);
+            Assert.That(serializedArtSet.FindProperty("boundaryDualGridTiles").arraySize, Is.Zero);
+            Assert.That(serializedArtSet.FindProperty("wallContourTiles").arraySize, Is.Zero);
+            Assert.That(serializedArtSet.FindProperty("dangerContourTiles").arraySize, Is.Zero);
+            Assert.That(AssetDatabase.LoadAssetAtPath<DualGridTerrainProfile>("Assets/Resources/Minebot/MinebotDualGridTerrainProfile_Default.asset"), Is.Null);
+
+            for (int i = 0; i < familiesProperty.arraySize; i++)
+            {
+                SerializedProperty family = familiesProperty.GetArrayElementAtIndex(i);
+                SerializedProperty resolvedTiles = family.FindPropertyRelative("resolved16Tiles");
+                for (int tileIndex = 0; tileIndex < resolvedTiles.arraySize; tileIndex++)
+                {
+                    Assert.That(resolvedTiles.GetArrayElementAtIndex(tileIndex).objectReferenceValue, Is.Null);
+                }
+            }
+
+            StringAssert.DoesNotContain("resolved16Tiles:\n    - {fileID:", artSetYaml);
+            Assert.That(familiesProperty.GetArrayElementAtIndex(0).FindPropertyRelative("enabled").boolValue, Is.False);
             Assert.That(artSet.BuildPreviewValidTile, Is.Not.Null);
             Assert.That(artSet.BuildPreviewInvalidTile, Is.Not.Null);
             Assert.That(artSet.SoilDetailTile, Is.Not.Null);
@@ -1659,7 +1677,7 @@ namespace Minebot.Tests.EditMode
             Assert.That(artSet.HudResources.StatusIcon, Is.Not.Null);
             Assert.That(artSet.HudResources.BuildingInteractionIcon, Is.Not.Null);
             Assert.That(artSet.DangerOutlineTiles.Length, Is.EqualTo(3));
-            Assert.That(artSet.FloorDualGridTiles[5], Is.Not.Null);
+            Assert.That(artSet.FloorDualGridTiles[5], Is.Null);
             Assert.That(artSet.BoundaryDualGridTiles[15], Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_Floor_15.asset"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<Tile>("Assets/Art/Minebot/Tiles/DualGridTerrain/Tile_DG_HardRock_15.asset"), Is.Not.Null);
@@ -1682,11 +1700,116 @@ namespace Minebot.Tests.EditMode
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Docs/prefab-gameplay-art-record-template.md"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Generated/Prompts/minebot-prefab-gameplay-art-batch-001.md"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Generated/Selected/minebot-prefab-gameplay-art-manifest-001.md"), Is.Not.Null);
+            CollectionAssert.IsEmpty(new List<string>(artSet.GetDualGridValidationIssues()));
+        }
 
-            foreach (DualGridTerrainFamilyProfile family in dualGridProfile.Families)
+        [Test]
+        public void DualGridFamilyResolutionPrefersCurrentAuthoringInputOverResolvedFallbackCache()
+        {
+            DualGridTerrainProfile profile = ScriptableObject.CreateInstance<DualGridTerrainProfile>();
+            Tile explicitTile = CreateRuntimeTile("DualGrid Explicit");
+            Tile cachedTile = CreateRuntimeTile("DualGrid Cached");
+
+            try
             {
-                Assert.That(family, Is.Not.Null);
-                Assert.That(family.ResolveTiles(Array.Empty<Tile>()).Length, Is.EqualTo(DualGridTerrain.TileCount));
+                var serializedProfile = new SerializedObject(profile);
+                SerializedProperty families = serializedProfile.FindProperty("families");
+                families.arraySize = DualGridTerrain.MaterialFamilies.Length;
+
+                for (int i = 0; i < families.arraySize; i++)
+                {
+                    SerializedProperty family = families.GetArrayElementAtIndex(i);
+                    family.FindPropertyRelative("layerId").enumValueIndex = (int)DualGridTerrain.MaterialFamilies[i];
+                    family.FindPropertyRelative("enabled").boolValue = true;
+                }
+
+                SerializedProperty floorFamily = families.GetArrayElementAtIndex(0);
+                floorFamily.FindPropertyRelative("authoringMode").enumValueIndex = (int)DualGridAuthoringMode.Explicit16;
+
+                SerializedProperty explicit16Tiles = floorFamily.FindPropertyRelative("explicit16Tiles");
+                SerializedProperty resolved16Tiles = floorFamily.FindPropertyRelative("resolved16Tiles");
+                explicit16Tiles.arraySize = DualGridTerrain.TileCount;
+                resolved16Tiles.arraySize = DualGridTerrain.TileCount;
+                explicit16Tiles.GetArrayElementAtIndex(0).objectReferenceValue = explicitTile;
+                resolved16Tiles.GetArrayElementAtIndex(0).objectReferenceValue = cachedTile;
+                resolved16Tiles.GetArrayElementAtIndex(5).objectReferenceValue = cachedTile;
+                serializedProfile.ApplyModifiedPropertiesWithoutUndo();
+
+                TileBase[] resolvedTiles = profile.ResolveFamilyTiles(TerrainRenderLayerId.Floor, null);
+
+                Assert.That(resolvedTiles[0], Is.EqualTo(explicitTile));
+                Assert.That(resolvedTiles[5], Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(explicitTile);
+                Object.DestroyImmediate(cachedTile);
+                Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void DefaultPresentationArtSetPreservesWallV2DualGridFamilies()
+        {
+            MinebotPresentationArtSet artSet = MinebotPresentationAssets.LoadDefaultArtSet();
+            Assert.That(artSet, Is.Not.Null);
+
+            var serializedArtSet = new SerializedObject(artSet);
+            SerializedProperty families = serializedArtSet.FindProperty("families");
+
+            AssertWallFamilyUsesSequence(families, (int)TerrainRenderLayerId.Soil, "wall0");
+            AssertWallFamilyUsesSequence(families, (int)TerrainRenderLayerId.Stone, "wall1");
+            AssertWallFamilyUsesSequence(families, (int)TerrainRenderLayerId.HardRock, "wall2");
+            AssertWallFamilyUsesSequence(families, (int)TerrainRenderLayerId.UltraHard, "wall3");
+        }
+
+        [Test]
+        public void DualGridLegacyNormalizationPromotesPreviouslyRenderedResolvedTiles()
+        {
+            DualGridTerrainProfile profile = ScriptableObject.CreateInstance<DualGridTerrainProfile>();
+            Tile explicitTile = CreateRuntimeTile("DualGrid Explicit Legacy");
+            Tile resolvedTile = CreateRuntimeTile("DualGrid Resolved Legacy");
+
+            try
+            {
+                var serializedProfile = new SerializedObject(profile);
+                SerializedProperty families = serializedProfile.FindProperty("families");
+                families.arraySize = DualGridTerrain.MaterialFamilies.Length;
+
+                for (int i = 0; i < families.arraySize; i++)
+                {
+                    SerializedProperty family = families.GetArrayElementAtIndex(i);
+                    family.FindPropertyRelative("layerId").enumValueIndex = (int)DualGridTerrain.MaterialFamilies[i];
+                    family.FindPropertyRelative("enabled").boolValue = true;
+                }
+
+                SerializedProperty soilFamily = families.GetArrayElementAtIndex((int)TerrainRenderLayerId.Soil);
+                soilFamily.FindPropertyRelative("authoringMode").enumValueIndex = (int)DualGridAuthoringMode.Explicit16;
+
+                SerializedProperty explicit16Tiles = soilFamily.FindPropertyRelative("explicit16Tiles");
+                SerializedProperty resolved16Tiles = soilFamily.FindPropertyRelative("resolved16Tiles");
+                explicit16Tiles.arraySize = DualGridTerrain.TileCount;
+                resolved16Tiles.arraySize = DualGridTerrain.TileCount;
+                explicit16Tiles.GetArrayElementAtIndex(0).objectReferenceValue = explicitTile;
+                resolved16Tiles.GetArrayElementAtIndex(0).objectReferenceValue = resolvedTile;
+                resolved16Tiles.GetArrayElementAtIndex(5).objectReferenceValue = resolvedTile;
+                serializedProfile.ApplyModifiedPropertiesWithoutUndo();
+
+                Assert.That(profile.NormalizeLegacyConfiguration(), Is.True);
+
+                serializedProfile.Update();
+                explicit16Tiles = soilFamily.FindPropertyRelative("explicit16Tiles");
+                resolved16Tiles = soilFamily.FindPropertyRelative("resolved16Tiles");
+
+                Assert.That(explicit16Tiles.GetArrayElementAtIndex(0).objectReferenceValue, Is.EqualTo(resolvedTile));
+                Assert.That(explicit16Tiles.GetArrayElementAtIndex(5).objectReferenceValue, Is.EqualTo(resolvedTile));
+                Assert.That(resolved16Tiles.arraySize, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(explicitTile);
+                Object.DestroyImmediate(resolvedTile);
+                Object.DestroyImmediate(profile);
             }
         }
 
@@ -2048,6 +2171,18 @@ namespace Minebot.Tests.EditMode
                 }
 
                 profile.ConfigureFamilyTiles(layerId, configuredTiles);
+            }
+        }
+
+        private static void AssertWallFamilyUsesSequence(SerializedProperty families, int familyIndex, string wallPrefix)
+        {
+            SerializedProperty explicit16Tiles = families.GetArrayElementAtIndex(familyIndex).FindPropertyRelative("explicit16Tiles");
+            Assert.That(explicit16Tiles.arraySize, Is.EqualTo(DualGridTerrain.TileCount));
+
+            for (int tileIndex = 0; tileIndex < DualGridTerrain.TileCount; tileIndex++)
+            {
+                string assetPath = AssetDatabase.GetAssetPath(explicit16Tiles.GetArrayElementAtIndex(tileIndex).objectReferenceValue);
+                Assert.That(assetPath, Is.EqualTo($"Assets/Art/My/Tiles/Wall v2/{wallPrefix}_{tileIndex}.asset"));
             }
         }
 

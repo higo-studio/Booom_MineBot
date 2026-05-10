@@ -76,13 +76,11 @@ namespace Minebot.Presentation
         public Tile[] WallContourTiles => wallContourTiles ?? Array.Empty<Tile>();
         public Tile[] DangerContourTiles => dangerContourTiles ?? Array.Empty<Tile>();
 
-#if UNITY_EDITOR
         public void Configure(Tile[] wallContours, Tile[] dangerContours)
         {
             wallContourTiles = wallContours ?? Array.Empty<Tile>();
             dangerContourTiles = dangerContours ?? Array.Empty<Tile>();
         }
-#endif
     }
 
     [Serializable]
@@ -127,7 +125,7 @@ namespace Minebot.Presentation
         private bool allowAutoRotateCanonical = true;
 
         [SerializeField]
-        [InspectorLabel("最终 16 格瓦片")]
+        [HideInInspector]
         private Tile[] resolved16Tiles = Array.Empty<Tile>();
 
         public TerrainRenderLayerId LayerId => layerId;
@@ -139,24 +137,27 @@ namespace Minebot.Presentation
         public Tile[] PerIndexOverrides16 => perIndexOverrides16 ?? Array.Empty<Tile>();
         public bool AllowGeneratedFallbackForMissing => false;
         public bool AllowAutoRotateCanonical => allowAutoRotateCanonical;
-        public Tile[] Resolved16Tiles => resolved16Tiles ?? Array.Empty<Tile>();
+        public bool HasAnyConfiguredTiles() => HasAnyTile(explicit16Tiles)
+            || HasAnyTile(canonical6Tiles)
+            || HasAnyTile(perIndexOverrides16)
+            || HasAnyTile(resolved16Tiles);
 
         public Tile[] ResolveTiles(TileBase[] legacyTiles)
         {
             var resolved = new Tile[DualGridTerrain.TileCount];
+            switch (authoringMode)
+            {
+                case DualGridAuthoringMode.Canonical6:
+                    ApplyCanonicalTiles(canonical6Tiles, resolved, allowAutoRotateCanonical);
+                    break;
+                case DualGridAuthoringMode.Explicit16:
+                    CopyIfSized(explicit16Tiles, resolved);
+                    break;
+            }
 
-            CopyIfSized(resolved16Tiles, resolved);
             if (!HasAnyTile(resolved))
             {
-                switch (authoringMode)
-                {
-                    case DualGridAuthoringMode.Canonical6:
-                        ApplyCanonicalTiles(canonical6Tiles, resolved, allowAutoRotateCanonical);
-                        break;
-                    case DualGridAuthoringMode.Explicit16:
-                        CopyIfSized(explicit16Tiles, resolved);
-                        break;
-                }
+                CopyIfSized(resolved16Tiles, resolved);
             }
 
             ApplyOverrides(perIndexOverrides16, resolved);
@@ -175,6 +176,11 @@ namespace Minebot.Presentation
             if (resolved16Tiles != null && resolved16Tiles.Length > 0 && resolved16Tiles.Length != DualGridTerrain.TileCount)
             {
                 yield return $"{layerLabel}：最终 16 格瓦片数量必须为 {DualGridTerrain.TileCount}。";
+            }
+
+            if (HasAnyTile(resolved16Tiles))
+            {
+                yield return $"{layerLabel}：存在旧的最终 16 格缓存引用，请执行双网格迁移清理。";
             }
 
             if (explicit16Tiles != null && explicit16Tiles.Length > 0 && explicit16Tiles.Length != DualGridTerrain.TileCount)
@@ -212,31 +218,126 @@ namespace Minebot.Presentation
             enabled = source.enabled;
             authoringMode = source.authoringMode;
             atlas16Source = source.atlas16Source;
+            allowGeneratedFallbackForMissing = false;
+            allowAutoRotateCanonical = source.allowAutoRotateCanonical;
+            if (HasAnyTile(source.resolved16Tiles))
+            {
+                Tile[] authored = BuildResolvedFromAuthoring(
+                    source.authoringMode,
+                    source.explicit16Tiles,
+                    source.canonical6Tiles,
+                    source.perIndexOverrides16,
+                    source.allowAutoRotateCanonical);
+                if (!HasAnyTile(authored) || !TilesEqual(authored, source.resolved16Tiles))
+                {
+                    authoringMode = DualGridAuthoringMode.Explicit16;
+                    explicit16Tiles = CopyTiles(source.resolved16Tiles);
+                    canonical6Tiles = Array.Empty<Tile>();
+                    perIndexOverrides16 = Array.Empty<Tile>();
+                    resolved16Tiles = Array.Empty<Tile>();
+                    return;
+                }
+            }
+
             explicit16Tiles = source.explicit16Tiles ?? Array.Empty<Tile>();
             canonical6Tiles = source.canonical6Tiles ?? Array.Empty<Tile>();
             perIndexOverrides16 = source.perIndexOverrides16 ?? Array.Empty<Tile>();
-            allowGeneratedFallbackForMissing = false;
-            allowAutoRotateCanonical = source.allowAutoRotateCanonical;
-            resolved16Tiles = source.resolved16Tiles ?? Array.Empty<Tile>();
+            resolved16Tiles = Array.Empty<Tile>();
         }
 
-#if UNITY_EDITOR
         public void ConfigureResolvedTiles(Tile[] tiles)
         {
-            resolved16Tiles = tiles ?? Array.Empty<Tile>();
+            explicit16Tiles = tiles ?? Array.Empty<Tile>();
+            canonical6Tiles = Array.Empty<Tile>();
+            perIndexOverrides16 = Array.Empty<Tile>();
+            resolved16Tiles = Array.Empty<Tile>();
             authoringMode = DualGridAuthoringMode.Explicit16;
+            enabled = enabled || HasAnyTile(explicit16Tiles);
         }
 
         public void ConfigureLegacyMigration(Tile[] explicitTiles, Tile[] resolvedTiles)
         {
-            explicit16Tiles = explicitTiles ?? Array.Empty<Tile>();
-            resolved16Tiles = resolvedTiles ?? Array.Empty<Tile>();
+            explicit16Tiles = HasAnyTile(explicitTiles)
+                ? explicitTiles
+                : resolvedTiles ?? Array.Empty<Tile>();
+            canonical6Tiles = Array.Empty<Tile>();
+            perIndexOverrides16 = Array.Empty<Tile>();
+            resolved16Tiles = Array.Empty<Tile>();
             authoringMode = DualGridAuthoringMode.Explicit16;
+            enabled = enabled || HasAnyTile(explicit16Tiles);
         }
 
         public void SetLayerId(TerrainRenderLayerId value)
         {
             layerId = value;
+        }
+
+        public void SetEnabled(bool value)
+        {
+            enabled = value;
+        }
+
+#if UNITY_EDITOR
+        public bool NormalizeLegacyAuthoring(TileBase[] legacyTiles = null)
+        {
+            bool changed = false;
+            bool hasExplicit = HasAnyTile(explicit16Tiles);
+            bool hasCanonical = HasAnyTile(canonical6Tiles);
+            bool hasOverrides = HasAnyTile(perIndexOverrides16);
+            bool hasResolved = HasAnyTile(resolved16Tiles);
+            bool hasLegacy = HasAnyTile(legacyTiles);
+
+            if (hasResolved)
+            {
+                Tile[] authored = BuildResolvedFromAuthoring(
+                    authoringMode,
+                    explicit16Tiles,
+                    canonical6Tiles,
+                    perIndexOverrides16,
+                    allowAutoRotateCanonical);
+                if (!HasAnyTile(authored) || !TilesEqual(authored, resolved16Tiles))
+                {
+                    explicit16Tiles = CopyTiles(resolved16Tiles);
+                    canonical6Tiles = Array.Empty<Tile>();
+                    perIndexOverrides16 = Array.Empty<Tile>();
+                    authoringMode = DualGridAuthoringMode.Explicit16;
+                    hasExplicit = true;
+                    hasCanonical = false;
+                    hasOverrides = false;
+                    changed = true;
+                }
+            }
+
+            if (!hasExplicit && !hasCanonical && !hasOverrides)
+            {
+                if (hasLegacy)
+                {
+                    explicit16Tiles = ToTileArray(legacyTiles);
+                    authoringMode = DualGridAuthoringMode.Explicit16;
+                    hasExplicit = true;
+                    changed = true;
+                }
+            }
+
+            if (authoringMode == DualGridAuthoringMode.Atlas16 && hasExplicit)
+            {
+                authoringMode = DualGridAuthoringMode.Explicit16;
+                changed = true;
+            }
+
+            if (resolved16Tiles != null && resolved16Tiles.Length > 0)
+            {
+                resolved16Tiles = Array.Empty<Tile>();
+                changed = true;
+            }
+
+            if (allowGeneratedFallbackForMissing)
+            {
+                allowGeneratedFallbackForMissing = false;
+                changed = true;
+            }
+
+            return changed;
         }
 #endif
 
@@ -276,6 +377,51 @@ namespace Minebot.Presentation
             }
         }
 
+        private static Tile[] BuildResolvedFromAuthoring(
+            DualGridAuthoringMode mode,
+            Tile[] explicitTiles,
+            Tile[] canonicalTiles,
+            Tile[] overrides,
+            bool allowCanonicalAutoRotate)
+        {
+            var resolved = new Tile[DualGridTerrain.TileCount];
+            switch (mode)
+            {
+                case DualGridAuthoringMode.Canonical6:
+                    ApplyCanonicalTiles(canonicalTiles, resolved, allowCanonicalAutoRotate);
+                    break;
+                case DualGridAuthoringMode.Explicit16:
+                    CopyIfSized(explicitTiles, resolved);
+                    break;
+            }
+
+            ApplyOverrides(overrides, resolved);
+            return resolved;
+        }
+
+        private static bool TilesEqual(Tile[] left, Tile[] right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left == null || right == null || left.Length != right.Length)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < left.Length; i++)
+            {
+                if (left[i] != right[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static void ApplyOverrides(Tile[] overrides, Tile[] destination)
         {
             if (overrides == null)
@@ -309,6 +455,52 @@ namespace Minebot.Presentation
             }
 
             return false;
+        }
+
+        private static bool HasAnyTile(TileBase[] tiles)
+        {
+            if (tiles == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                if (tiles[i] != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Tile[] CopyTiles(Tile[] source)
+        {
+            if (source == null || source.Length == 0)
+            {
+                return Array.Empty<Tile>();
+            }
+
+            var result = new Tile[source.Length];
+            Array.Copy(source, result, source.Length);
+            return result;
+        }
+
+        private static Tile[] ToTileArray(TileBase[] source)
+        {
+            if (source == null || source.Length == 0)
+            {
+                return Array.Empty<Tile>();
+            }
+
+            var result = new Tile[source.Length];
+            for (int i = 0; i < source.Length; i++)
+            {
+                result[i] = source[i] as Tile;
+            }
+
+            return result;
         }
 
         private static void ApplyCanonicalTiles(Tile[] canonicalTiles, Tile[] destination, bool allowAutoRotate)
@@ -396,7 +588,7 @@ namespace Minebot.Presentation
 
         [SerializeField]
         [InspectorLabel("允许回退到旧美术集")]
-        private bool allowLegacyArtSetFallback = true;
+        private bool allowLegacyArtSetFallback = false;
 
         public DualGridTerrainLayoutSettings LayoutSettings => layoutSettings.DisplayOffset == default && layoutSettings.SortingOrderStep == 0
             ? DualGridTerrainLayoutSettings.CreateDefault()
@@ -409,9 +601,14 @@ namespace Minebot.Presentation
         public TileBase[] ResolveFamilyTiles(TerrainRenderLayerId layerId, TileBase[] legacyTiles)
         {
             DualGridTerrainFamilyProfile family = FindFamily(layerId);
-            if (family == null || !family.Enabled)
+            if (family == null)
             {
                 return ResolveFallbackTiles(layerId, legacyTiles);
+            }
+
+            if (!family.Enabled)
+            {
+                return new TileBase[DualGridTerrain.TileCount];
             }
 
             Tile[] resolved = family.ResolveTiles(allowLegacyArtSetFallback ? legacyTiles : null);
@@ -443,6 +640,11 @@ namespace Minebot.Presentation
                     yield return issue;
                 }
             }
+
+            if (allowLegacyArtSetFallback)
+            {
+                yield return "仍允许回退到旧美术集数组，请执行双网格迁移清理。";
+            }
         }
 
 #if UNITY_EDITOR
@@ -466,6 +668,28 @@ namespace Minebot.Presentation
         {
             legacyTopology = legacyTopology ?? new DualGridLegacyTopologyAssets();
             legacyTopology.Configure(wallContours, dangerContours);
+        }
+
+        public bool NormalizeLegacyConfiguration()
+        {
+            bool changed = false;
+            DualGridTerrainFamilyProfile[] configuredFamilies = EnsureFamilies();
+            for (int i = 0; i < configuredFamilies.Length; i++)
+            {
+                DualGridTerrainFamilyProfile family = configuredFamilies[i];
+                if (family != null && family.NormalizeLegacyAuthoring())
+                {
+                    changed = true;
+                }
+            }
+
+            if (allowLegacyArtSetFallback)
+            {
+                allowLegacyArtSetFallback = false;
+                changed = true;
+            }
+
+            return changed;
         }
 #endif
 
@@ -624,10 +848,7 @@ namespace Minebot.Presentation
                 return;
             }
 
-            if (destinationFamily.Explicit16Tiles.Length > 0
-                || destinationFamily.Resolved16Tiles.Length > 0
-                || destinationFamily.Canonical6Tiles.Length > 0
-                || destinationFamily.PerIndexOverrides16.Length > 0)
+            if (destinationFamily.HasAnyConfiguredTiles())
             {
                 return;
             }

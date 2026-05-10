@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Minebot.GridMining;
 using Minebot.UI;
 using UnityEngine;
@@ -12,55 +13,49 @@ namespace Minebot.Presentation
     {
         [Header("地形")]
         [SerializeField]
-        [InspectorLabel("空地瓦片")]
-        private TileBase emptyTile;
-
-        [SerializeField]
-        [InspectorLabel("土层墙瓦片")]
-        private TileBase soilWallTile;
-
-        [SerializeField]
-        [InspectorLabel("石层墙瓦片")]
-        private TileBase stoneWallTile;
-
-        [SerializeField]
-        [InspectorLabel("硬岩墙瓦片")]
-        private TileBase hardRockWallTile;
-
-        [SerializeField]
-        [InspectorLabel("超硬岩墙瓦片")]
-        private TileBase ultraHardWallTile;
-
-        [SerializeField]
-        [InspectorLabel("边界瓦片")]
-        private TileBase boundaryTile;
-
-        [SerializeField]
         [InspectorLabel("双网格地形配置")]
+        [HideInInspector]
         private DualGridTerrainProfile dualGridTerrainProfile;
 
         [SerializeField]
-        [InspectorLabel("双网格地板瓦片")]
+        [InspectorLabel("布局设置")]
+        private DualGridTerrainLayoutSettings layoutSettings = default;
+
+        [SerializeField]
+        [InspectorLabel("地形族配置")]
+        private DualGridTerrainFamilyProfile[] families = Array.Empty<DualGridTerrainFamilyProfile>();
+
+        [SerializeField]
+        [InspectorLabel("旧拓扑资源")]
+        private DualGridLegacyTopologyAssets legacyTopology = new DualGridLegacyTopologyAssets();
+
+        [SerializeField]
+        [InspectorLabel("允许回退到旧双网格数组")]
+        [HideInInspector]
+        private bool allowLegacyArtSetFallback = false;
+
+        [SerializeField]
+        [HideInInspector]
         private TileBase[] floorDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
-        [InspectorLabel("双网格土层瓦片")]
+        [HideInInspector]
         private TileBase[] soilDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
-        [InspectorLabel("双网格石层瓦片")]
+        [HideInInspector]
         private TileBase[] stoneDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
-        [InspectorLabel("双网格硬岩瓦片")]
+        [HideInInspector]
         private TileBase[] hardRockDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
-        [InspectorLabel("双网格超硬岩瓦片")]
+        [HideInInspector]
         private TileBase[] ultraHardDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
-        [InspectorLabel("双网格边界瓦片")]
+        [HideInInspector]
         private TileBase[] boundaryDualGridTiles = Array.Empty<TileBase>();
 
         [SerializeField]
@@ -89,11 +84,11 @@ namespace Minebot.Presentation
         private TileBase[] dangerOutlineTiles = Array.Empty<TileBase>();
 
         [SerializeField]
-        [InspectorLabel("墙体轮廓瓦片")]
+        [HideInInspector]
         private TileBase[] wallContourTiles = Array.Empty<TileBase>();
 
         [SerializeField]
-        [InspectorLabel("危险轮廓瓦片")]
+        [HideInInspector]
         private TileBase[] dangerContourTiles = Array.Empty<TileBase>();
 
         [SerializeField]
@@ -249,14 +244,10 @@ namespace Minebot.Presentation
         [InspectorLabel("从属机器人排序层级")]
         private int robotSortingOrder = 40;
 
-        public TileBase EmptyTile => emptyTile;
-        public TileBase SoilWallTile => soilWallTile;
-        public TileBase StoneWallTile => stoneWallTile;
-        public TileBase HardRockWallTile => hardRockWallTile;
-        public TileBase UltraHardWallTile => ultraHardWallTile;
-        public TileBase BoundaryTile => boundaryTile;
-        public DualGridTerrainProfile DualGridTerrainProfile => dualGridTerrainProfile;
-        public DualGridTerrainLayoutSettings TerrainLayoutSettings => dualGridTerrainProfile != null ? dualGridTerrainProfile.LayoutSettings : DualGridTerrainLayoutSettings.CreateDefault();
+        public bool HasInlineDualGridConfiguration => families != null && families.Length > 0;
+        public DualGridTerrainLayoutSettings TerrainLayoutSettings => HasInlineDualGridConfiguration
+            ? ResolveConfiguredLayoutSettings(layoutSettings)
+            : dualGridTerrainProfile != null ? dualGridTerrainProfile.LayoutSettings : DualGridTerrainLayoutSettings.CreateDefault();
         public TileBase[] FloorDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Floor, floorDualGridTiles);
         public TileBase[] SoilDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Soil, soilDualGridTiles);
         public TileBase[] StoneDualGridTiles => ResolveDualGridTiles(TerrainRenderLayerId.Stone, stoneDualGridTiles);
@@ -269,12 +260,8 @@ namespace Minebot.Presentation
         public TileBase MarkerTile => markerTile;
         public TileBase ScanHintTile => scanHintTile;
         public TileBase[] DangerOutlineTiles => dangerOutlineTiles ?? Array.Empty<TileBase>();
-        public TileBase[] WallContourTiles => dualGridTerrainProfile != null
-            ? dualGridTerrainProfile.ResolveWallContourTiles(wallContourTiles)
-            : wallContourTiles ?? Array.Empty<TileBase>();
-        public TileBase[] DangerContourTiles => dualGridTerrainProfile != null
-            ? dualGridTerrainProfile.ResolveDangerContourTiles(dangerContourTiles)
-            : dangerContourTiles ?? Array.Empty<TileBase>();
+        public TileBase[] WallContourTiles => ResolveWallContourTiles();
+        public TileBase[] DangerContourTiles => ResolveDangerContourTiles();
         public TileBase SoilDetailTile => soilDetailTile;
         public TileBase StoneDetailTile => stoneDetailTile;
         public TileBase HardRockDetailTile => hardRockDetailTile;
@@ -314,6 +301,11 @@ namespace Minebot.Presentation
 
         private TileBase[] ResolveDualGridTiles(TerrainRenderLayerId layerId, TileBase[] configuredTiles)
         {
+            if (HasInlineDualGridConfiguration)
+            {
+                return ResolveInlineFamilyTiles(layerId, configuredTiles);
+            }
+
             if (dualGridTerrainProfile != null)
             {
                 return dualGridTerrainProfile.ResolveFamilyTiles(layerId, configuredTiles);
@@ -337,65 +329,318 @@ namespace Minebot.Presentation
             return Array.Empty<TileBase>();
         }
 
-#if UNITY_EDITOR
-        public TileBase[] GetLegacyConfiguredDualGridTiles(TerrainRenderLayerId layerId)
+        private TileBase[] ResolveWallContourTiles()
         {
-            switch (layerId)
+            if (HasInlineDualGridConfiguration)
             {
-                case TerrainRenderLayerId.Soil:
-                    return soilDualGridTiles ?? Array.Empty<TileBase>();
-                case TerrainRenderLayerId.Stone:
-                    return stoneDualGridTiles ?? Array.Empty<TileBase>();
-                case TerrainRenderLayerId.HardRock:
-                    return hardRockDualGridTiles ?? Array.Empty<TileBase>();
-                case TerrainRenderLayerId.UltraHard:
-                    return ultraHardDualGridTiles ?? Array.Empty<TileBase>();
-                case TerrainRenderLayerId.Boundary:
-                    return boundaryDualGridTiles ?? Array.Empty<TileBase>();
-                default:
-                    return floorDualGridTiles ?? Array.Empty<TileBase>();
+                return ResolveInlineLegacyTiles(legacyTopology != null ? legacyTopology.WallContourTiles : null, wallContourTiles);
             }
-        }
 
-        public TileBase[] GetLegacyConfiguredWallContourTiles()
-        {
+            if (dualGridTerrainProfile != null)
+            {
+                return dualGridTerrainProfile.ResolveWallContourTiles(wallContourTiles);
+            }
+
             return wallContourTiles ?? Array.Empty<TileBase>();
         }
 
-        public TileBase[] GetLegacyConfiguredDangerContourTiles()
+        private TileBase[] ResolveDangerContourTiles()
         {
+            if (HasInlineDualGridConfiguration)
+            {
+                return ResolveInlineLegacyTiles(legacyTopology != null ? legacyTopology.DangerContourTiles : null, dangerContourTiles);
+            }
+
+            if (dualGridTerrainProfile != null)
+            {
+                return dualGridTerrainProfile.ResolveDangerContourTiles(dangerContourTiles);
+            }
+
             return dangerContourTiles ?? Array.Empty<TileBase>();
         }
 
-        public void AssignDualGridTerrainProfile(DualGridTerrainProfile profile)
+        public IEnumerable<string> GetDualGridValidationIssues()
         {
-            dualGridTerrainProfile = profile;
-        }
-#endif
-
-        public TileBase TileForHardness(HardnessTier hardness)
-        {
-            switch (hardness)
+            if (HasInlineDualGridConfiguration)
             {
-                case HardnessTier.Stone:
-                    return stoneDetailTile != null ? stoneDetailTile : stoneWallTile != null ? stoneWallTile : soilWallTile;
-                case HardnessTier.HardRock:
-                    return hardRockDetailTile != null ? hardRockDetailTile : hardRockWallTile != null ? hardRockWallTile : soilWallTile;
-                case HardnessTier.UltraHard:
-                    return ultraHardDetailTile != null ? ultraHardDetailTile : ultraHardWallTile != null ? ultraHardWallTile : hardRockWallTile != null ? hardRockWallTile : soilWallTile;
-                default:
-                    return soilDetailTile != null ? soilDetailTile : soilWallTile;
+                foreach (DualGridTerrainFamilyProfile family in EnsureInlineFamilies())
+                {
+                    if (family == null)
+                    {
+                        yield return "双网格配置中存在缺失的地形族条目。";
+                        continue;
+                    }
+
+                    foreach (string issue in family.GetValidationIssues())
+                    {
+                        yield return issue;
+                    }
+                }
+
+                if (dualGridTerrainProfile != null)
+                {
+                    yield return "仍引用旧的默认双网格 profile，请执行双网格迁移清理。";
+                }
+
+                if (allowLegacyArtSetFallback)
+                {
+                    yield return "仍允许回退到旧双网格数组，请执行双网格迁移清理。";
+                }
+
+                if (HasAnyLegacyTileReference(floorDualGridTiles)
+                    || HasAnyLegacyTileReference(soilDualGridTiles)
+                    || HasAnyLegacyTileReference(stoneDualGridTiles)
+                    || HasAnyLegacyTileReference(hardRockDualGridTiles)
+                    || HasAnyLegacyTileReference(ultraHardDualGridTiles)
+                    || HasAnyLegacyTileReference(boundaryDualGridTiles)
+                    || HasAnyLegacyTileReference(wallContourTiles)
+                    || HasAnyLegacyTileReference(dangerContourTiles))
+                {
+                    yield return "仍保留旧双网格数组引用，请执行双网格迁移清理。";
+                }
+
+                yield break;
+            }
+
+            if (dualGridTerrainProfile != null)
+            {
+                foreach (string issue in dualGridTerrainProfile.GetValidationIssues())
+                {
+                    yield return issue;
+                }
             }
         }
 
+        private TileBase[] ResolveInlineFamilyTiles(TerrainRenderLayerId layerId, TileBase[] legacyTiles)
+        {
+            DualGridTerrainFamilyProfile family = FindInlineFamily(layerId);
+            if (family == null)
+            {
+                return ResolveInlineFallbackTiles(layerId, legacyTiles);
+            }
+
+            if (!family.Enabled)
+            {
+                return new TileBase[DualGridTerrain.TileCount];
+            }
+
+            Tile[] resolved = family.ResolveTiles(allowLegacyArtSetFallback ? legacyTiles : null);
+            return HasAnyResolvedTile(resolved) ? resolved : ResolveInlineFallbackTiles(layerId, legacyTiles);
+        }
+
+        private TileBase[] ResolveInlineFallbackTiles(TerrainRenderLayerId layerId, TileBase[] legacyTiles)
+        {
+            if (allowLegacyArtSetFallback && legacyTiles != null && legacyTiles.Length > 0)
+            {
+                var normalized = new TileBase[DualGridTerrain.TileCount];
+                for (int i = 0; i < normalized.Length; i++)
+                {
+                    normalized[i] = i < legacyTiles.Length ? legacyTiles[i] : null;
+                }
+
+                return normalized;
+            }
+
+            Debug.LogWarning($"Dual Grid 地形族 {layerId} 缺少离线瓦片资源。运行时不会再自动生成 fallback。");
+            return new TileBase[DualGridTerrain.TileCount];
+        }
+
+        private DualGridTerrainFamilyProfile[] EnsureInlineFamilies()
+        {
+            if (families != null && families.Length == DualGridTerrain.MaterialFamilies.Length)
+            {
+                return families;
+            }
+
+            DualGridTerrainFamilyProfile[] legacyFamilies = families;
+            families = DualGridTerrainFamilyProfile.CreateDefaults();
+            MigrateLegacyFamilies(legacyFamilies, families);
+            return families;
+        }
+
+        private DualGridTerrainFamilyProfile FindInlineFamily(TerrainRenderLayerId layerId)
+        {
+            DualGridTerrainFamilyProfile[] configuredFamilies = EnsureInlineFamilies();
+            for (int i = 0; i < configuredFamilies.Length; i++)
+            {
+                if (configuredFamilies[i] != null && configuredFamilies[i].LayerId == layerId)
+                {
+                    return configuredFamilies[i];
+                }
+            }
+
+            return null;
+        }
+
+        private static TileBase[] ResolveInlineLegacyTiles(Tile[] configuredTiles, TileBase[] fallbackTiles)
+        {
+            TileBase[] preferred = configuredTiles != null && configuredTiles.Length > 0 ? configuredTiles : fallbackTiles;
+            if (preferred == null || preferred.Length == 0)
+            {
+                return Array.Empty<TileBase>();
+            }
+
+            var normalized = new TileBase[DualGridContour.TileCount];
+            for (int i = 0; i < normalized.Length; i++)
+            {
+                normalized[i] = i < preferred.Length ? preferred[i] : null;
+            }
+
+            return normalized;
+        }
+
+        private static bool HasAnyResolvedTile(Tile[] tiles)
+        {
+            if (tiles == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < tiles.Length; i++)
+            {
+                if (tiles[i] != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasAnyLegacyTileReference(TileBase[] tiles)
+        {
+            return tiles != null && tiles.Length > 0;
+        }
+
+        private static DualGridTerrainLayoutSettings ResolveConfiguredLayoutSettings(DualGridTerrainLayoutSettings settings)
+        {
+            return settings.DisplayOffset == default && settings.SortingOrderStep == 0
+                ? DualGridTerrainLayoutSettings.CreateDefault()
+                : settings;
+        }
+
+        private static void MigrateLegacyFamilies(DualGridTerrainFamilyProfile[] source, DualGridTerrainFamilyProfile[] destination)
+        {
+            if (source == null || destination == null)
+            {
+                return;
+            }
+
+            CopyFamilyIfPresent(source, destination, TerrainRenderLayerId.Floor, TerrainRenderLayerId.Floor);
+            CopyFamilyIfPresent(source, destination, TerrainRenderLayerId.Boundary, TerrainRenderLayerId.Boundary);
+
+            DualGridTerrainFamilyProfile wallSource = FindFamilyIn(source, TerrainRenderLayerId.Soil)
+                ?? FindFamilyIn(source, TerrainRenderLayerId.Stone)
+                ?? FindFamilyIn(source, TerrainRenderLayerId.HardRock)
+                ?? FindFamilyIn(source, TerrainRenderLayerId.UltraHard);
+            if (wallSource != null)
+            {
+                CopyFromWallSourceIfMissing(destination, TerrainRenderLayerId.Soil, wallSource);
+                CopyFromWallSourceIfMissing(destination, TerrainRenderLayerId.Stone, wallSource);
+                CopyFromWallSourceIfMissing(destination, TerrainRenderLayerId.HardRock, wallSource);
+                CopyFromWallSourceIfMissing(destination, TerrainRenderLayerId.UltraHard, wallSource);
+            }
+        }
+
+        private static void CopyFamilyIfPresent(
+            DualGridTerrainFamilyProfile[] source,
+            DualGridTerrainFamilyProfile[] destination,
+            TerrainRenderLayerId sourceLayerId,
+            TerrainRenderLayerId destinationLayerId)
+        {
+            DualGridTerrainFamilyProfile sourceFamily = FindFamilyIn(source, sourceLayerId);
+            DualGridTerrainFamilyProfile destinationFamily = FindFamilyIn(destination, destinationLayerId);
+            if (sourceFamily == null || destinationFamily == null)
+            {
+                return;
+            }
+
+            destinationFamily.CopyFrom(sourceFamily);
+        }
+
+        private static DualGridTerrainFamilyProfile FindFamilyIn(DualGridTerrainFamilyProfile[] source, TerrainRenderLayerId layerId)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < source.Length; i++)
+            {
+                if (source[i] != null && source[i].LayerId == layerId)
+                {
+                    return source[i];
+                }
+            }
+
+            return null;
+        }
+
+        private static void CopyFromWallSourceIfMissing(
+            DualGridTerrainFamilyProfile[] destination,
+            TerrainRenderLayerId destinationLayerId,
+            DualGridTerrainFamilyProfile wallSource)
+        {
+            DualGridTerrainFamilyProfile destinationFamily = FindFamilyIn(destination, destinationLayerId);
+            if (destinationFamily == null)
+            {
+                return;
+            }
+
+            destinationFamily.CopyFrom(wallSource);
+            destinationFamily.SetLayerId(destinationLayerId);
+        }
+
 #if UNITY_EDITOR
+        public bool NormalizeDualGridConfiguration()
+        {
+            bool changed = false;
+            if (HasInlineDualGridConfiguration)
+            {
+                families = EnsureInlineFamilies();
+            }
+            else
+            {
+                ConfigureInlineDualGridConfiguration(
+                    dualGridTerrainProfile,
+                    floorDualGridTiles,
+                    soilDualGridTiles,
+                    stoneDualGridTiles,
+                    hardRockDualGridTiles,
+                    ultraHardDualGridTiles,
+                    boundaryDualGridTiles,
+                    wallContourTiles,
+                    dangerContourTiles,
+                    clearLegacyProfileReference: true);
+                changed = true;
+            }
+
+            if (NormalizeInlineFamilies())
+            {
+                changed = true;
+            }
+
+            if (NormalizeInlineLegacyTopology())
+            {
+                changed = true;
+            }
+
+            if (allowLegacyArtSetFallback)
+            {
+                allowLegacyArtSetFallback = false;
+                changed = true;
+            }
+
+            if (ClearLegacyDualGridReferences())
+            {
+                changed = true;
+            }
+
+            return changed;
+        }
+#endif
+
         public void Configure(
-            TileBase empty,
-            TileBase soilWall,
-            TileBase stoneWall,
-            TileBase hardRockWall,
-            TileBase ultraHardWall,
-            TileBase boundary,
             TileBase danger,
             TileBase marker,
             TileBase scanHint,
@@ -430,12 +675,6 @@ namespace Minebot.Presentation
             float configuredScanLabelFontSize = 4f,
             int configuredScanLabelSortingOrder = 35)
         {
-            emptyTile = empty;
-            soilWallTile = soilWall;
-            stoneWallTile = stoneWall;
-            hardRockWallTile = hardRockWall;
-            ultraHardWallTile = ultraHardWall;
-            boundaryTile = boundary;
             dangerTile = danger;
             markerTile = marker;
             scanHintTile = scanHint;
@@ -449,18 +688,9 @@ namespace Minebot.Presentation
             ultraHardDetailTile = ultraHardDetail;
             buildPreviewValidTile = buildPreviewValid;
             buildPreviewInvalidTile = buildPreviewInvalid;
-            wallContourTiles = wallContour ?? Array.Empty<TileBase>();
-            dangerContourTiles = dangerContour ?? Array.Empty<TileBase>();
             dangerOutlineTiles = dangerOutline ?? Array.Empty<TileBase>();
-            floorDualGridTiles = floorDualGrid ?? Array.Empty<TileBase>();
-            soilDualGridTiles = soilDualGrid ?? Array.Empty<TileBase>();
-            stoneDualGridTiles = stoneDualGrid ?? Array.Empty<TileBase>();
-            hardRockDualGridTiles = hardRockDualGrid ?? Array.Empty<TileBase>();
-            ultraHardDualGridTiles = ultraHardDualGrid ?? Array.Empty<TileBase>();
-            boundaryDualGridTiles = boundaryDualGrid ?? Array.Empty<TileBase>();
             fogNearDualGridTiles = fogNearDualGrid ?? Array.Empty<TileBase>();
             fogDeepDualGridTiles = fogDeepDualGrid ?? Array.Empty<TileBase>();
-            dualGridTerrainProfile = configuredDualGridTerrainProfile;
             bitmapGlyphFont = configuredBitmapGlyphFont;
             bitmapGlyphAtlas = configuredBitmapGlyphAtlas;
             bitmapGlyphDescriptor = configuredBitmapGlyphDescriptor;
@@ -469,7 +699,239 @@ namespace Minebot.Presentation
             scanLabelColor = configuredScanLabelColor ?? new Color(0.62f, 1f, 0.96f, 1f);
             scanLabelFontSize = Mathf.Max(0.5f, configuredScanLabelFontSize);
             scanLabelSortingOrder = Mathf.Clamp(configuredScanLabelSortingOrder, 1, 100);
+
+            ConfigureInlineDualGridConfiguration(
+                configuredDualGridTerrainProfile,
+                floorDualGrid,
+                soilDualGrid,
+                stoneDualGrid,
+                hardRockDualGrid,
+                ultraHardDualGrid,
+                boundaryDualGrid,
+                wallContour,
+                dangerContour,
+                clearLegacyProfileReference: true);
+#if UNITY_EDITOR
+            NormalizeInlineFamilies();
+#endif
+            allowLegacyArtSetFallback = false;
+            ClearLegacyDualGridReferences();
         }
+
+        private void ConfigureInlineDualGridConfiguration(
+            DualGridTerrainProfile sourceProfile,
+            TileBase[] floorDualGrid,
+            TileBase[] soilDualGrid,
+            TileBase[] stoneDualGrid,
+            TileBase[] hardRockDualGrid,
+            TileBase[] ultraHardDualGrid,
+            TileBase[] boundaryDualGrid,
+            TileBase[] wallContours,
+            TileBase[] dangerContours,
+            bool clearLegacyProfileReference)
+        {
+            if (sourceProfile != null)
+            {
+                layoutSettings = sourceProfile.LayoutSettings;
+                allowLegacyArtSetFallback = false;
+                CopyInlineFamiliesFrom(sourceProfile.Families);
+                CopyInlineLegacyTopologyFrom(sourceProfile.LegacyTopology);
+            }
+            else
+            {
+                layoutSettings = DualGridTerrainLayoutSettings.CreateDefault();
+                allowLegacyArtSetFallback = false;
+                families = DualGridTerrainFamilyProfile.CreateDefaults();
+                ConfigureInlineFamilyTiles(TerrainRenderLayerId.Floor, floorDualGrid);
+                ConfigureInlineFamilyTiles(TerrainRenderLayerId.Soil, soilDualGrid);
+                ConfigureInlineFamilyTiles(TerrainRenderLayerId.Stone, stoneDualGrid);
+                ConfigureInlineFamilyTiles(TerrainRenderLayerId.HardRock, hardRockDualGrid);
+                ConfigureInlineFamilyTiles(TerrainRenderLayerId.UltraHard, ultraHardDualGrid);
+                ConfigureInlineFamilyTiles(TerrainRenderLayerId.Boundary, boundaryDualGrid);
+                ConfigureInlineLegacyTopology(wallContours, dangerContours);
+            }
+
+            if (clearLegacyProfileReference)
+            {
+                dualGridTerrainProfile = null;
+            }
+        }
+
+        private void CopyInlineFamiliesFrom(DualGridTerrainFamilyProfile[] sourceFamilies)
+        {
+            DualGridTerrainFamilyProfile[] configuredFamilies = DualGridTerrainFamilyProfile.CreateDefaults();
+            for (int i = 0; i < configuredFamilies.Length; i++)
+            {
+                TerrainRenderLayerId targetLayerId = configuredFamilies[i].LayerId;
+                DualGridTerrainFamilyProfile source = FindFamilyIn(sourceFamilies, targetLayerId);
+                if (source != null)
+                {
+                    configuredFamilies[i].CopyFrom(source);
+                    configuredFamilies[i].SetLayerId(targetLayerId);
+                }
+            }
+
+            families = configuredFamilies;
+        }
+
+        private void ConfigureInlineFamilyTiles(TerrainRenderLayerId layerId, TileBase[] tiles)
+        {
+            DualGridTerrainFamilyProfile family = FindInlineFamily(layerId);
+            if (family == null)
+            {
+                return;
+            }
+
+            var tileArray = new Tile[tiles != null ? tiles.Length : 0];
+            for (int i = 0; i < tileArray.Length; i++)
+            {
+                tileArray[i] = tiles[i] as Tile;
+            }
+
+            family.ConfigureLegacyMigration(tileArray, tileArray);
+        }
+
+        private void CopyInlineLegacyTopologyFrom(DualGridLegacyTopologyAssets sourceLegacyTopology)
+        {
+            legacyTopology = legacyTopology ?? new DualGridLegacyTopologyAssets();
+            legacyTopology.Configure(
+                sourceLegacyTopology != null ? sourceLegacyTopology.WallContourTiles : Array.Empty<Tile>(),
+                sourceLegacyTopology != null ? sourceLegacyTopology.DangerContourTiles : Array.Empty<Tile>());
+        }
+
+        private void ConfigureInlineLegacyTopology(TileBase[] wallContours, TileBase[] dangerContours)
+        {
+            legacyTopology = legacyTopology ?? new DualGridLegacyTopologyAssets();
+            legacyTopology.Configure(ToTileArray(wallContours), ToTileArray(dangerContours));
+        }
+
+#if UNITY_EDITOR
+        private bool NormalizeInlineFamilies()
+        {
+            bool changed = false;
+            foreach (TerrainRenderLayerId layerId in DualGridTerrain.MaterialFamilies)
+            {
+                DualGridTerrainFamilyProfile family = FindInlineFamily(layerId);
+                if (family != null && family.NormalizeLegacyAuthoring(LegacyConfiguredTilesForLayer(layerId)))
+                {
+                    family.SetLayerId(layerId);
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
+
+        private bool NormalizeInlineLegacyTopology()
+        {
+            if ((legacyTopology == null
+                    || (!HasAnyResolvedTile(legacyTopology.WallContourTiles) && !HasAnyResolvedTile(legacyTopology.DangerContourTiles)))
+                && (HasAnyLegacyTileReference(wallContourTiles) || HasAnyLegacyTileReference(dangerContourTiles)))
+            {
+                ConfigureInlineLegacyTopology(wallContourTiles, dangerContourTiles);
+                return true;
+            }
+
+            return false;
+        }
+
+        private TileBase[] LegacyConfiguredTilesForLayer(TerrainRenderLayerId layerId)
+        {
+            switch (layerId)
+            {
+                case TerrainRenderLayerId.Soil:
+                    return soilDualGridTiles ?? Array.Empty<TileBase>();
+                case TerrainRenderLayerId.Stone:
+                    return stoneDualGridTiles ?? Array.Empty<TileBase>();
+                case TerrainRenderLayerId.HardRock:
+                    return hardRockDualGridTiles ?? Array.Empty<TileBase>();
+                case TerrainRenderLayerId.UltraHard:
+                    return ultraHardDualGridTiles ?? Array.Empty<TileBase>();
+                case TerrainRenderLayerId.Boundary:
+                    return boundaryDualGridTiles ?? Array.Empty<TileBase>();
+                default:
+                    return floorDualGridTiles ?? Array.Empty<TileBase>();
+            }
+        }
+#endif
+
+        private bool ClearLegacyDualGridReferences()
+        {
+            bool changed = false;
+
+            if (dualGridTerrainProfile != null)
+            {
+                dualGridTerrainProfile = null;
+                changed = true;
+            }
+
+            if (HasAnyLegacyTileReference(floorDualGridTiles))
+            {
+                floorDualGridTiles = Array.Empty<TileBase>();
+                changed = true;
+            }
+
+            if (HasAnyLegacyTileReference(soilDualGridTiles))
+            {
+                soilDualGridTiles = Array.Empty<TileBase>();
+                changed = true;
+            }
+
+            if (HasAnyLegacyTileReference(stoneDualGridTiles))
+            {
+                stoneDualGridTiles = Array.Empty<TileBase>();
+                changed = true;
+            }
+
+            if (HasAnyLegacyTileReference(hardRockDualGridTiles))
+            {
+                hardRockDualGridTiles = Array.Empty<TileBase>();
+                changed = true;
+            }
+
+            if (HasAnyLegacyTileReference(ultraHardDualGridTiles))
+            {
+                ultraHardDualGridTiles = Array.Empty<TileBase>();
+                changed = true;
+            }
+
+            if (HasAnyLegacyTileReference(boundaryDualGridTiles))
+            {
+                boundaryDualGridTiles = Array.Empty<TileBase>();
+                changed = true;
+            }
+
+            if (HasAnyLegacyTileReference(wallContourTiles))
+            {
+                wallContourTiles = Array.Empty<TileBase>();
+                changed = true;
+            }
+
+            if (HasAnyLegacyTileReference(dangerContourTiles))
+            {
+                dangerContourTiles = Array.Empty<TileBase>();
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static Tile[] ToTileArray(TileBase[] source)
+        {
+            if (source == null || source.Length == 0)
+            {
+                return Array.Empty<Tile>();
+            }
+
+            var result = new Tile[source.Length];
+            for (int i = 0; i < source.Length; i++)
+            {
+                result[i] = source[i] as Tile;
+            }
+
+            return result;
+        }
+#if UNITY_EDITOR
 
         public void ConfigureActorPresentation(
             GameObject playerPrefab,
