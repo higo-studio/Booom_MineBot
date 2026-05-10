@@ -177,7 +177,7 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void MiningServicePreservesDamagedWallAfterGraceTimeout()
+        public void MiningServiceRecoversDamagedWallAfterGraceTimeout()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
             GridPosition target = grid.PlayerSpawn + GridPosition.Up;
@@ -197,13 +197,16 @@ namespace Minebot.Tests.EditMode
 
             Assert.That(first.Result, Is.EqualTo(MineInteractionResult.MiningInProgress));
             Assert.That(changedBeforeTimeout, Is.False);
-            Assert.That(changedAfterTimeout, Is.False);
-            Assert.That(mining.ActiveProgressSnapshots.Count, Is.EqualTo(1));
-            Assert.That(mining.ActiveProgressSnapshots[0].CurrentHealth, Is.EqualTo(2));
+            Assert.That(changedAfterTimeout, Is.True);
+            Assert.That(mining.ActiveProgressSnapshots, Is.Empty);
 
             MineResolution resumed = mining.TryMineDetailed(player, target);
-            Assert.That(resumed.Result, Is.EqualTo(MineInteractionResult.Mined));
-            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            Assert.That(resumed.Result, Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(resumed.ProgressSnapshot.CurrentHealth, Is.EqualTo(2));
+            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+
+            MineResolution completed = mining.TryMineDetailed(player, target);
+            Assert.That(completed.Result, Is.EqualTo(MineInteractionResult.Mined));
         }
 
         [Test]
@@ -460,11 +463,12 @@ namespace Minebot.Tests.EditMode
             GameSessionService resetSession = CreateSession(resetGrid, ResourceAmount.Zero, out _, out _, null, rules);
 
             Assert.That(resetSession.Mine(target), Is.EqualTo(MineInteractionResult.MiningInProgress));
-            Assert.That(resetSession.TickMiningRecovery(0.51f), Is.False);
+            Assert.That(resetSession.TickMiningRecovery(0.51f), Is.True);
+            Assert.That(resetSession.ActiveMiningProgressSnapshots, Is.Empty);
+            Assert.That(resetSession.Mine(target), Is.EqualTo(MineInteractionResult.MiningInProgress));
             Assert.That(resetSession.ActiveMiningProgressSnapshots.Count, Is.EqualTo(1));
             Assert.That(resetSession.ActiveMiningProgressSnapshots[0].CurrentHealth, Is.EqualTo(2));
             Assert.That(resetSession.Mine(target), Is.EqualTo(MineInteractionResult.Mined));
-            Assert.That(resetSession.ActiveMiningProgressSnapshots, Is.Empty);
 
             Object.DestroyImmediate(rules);
         }

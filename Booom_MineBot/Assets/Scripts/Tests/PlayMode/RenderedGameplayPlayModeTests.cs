@@ -527,7 +527,7 @@ namespace Minebot.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator CrackSpritePersistsAfterRecoveryTimeoutUntilWallIsOpened()
+        public IEnumerator CrackSpriteClearsAfterRecoveryTimeoutAndMiningRestartsFromFullHealth()
         {
             yield return LoadBootstrapAndWaitForGameplay();
             yield return null;
@@ -545,6 +545,8 @@ namespace Minebot.Tests.PlayMode
             Assert.That(input.MineFacingCell(), Is.True);
             yield return null;
             Sprite initialSprite = GetCrackSprite(target);
+            Assert.That(services.Session.ActiveMiningProgressSnapshots.Count, Is.EqualTo(1));
+            int healthAfterFirstHit = services.Session.ActiveMiningProgressSnapshots[0].CurrentHealth;
 
             yield return new WaitForSeconds(0.25f);
             Sprite pausedSprite = GetCrackSprite(target);
@@ -554,9 +556,14 @@ namespace Minebot.Tests.PlayMode
 
             yield return new WaitForSeconds(0.35f);
 
-            Assert.That(FindCrackView(target), Is.Not.Null);
-            Assert.That(GetCrackSprite(target), Is.EqualTo(initialSprite));
+            Assert.That(FindCrackView(target), Is.Null);
+            Assert.That(services.Session.ActiveMiningProgressSnapshots, Is.Empty);
             Assert.That(services.Grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+
+            Assert.That(input.MineFacingCell(), Is.True);
+            yield return null;
+            Assert.That(services.Session.ActiveMiningProgressSnapshots.Count, Is.EqualTo(1));
+            Assert.That(services.Session.ActiveMiningProgressSnapshots[0].CurrentHealth, Is.EqualTo(healthAfterFirstHit));
         }
 
         [UnityTest]

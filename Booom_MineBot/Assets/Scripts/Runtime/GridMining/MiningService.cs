@@ -110,6 +110,7 @@ namespace Minebot.GridMining
 
             public int MaxHealth { get; }
             public int CurrentHealth { get; set; }
+            public float SecondsSinceLastDamage { get; set; }
         }
 
         private readonly LogicalGridState grid;
@@ -231,6 +232,7 @@ namespace Minebot.GridMining
             MiningProgressState state = GetOrCreateProgressState(target, MaxHealthFor(cell.HardnessTier));
             int damage = Mathf.Max(0, attack - defense);
             state.CurrentHealth = Mathf.Max(0, state.CurrentHealth - damage);
+            state.SecondsSinceLastDamage = 0f;
 
             if (state.CurrentHealth > 0)
             {
@@ -259,10 +261,20 @@ namespace Minebot.GridMining
                 return false;
             }
 
+            float elapsed = Mathf.Max(0f, deltaTime);
+            float graceSeconds = MiningDisengageGraceSeconds;
             expiredProgressBuffer.Clear();
             foreach (KeyValuePair<GridPosition, MiningProgressState> pair in progressByCell)
             {
                 if (!grid.IsInside(pair.Key) || !grid.GetCell(pair.Key).IsMineable)
+                {
+                    expiredProgressBuffer.Add(pair.Key);
+                    continue;
+                }
+
+                MiningProgressState state = pair.Value;
+                state.SecondsSinceLastDamage += elapsed;
+                if (state.SecondsSinceLastDamage > graceSeconds)
                 {
                     expiredProgressBuffer.Add(pair.Key);
                 }

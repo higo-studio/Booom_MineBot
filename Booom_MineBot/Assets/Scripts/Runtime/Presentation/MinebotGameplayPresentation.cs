@@ -322,10 +322,27 @@ namespace Minebot.Presentation
             bool waveResolutionActive = services.Session != null && services.Session.IsWaveResolutionActive;
             bool pauseSimulation = IsSimulationPausedByUpgradePanel();
             gridPresentation?.SetWaveCountdownPaused(pauseSimulation || waveResolutionActive);
+        }
+
+        private void FixedUpdate()
+        {
+            if (services == null)
+            {
+                return;
+            }
+
+            TickSimulation(Time.fixedDeltaTime);
+        }
+
+        private void TickSimulation(float deltaTime)
+        {
+            bool waveResolutionActive = services.Session != null && services.Session.IsWaveResolutionActive;
+            bool pauseSimulation = IsSimulationPausedByUpgradePanel();
+            gridPresentation?.SetWaveCountdownPaused(pauseSimulation || waveResolutionActive);
 
             if (waveResolutionActive)
             {
-                bool waveResolutionChanged = services.Session.TickWaveResolution(Time.deltaTime);
+                bool waveResolutionChanged = services.Session.TickWaveResolution(deltaTime);
                 if (waveResolutionChanged)
                 {
                     RefreshFromCurrentGridState();
@@ -344,7 +361,7 @@ namespace Minebot.Presentation
                 return;
             }
 
-            if (enableWaveTick && !services.Vitals.IsDead && services.Waves.Tick(Time.deltaTime))
+            if (enableWaveTick && !services.Vitals.IsDead && services.Waves.Tick(deltaTime))
             {
                 if (services.Session.BeginWaveResolution())
                 {
@@ -362,10 +379,10 @@ namespace Minebot.Presentation
                 }
             }
 
-            bool miningRecoveryChanged = services.Session.TickMiningRecovery(Time.deltaTime);
-            bool hazardSenseUpdated = services.Session.TickPassiveHazardSense(Time.deltaTime);
-            bool robotsChanged = services.Session.TickRobots(Time.deltaTime);
-            bool pickupRewardsGranted = services.Session.TickWorldPickups(Time.deltaTime, PlayerWorldPosition);
+            bool miningRecoveryChanged = services.Session.TickMiningRecovery(deltaTime);
+            bool hazardSenseUpdated = services.Session.TickPassiveHazardSense(deltaTime);
+            bool robotsChanged = services.Session.TickRobots(deltaTime);
+            bool pickupRewardsGranted = services.Session.TickWorldPickups(deltaTime, PlayerWorldPosition);
             if (robotsChanged)
             {
                 RefreshAfterRobotAutomationTick();

@@ -100,7 +100,7 @@ namespace Minebot.Presentation
             inputActions = null;
         }
 
-        private void Update()
+        private void FixedUpdate()
         {
             using (UpdateProfilerMarker.Auto())
             {
@@ -108,7 +108,7 @@ namespace Minebot.Presentation
                 {
                     using (UpdateMoveProfilerMarker.Auto())
                     {
-                        MoveFreeform(currentMoveInput, Time.deltaTime);
+                        MoveFreeform(currentMoveInput, Time.fixedDeltaTime);
                     }
                 }
             }
