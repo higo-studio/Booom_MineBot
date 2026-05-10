@@ -58,7 +58,7 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void MiningClearsOnlyTargetWallWithoutCascading()
+        public void MiningZeroRiskWallInstantlyClearsConnectedSafeRegion()
         {
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(8, 8), new GridPosition(3, 3));
             GridPosition[] walls =
@@ -80,11 +80,10 @@ namespace Minebot.Tests.EditMode
             MineResolution resolution = mining.TryMineDetailed(player, new GridPosition(3, 4));
 
             Assert.That(resolution.Result, Is.EqualTo(MineInteractionResult.Mined));
-            Assert.That(resolution.ClearedCells.Count, Is.EqualTo(1));
-            Assert.That(grid.GetCell(walls[0]).TerrainKind, Is.EqualTo(TerrainKind.Empty));
-            for (int i = 1; i < walls.Length; i++)
+            Assert.That(resolution.ClearedCells.Count, Is.EqualTo(walls.Length));
+            for (int i = 0; i < walls.Length; i++)
             {
-                Assert.That(grid.GetCell(walls[i]).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+                Assert.That(grid.GetCell(walls[i]).TerrainKind, Is.EqualTo(TerrainKind.Empty));
             }
         }
 
@@ -157,6 +156,34 @@ namespace Minebot.Tests.EditMode
             Assert.That(first.ProgressSnapshot.CurrentHealth, Is.EqualTo(1));
             Assert.That(second.Result, Is.EqualTo(MineInteractionResult.Mined));
             Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+        }
+
+        [Test]
+        public void MiningServiceOpensZeroRiskNeighborInstantlyAfterTargetHealthReachesZero()
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
+            GridPosition target = grid.PlayerSpawn + GridPosition.Up;
+            GridPosition safeNeighbor = target + GridPosition.Right;
+            SetMineableWall(grid, target, HardnessTier.Stone, false);
+            SetMineableWall(grid, safeNeighbor, HardnessTier.UltraHard, false);
+            MiningRules rules = CreateMiningRules(stoneMaxHealth: 3, stoneDefense: 1, stoneAttackBonus: 3);
+            var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Stone);
+            var mining = new MiningService(grid, rules);
+
+            MineResolution first = mining.TryMineDetailed(player, target);
+
+            Assert.That(first.Result, Is.EqualTo(MineInteractionResult.MiningInProgress));
+            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+            Assert.That(grid.GetCell(safeNeighbor).TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
+
+            MineResolution second = mining.TryMineDetailed(player, target);
+
+            Assert.That(second.Result, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(second.ClearedCells.Count, Is.EqualTo(2));
+            Assert.That(grid.GetCell(target).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+            Assert.That(grid.GetCell(safeNeighbor).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+
+            Object.DestroyImmediate(rules);
         }
 
         [Test]

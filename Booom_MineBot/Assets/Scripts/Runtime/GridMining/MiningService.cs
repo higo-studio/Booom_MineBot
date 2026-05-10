@@ -17,16 +17,18 @@ namespace Minebot.GridMining
 
     public readonly struct MineClearedCell
     {
-        public MineClearedCell(GridPosition position, ResourceAmount reward, bool wasBomb)
+        public MineClearedCell(GridPosition position, ResourceAmount reward, bool wasBomb, HardnessTier hardnessTier)
         {
             Position = position;
             Reward = reward;
             WasBomb = wasBomb;
+            HardnessTier = hardnessTier;
         }
 
         public GridPosition Position { get; }
         public ResourceAmount Reward { get; }
         public bool WasBomb { get; }
+        public HardnessTier HardnessTier { get; }
     }
 
     public readonly struct MiningProgressSnapshot
@@ -245,12 +247,19 @@ namespace Minebot.GridMining
             progressByCell.Remove(target);
             var clearedCells = new List<MineClearedCell>();
             bool wasBomb = cell.HasBomb;
+            HardnessTier hardnessTier = cell.HardnessTier;
             ResourceAmount reward = OpenCell(target, clearBomb: wasBomb);
-            clearedCells.Add(new MineClearedCell(target, reward, wasBomb));
+            clearedCells.Add(new MineClearedCell(target, reward, wasBomb, hardnessTier));
+            ResourceAmount totalReward = reward;
+            if (!wasBomb)
+            {
+                totalReward += ExpandSafeRegionFrom(target, clearedCells);
+            }
+
             return CreateResolution(
                 wasBomb ? MineInteractionResult.TriggeredBomb : MineInteractionResult.Mined,
                 clearedCells,
-                reward,
+                totalReward,
                 damageDealt: damage);
         }
 
@@ -372,6 +381,57 @@ namespace Minebot.GridMining
             return rules != null
                 ? rules.DefenseFor(tier)
                 : MiningRules.DefaultDefenseFor(tier);
+        }
+
+        private ResourceAmount ExpandSafeRegionFrom(GridPosition origin, List<MineClearedCell> clearedCells)
+        {
+            if (GridBombCounter.CountBombsInScanSquare(grid, origin) > 0)
+            {
+                return ResourceAmount.Zero;
+            }
+
+            var pending = new Queue<GridPosition>();
+            var visited = new HashSet<GridPosition> { origin };
+            ResourceAmount totalReward = ResourceAmount.Zero;
+            pending.Enqueue(origin);
+
+            while (pending.Count > 0)
+            {
+                GridPosition current = pending.Dequeue();
+                for (int i = 0; i < GridDirections.EightWay.Length; i++)
+                {
+                    GridPosition next = current + GridDirections.EightWay[i];
+                    if (!visited.Add(next) || !ShouldInstantOpenSafeCell(next))
+                    {
+                        continue;
+                    }
+
+                    ref GridCellState cell = ref grid.GetCellRef(next);
+                    HardnessTier hardnessTier = cell.HardnessTier;
+                    ResourceAmount reward = OpenCell(next, clearBomb: false);
+                    progressByCell.Remove(next);
+                    clearedCells.Add(new MineClearedCell(next, reward, wasBomb: false, hardnessTier));
+                    totalReward += reward;
+
+                    if (GridBombCounter.CountBombsInScanSquare(grid, next) == 0)
+                    {
+                        pending.Enqueue(next);
+                    }
+                }
+            }
+
+            return totalReward;
+        }
+
+        private bool ShouldInstantOpenSafeCell(GridPosition position)
+        {
+            if (!grid.IsInside(position))
+            {
+                return false;
+            }
+
+            GridCellState cell = grid.GetCell(position);
+            return cell.IsMineable && !cell.HasBomb;
         }
 
         private ResourceAmount OpenCell(GridPosition position, bool clearBomb)

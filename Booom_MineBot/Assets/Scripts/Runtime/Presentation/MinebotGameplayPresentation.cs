@@ -49,6 +49,8 @@ namespace Minebot.Presentation
         public const string BuildingInteractionPanelName = MinebotHudView.BuildingInteractionPanelName;
         public const string RepairStationInteractionButtonName = MinebotHudView.RepairStationInteractionButtonName;
         public const string RobotFactoryInteractionButtonName = MinebotHudView.RobotFactoryInteractionButtonName;
+        private const string RepairStationBuildingId = "repair-station";
+        private const string RobotFactoryBuildingId = "robot-factory";
 
         [SerializeField]
         private bool autoInitializeServices = true;
@@ -114,8 +116,8 @@ namespace Minebot.Presentation
 
         public TilemapGridPresentation GridPresentation => gridPresentation;
         public MinebotPickupRenderer PickupRenderer => pickupRenderer;
-        public GridPosition RepairStationPosition => repairStationPosition;
-        public GridPosition RobotFactoryPosition => robotFactoryPosition;
+        public GridPosition RepairStationPosition => ResolveFacilityPosition(RepairStationBuildingId, repairStationPosition);
+        public GridPosition RobotFactoryPosition => ResolveFacilityPosition(RobotFactoryBuildingId, robotFactoryPosition);
         public string HudSummary => services != null ? BuildLegacyHudSummary() : string.Empty;
         public string FeedbackMessage => feedbackMessage;
         public string WarningSummary => services != null ? BuildWarningText() : string.Empty;
@@ -554,14 +556,14 @@ namespace Minebot.Presentation
 
         public bool TryBuildRobotAtFactory()
         {
-            if (!IsNearRobotFactory())
+            if (!TryGetNearbyBuildingOrigin(RobotFactoryBuildingId, out GridPosition factoryOrigin))
             {
                 audioController?.PlayActionDenied();
                 ShowFeedback("需要靠近橙色机器人工厂才能生产机器人。");
                 return false;
             }
 
-            bool produced = services.RobotFactory.TryProduce(robotFactoryPosition, out RobotState robot);
+            bool produced = services.RobotFactory.TryProduce(factoryOrigin, out RobotState robot);
             if (produced && robot != null)
             {
                 RefreshActors();
@@ -748,12 +750,12 @@ namespace Minebot.Presentation
 
         public bool IsNearRepairStation()
         {
-            return services != null && services.PlayerMiningState.Position.ManhattanDistance(repairStationPosition) <= 1;
+            return TryGetNearbyBuildingOrigin(RepairStationBuildingId, out _);
         }
 
         public bool IsNearRobotFactory()
         {
-            return services != null && services.PlayerMiningState.Position.ManhattanDistance(robotFactoryPosition) <= 1;
+            return TryGetNearbyBuildingOrigin(RobotFactoryBuildingId, out _);
         }
 
         public Vector3 GridToWorld(GridPosition position)
@@ -2731,6 +2733,74 @@ namespace Minebot.Presentation
             }
 
             return services.Grid.PlayerSpawn;
+        }
+
+        private GridPosition ResolveFacilityPosition(string buildingId, GridPosition fallback)
+        {
+            if (services?.Buildings == null)
+            {
+                return fallback;
+            }
+
+            IReadOnlyList<BuildingInstance> buildings = services.Buildings.Buildings;
+            for (int i = 0; i < buildings.Count; i++)
+            {
+                BuildingInstance instance = buildings[i];
+                if (HasBuildingId(instance, buildingId))
+                {
+                    return instance.Origin;
+                }
+            }
+
+            return fallback;
+        }
+
+        private bool TryGetNearbyBuildingOrigin(string buildingId, out GridPosition origin)
+        {
+            origin = GridPosition.Zero;
+            if (services?.Buildings == null)
+            {
+                return false;
+            }
+
+            int bestDistance = int.MaxValue;
+            GridPosition playerPosition = services.PlayerMiningState.Position;
+            IReadOnlyList<BuildingInstance> buildings = services.Buildings.Buildings;
+            for (int i = 0; i < buildings.Count; i++)
+            {
+                BuildingInstance instance = buildings[i];
+                if (!HasBuildingId(instance, buildingId))
+                {
+                    continue;
+                }
+
+                int distance = DistanceToBuilding(playerPosition, instance);
+                if (distance <= 1 && distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    origin = instance.Origin;
+                }
+            }
+
+            return bestDistance != int.MaxValue;
+        }
+
+        private int DistanceToBuilding(GridPosition playerPosition, BuildingInstance instance)
+        {
+            int bestDistance = int.MaxValue;
+            foreach (GridPosition footprintCell in services.Buildings.FootprintCells(instance.Definition, instance.Origin))
+            {
+                bestDistance = Mathf.Min(bestDistance, playerPosition.ManhattanDistance(footprintCell));
+            }
+
+            return bestDistance;
+        }
+
+        private static bool HasBuildingId(BuildingInstance instance, string buildingId)
+        {
+            return instance != null
+                && instance.Definition != null
+                && string.Equals(instance.Definition.Id, buildingId, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

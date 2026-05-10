@@ -687,7 +687,34 @@ namespace Minebot.Tests.PlayMode
             Assert.That(presentation.IsRepairInteractionButtonShowing, Is.False);
             Assert.That(presentation.IsRobotFactoryInteractionButtonShowing, Is.False);
 
+            GridPosition reservedRepairPosition = presentation.RepairStationPosition;
+            GridPosition reservedFactoryPosition = presentation.RobotFactoryPosition;
+            services.PlayerMiningState.Teleport(reservedRepairPosition);
+            presentation.SnapPlayerToLogicalPosition();
+            yield return null;
+            presentation.RefreshAll();
+            yield return null;
+            Assert.That(presentation.IsRepairInteractionButtonShowing, Is.False);
+            Assert.That(presentation.IsRobotFactoryInteractionButtonShowing, Is.False);
+
+            BuildingDefinition repairStation = FindBuildingDefinition(presentation.AvailableBuildingDefinitions, "repair-station");
+            BuildingDefinition robotFactory = FindBuildingDefinition(presentation.AvailableBuildingDefinitions, "robot-factory");
+            Assert.That(repairStation, Is.Not.Null);
+            Assert.That(robotFactory, Is.Not.Null);
+            services.PlayerMiningState.Teleport(awayPosition);
+            presentation.SnapPlayerToLogicalPosition();
+            PrepareBuildableChamber(services, reservedRepairPosition, repairStation.FootprintSize, 1);
+            PrepareBuildableChamber(services, reservedFactoryPosition, robotFactory.FootprintSize, 1);
+            presentation.RefreshAll();
+            yield return null;
+            Assert.That(presentation.TryPlaceBuildingAt(repairStation, reservedRepairPosition), Is.True);
+            Assert.That(presentation.TryPlaceBuildingAt(robotFactory, reservedFactoryPosition), Is.True);
+            yield return null;
+            presentation.RefreshAll();
+            yield return null;
+
             services.PlayerMiningState.Teleport(presentation.RepairStationPosition);
+            presentation.SnapPlayerToLogicalPosition();
             presentation.RefreshAll();
             yield return null;
             Assert.That(presentation.IsRepairInteractionButtonShowing, Is.True);
@@ -698,6 +725,7 @@ namespace Minebot.Tests.PlayMode
             Assert.That(presentation.HudSummary, Does.Contain($"HP {services.Vitals.MaxHealth}/{services.Vitals.MaxHealth}"));
 
             services.PlayerMiningState.Teleport(presentation.RobotFactoryPosition);
+            presentation.SnapPlayerToLogicalPosition();
             presentation.RefreshAll();
             yield return null;
             Assert.That(presentation.IsRobotFactoryInteractionButtonShowing, Is.True);
@@ -1032,6 +1060,20 @@ namespace Minebot.Tests.PlayMode
             Button component = button.GetComponent<Button>();
             Assert.That(component, Is.Not.Null);
             return component;
+        }
+
+        private static BuildingDefinition FindBuildingDefinition(IReadOnlyList<BuildingDefinition> definitions, string id)
+        {
+            for (int i = 0; i < definitions.Count; i++)
+            {
+                BuildingDefinition definition = definitions[i];
+                if (definition != null && string.Equals(definition.Id, id, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return definition;
+                }
+            }
+
+            return null;
         }
 
         private static IEnumerator WaitUntilSceneIsActive(string sceneName)

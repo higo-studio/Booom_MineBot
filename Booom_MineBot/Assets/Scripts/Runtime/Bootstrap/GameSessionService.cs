@@ -151,7 +151,15 @@ namespace Minebot.Bootstrap
             MineInteractionResult result = resolution.Result;
             if (result == MineInteractionResult.Mined || result == MineInteractionResult.TriggeredBomb)
             {
-                scores?.AddManualWallBreak(targetHardness);
+                if (result == MineInteractionResult.Mined)
+                {
+                    AddManualWallBreaks(resolution.ClearedCells);
+                }
+                else
+                {
+                    scores?.AddManualWallBreak(targetHardness);
+                }
+
                 if (result == MineInteractionResult.TriggeredBomb)
                 {
                     int damage = hazardRules != null ? hazardRules.DirectBombDamage : HazardRules.DefaultDirectBombDamage;
@@ -439,6 +447,23 @@ namespace Minebot.Bootstrap
             for (int i = 0; i < clearedCells.Count; i++)
             {
                 SpawnWorldPickupReward(clearedCells[i].Position, clearedCells[i].Reward, source);
+            }
+        }
+
+        private void AddManualWallBreaks(IReadOnlyList<MineClearedCell> clearedCells)
+        {
+            if (scores == null || clearedCells == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < clearedCells.Count; i++)
+            {
+                MineClearedCell clearedCell = clearedCells[i];
+                if (!clearedCell.WasBomb)
+                {
+                    scores.AddManualWallBreak(clearedCell.HardnessTier);
+                }
             }
         }
 
@@ -754,7 +779,8 @@ namespace Minebot.Bootstrap
                 merged.Add(new MineClearedCell(
                     position,
                     ResourceAmount.Zero,
-                    ContainsPosition(explosion.DetonatedBombOrigins, position)));
+                    ContainsPosition(explosion.DetonatedBombOrigins, position),
+                    HardnessTier.Soil));
             }
 
             return merged;
