@@ -153,6 +153,9 @@ namespace Minebot.Tests.PlayMode
             Assert.That(danger, Is.Not.Null);
             Assert.That(buildPreview, Is.Not.Null);
             Assert.That(GameObject.Find(MinebotGameplayPresentation.ScanIndicatorRootName), Is.Not.Null);
+            Assert.That(marker.GetComponent<TilemapRenderer>().sortingOrder, Is.GreaterThan(fogNear.GetComponent<TilemapRenderer>().sortingOrder));
+            Assert.That(gmBomb.GetComponent<TilemapRenderer>().sortingOrder, Is.GreaterThan(marker.GetComponent<TilemapRenderer>().sortingOrder));
+            Assert.That(marker.tileAnchor.y, Is.EqualTo(0.9f).Within(0.001f));
 
             Assert.That(danger.transform.localPosition, Is.EqualTo(Vector3.zero));
             Assert.That(HasAnyTile(danger), Is.True);

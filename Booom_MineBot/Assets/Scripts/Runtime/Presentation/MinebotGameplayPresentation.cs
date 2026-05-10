@@ -893,8 +893,11 @@ namespace Minebot.Presentation
             Tilemap fogNear = EnsureTilemapLayer(gridRoot, FogNearTilemapName, assets?.FogNearSortingOrder ?? 9, fogOffset);
             Tilemap danger = EnsureTilemapLayer(gridRoot, DangerTilemapName, assets?.DangerSortingOrder ?? 10);
             Tilemap facility = EnsureTilemapLayer(gridRoot, FacilityTilemapName, assets?.FacilitySortingOrder ?? 15);
-            Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, assets?.MarkerSortingOrder ?? 20);
-            Tilemap gmBomb = EnsureTilemapLayer(gridRoot, GmBombTilemapName, (assets?.MarkerSortingOrder ?? 20) + 1);
+            int fogTopSortingOrder = Mathf.Max(assets?.FogNearSortingOrder ?? 9, assets?.FogDeepSortingOrder ?? 8);
+            int markerSortingOrder = Mathf.Max(assets?.MarkerSortingOrder ?? 20, fogTopSortingOrder + 1);
+            Tilemap marker = EnsureTilemapLayer(gridRoot, MarkerTilemapName, markerSortingOrder);
+            marker.tileAnchor = new Vector3(marker.tileAnchor.x, 0.9f, marker.tileAnchor.z);
+            Tilemap gmBomb = EnsureTilemapLayer(gridRoot, GmBombTilemapName, markerSortingOrder + 1);
             Tilemap buildPreview = EnsureTilemapLayer(gridRoot, BuildPreviewTilemapName, assets?.BuildPreviewSortingOrder ?? 25);
             scanIndicatorPresenter = EnsureScanIndicatorPresenter(EnsureChild(gridRoot, ScanIndicatorRootName));
             scanIndicatorPresenter.Configure(assets);
