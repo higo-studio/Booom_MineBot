@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -29,6 +30,10 @@ namespace Minebot.UI
         private static readonly Color TemplateButtonNormalColor = new(0f, 1f, 0.98f, 1f);
         private static readonly Color TemplateButtonSelectedColor = new(1f, 0.93f, 0.17f, 1f);
         private static readonly Color TemplateHealthInactiveColor = new(0.2f, 0.23f, 0.24f, 0.42f);
+        private const int MaxHealthIcons = 10;
+        private const float HealthIconSize = 32f;
+        private const float HealthIconSpacing = 0f;
+        private const int BaseHealthCount = 3;
 
         public const string RootName = "MainUI";
         public const string ResourcePath = MinebotHudDefaults.RootResourcePath;
@@ -103,6 +108,9 @@ namespace Minebot.UI
         [SerializeField]
         private MinebotHudOptionPanelView buildingInteractionPanel;
 
+        [SerializeField]
+        private RectTransform healthBackground;
+
         private bool usingTemplateHud;
         private TMP_Text templateWorkingCountText;
         private TMP_Text templateWaitingCountText;
@@ -112,7 +120,10 @@ namespace Minebot.UI
         private TMP_Text templateMetalCountText;
         private Image templateWaveFillImage;
         private Image templateExpFillImage;
-        private Image[] templateHealthImages = Array.Empty<Image>();
+        private List<Image> templateHealthImages = new();
+        private Transform healthLayoutContainer;
+        private RectTransform healthBackgroundRect;
+        private float healthBackgroundInitialWidth;
         private Button[] templateActionButtons = Array.Empty<Button>();
         private TMP_Text[] templateActionNameTexts = Array.Empty<TMP_Text>();
         private TMP_Text[] templateActionKeyTexts = Array.Empty<TMP_Text>();
@@ -264,22 +275,137 @@ namespace Minebot.UI
             SetText(templateEnergyCountText, Mathf.Max(0, energy).ToString("000"));
             SetText(templateMetalCountText, Mathf.Max(0, metal).ToString("000"));
 
-            int maxHearts = Mathf.Clamp(maxHealth, 0, templateHealthImages.Length);
-            int activeHearts = Mathf.Clamp(currentHealth, 0, maxHearts);
-            for (int i = 0; i < templateHealthImages.Length; i++)
-            {
-                if (templateHealthImages[i] != null)
-                {
-                    templateHealthImages[i].enabled = i < maxHearts;
-                    templateHealthImages[i].color = i < activeHearts ? Color.white : TemplateHealthInactiveColor;
-                }
-            }
+            // 动态更新生命值心形图标
+            UpdateHealthIcons(currentHealth, maxHealth);
 
             if (templateExpFillImage != null)
             {
                 float fill = nextThreshold > 0 ? Mathf.Clamp01((float)Mathf.Max(0, experience) / nextThreshold) : 0f;
                 templateExpFillImage.fillAmount = fill;
             }
+        }
+
+        private void UpdateHealthIcons(int currentHealth, int maxHealth)
+        {
+            if (healthLayoutContainer == null)
+            {
+                return;
+            }
+
+            int desiredCount = Mathf.Clamp(maxHealth, 0, MaxHealthIcons);
+            int activeCount = Mathf.Clamp(currentHealth, 0, desiredCount);
+
+            // 确保有足够的Image组件
+            while (templateHealthImages.Count < desiredCount)
+            {
+                CreateHealthIcon(templateHealthImages.Count);
+            }
+
+            // 更新显示/隐藏状态和颜色
+            for (int i = 0; i < templateHealthImages.Count; i++)
+            {
+                Image image = templateHealthImages[i];
+                if (image == null)
+                {
+                    continue;
+                }
+
+                bool shouldShow = i < desiredCount;
+                image.enabled = shouldShow;
+
+                if (shouldShow)
+                {
+                    image.color = i < activeCount ? Color.white : TemplateHealthInactiveColor;
+                }
+            }
+
+            // 更新背景宽度（超出基础数量3颗时）
+            UpdateHealthBackgroundWidth(desiredCount);
+        }
+
+        private void UpdateHealthBackgroundWidth(int heartCount)
+        {
+            if (healthBackgroundRect == null || heartCount <= BaseHealthCount)
+            {
+                return;
+            }
+
+            // 初始宽度已包含3颗心形，只需扩展超出部分
+            float iconWidth = HealthIconSize;
+            if (templateHealthImages.Count > 0 && templateHealthImages[0] != null)
+            {
+                RectTransform refRect = templateHealthImages[0].rectTransform;
+                if (refRect != null)
+                {
+                    iconWidth = refRect.sizeDelta.x;
+                }
+            }
+
+            int extraHearts = heartCount - BaseHealthCount;
+            float newWidth = healthBackgroundInitialWidth + extraHearts * (iconWidth + HealthIconSpacing);
+            healthBackgroundRect.sizeDelta = new Vector2(newWidth, healthBackgroundRect.sizeDelta.y);
+        }
+
+        private void CreateHealthIcon(int index)
+        {
+            if (healthLayoutContainer == null)
+            {
+                return;
+            }
+
+            string objectName = index == 0 ? "HP" : $"HP ({index})";
+            Transform existingChild = healthLayoutContainer.Find(objectName);
+
+            if (existingChild != null)
+            {
+                Image existingImage = existingChild.GetComponent<Image>();
+                if (existingImage != null)
+                {
+                    templateHealthImages.Add(existingImage);
+                    return;
+                }
+            }
+
+            GameObject childObj = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            childObj.transform.SetParent(healthLayoutContainer, false);
+
+            Image image = childObj.GetComponent<Image>();
+            RectTransform rect = childObj.GetComponent<RectTransform>();
+
+            // 获取参考尺寸（从已有心形复制）
+            Vector2 referenceSize = new Vector2(HealthIconSize, HealthIconSize);
+            if (templateHealthImages.Count > 0 && templateHealthImages[0] != null)
+            {
+                RectTransform refRect = templateHealthImages[0].rectTransform;
+                if (refRect != null)
+                {
+                    referenceSize = refRect.sizeDelta;
+                }
+            }
+
+            // 从右向左排列
+            float xOffset = (templateHealthImages.Count) * (referenceSize.x + HealthIconSpacing);
+            rect.anchorMin = new Vector2(1f, 0.5f);
+            rect.anchorMax = new Vector2(1f, 0.5f);
+            rect.pivot = new Vector2(1f, 0.5f);
+            rect.anchoredPosition = new Vector2(-xOffset, 0f);
+            rect.sizeDelta = referenceSize;
+            rect.localScale = Vector3.one;
+
+            // 复制第一个心形的精灵设置
+            Sprite spriteToUse = null;
+            if (templateHealthImages.Count > 0 && templateHealthImages[0] != null)
+            {
+                spriteToUse = templateHealthImages[0].sprite;
+            }
+
+            image.sprite = spriteToUse;
+            image.color = TemplateHealthInactiveColor;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+
+            templateHealthImages.Add(image);
         }
 
         public void UpdateTemplateWaveStatus(int displayWave, float timeUntilNextWave, float waveInterval)
@@ -400,7 +526,7 @@ namespace Minebot.UI
                 templateActionNameTexts = Array.Empty<TMP_Text>();
                 templateActionKeyTexts = Array.Empty<TMP_Text>();
                 templateActionKeyImages = Array.Empty<Image>();
-                templateHealthImages = Array.Empty<Image>();
+                templateHealthImages.Clear();
                 return false;
             }
 
@@ -412,12 +538,39 @@ namespace Minebot.UI
             templateEnergyCountText = FindComponent<TMP_Text>(TemplateEnergyCountPath);
             templateMetalCountText = FindComponent<TMP_Text>(TemplateMetalCountPath);
             templateExpFillImage = FindComponent<Image>(TemplateExpFillPath);
-            templateHealthImages = new[]
+
+            // 获取HPLayout容器
+            healthLayoutContainer = transform.Find(TemplateHealth0Path)?.parent;
+            if (healthLayoutContainer == null)
             {
-                FindComponent<Image>(TemplateHealth0Path),
-                FindComponent<Image>(TemplateHealth1Path),
-                FindComponent<Image>(TemplateHealth2Path)
-            };
+                healthLayoutContainer = lowerLeft.Find("HPLayout");
+            }
+
+            // 获取背景RectTransform
+            healthBackgroundRect = healthBackground;
+            if (healthBackgroundRect != null)
+            {
+                healthBackgroundInitialWidth = healthBackgroundRect.sizeDelta.x;
+            }
+
+            // 收集已有的心形图标
+            templateHealthImages.Clear();
+            if (healthLayoutContainer != null)
+            {
+                for (int i = 0; i < MaxHealthIcons; i++)
+                {
+                    string path = i == 0 ? TemplateHealth0Path : $"Lower Left/HPLayout/HP ({i})";
+                    Image healthImage = FindComponent<Image>(path);
+                    if (healthImage != null)
+                    {
+                        templateHealthImages.Add(healthImage);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
 
             templateActionButtons = new[]
             {

@@ -3475,6 +3475,7 @@ MonoBehaviour:
   upgradePanel: {fileID: 0}
   buildPanel: {fileID: 0}
   buildingInteractionPanel: {fileID: 0}
+  healthBackground: {fileID: 7050666740779928944}
 --- !u!223 &7411661760172864241
 Canvas:
   m_ObjectHideFlags: 0
@@ -3493,7 +3494,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 0
+  m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 200
