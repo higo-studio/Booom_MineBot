@@ -12,12 +12,6 @@ namespace Minebot.Presentation
     {
         public const string DefaultArtSetResourcePath = "Minebot/MinebotPresentationArtSet_Default";
 
-        public TileBase EmptyTile { get; private set; }
-        public TileBase SoilWallTile { get; private set; }
-        public TileBase StoneWallTile { get; private set; }
-        public TileBase HardRockWallTile { get; private set; }
-        public TileBase UltraHardWallTile { get; private set; }
-        public TileBase BoundaryTile { get; private set; }
         public TileBase[] FloorDualGridTiles { get; private set; }
         public TileBase[] SoilDualGridTiles { get; private set; }
         public TileBase[] StoneDualGridTiles { get; private set; }
@@ -135,12 +129,6 @@ namespace Minebot.Presentation
 
             var assets = new MinebotPresentationAssets
             {
-                EmptyTile = resolvedArtSet != null ? resolvedArtSet.EmptyTile : missingDefaults.EmptyTile,
-                SoilWallTile = resolvedArtSet != null ? resolvedArtSet.SoilWallTile : missingDefaults.SoilWallTile,
-                StoneWallTile = resolvedArtSet != null ? resolvedArtSet.StoneWallTile : missingDefaults.StoneWallTile,
-                HardRockWallTile = resolvedArtSet != null ? resolvedArtSet.HardRockWallTile : missingDefaults.HardRockWallTile,
-                UltraHardWallTile = resolvedArtSet != null ? resolvedArtSet.UltraHardWallTile : missingDefaults.UltraHardWallTile,
-                BoundaryTile = resolvedArtSet != null ? resolvedArtSet.BoundaryTile : missingDefaults.BoundaryTile,
                 FloorDualGridTiles = NormalizeIndexedTiles(floorTiles, missingDefaults.FloorDualGridTiles),
                 SoilDualGridTiles = NormalizeIndexedTiles(soilTiles, missingDefaults.SoilDualGridTiles),
                 StoneDualGridTiles = NormalizeIndexedTiles(stoneTiles, missingDefaults.StoneDualGridTiles),
@@ -285,21 +273,6 @@ namespace Minebot.Presentation
         public TileBase FogDeepDualGridTileForIndex(int index)
         {
             return TileForContourIndex(FogDeepDualGridTiles, index);
-        }
-
-        public TileBase WallBaseTileForHardness(Minebot.GridMining.HardnessTier hardness)
-        {
-            switch (hardness)
-            {
-                case Minebot.GridMining.HardnessTier.Stone:
-                    return StoneDetailTile ?? StoneWallTile;
-                case Minebot.GridMining.HardnessTier.HardRock:
-                    return HardRockDetailTile ?? HardRockWallTile;
-                case Minebot.GridMining.HardnessTier.UltraHard:
-                    return UltraHardDetailTile ?? UltraHardWallTile;
-                default:
-                    return SoilDetailTile ?? SoilWallTile;
-            }
         }
 
         public GameObject PickupPrefabFor(WorldPickupType type)
