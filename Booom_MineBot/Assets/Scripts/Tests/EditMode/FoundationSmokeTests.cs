@@ -1651,6 +1651,7 @@ namespace Minebot.Tests.EditMode
             Assert.That(familiesProperty.GetArrayElementAtIndex(0).FindPropertyRelative("enabled").boolValue, Is.False);
             Assert.That(artSet.BuildPreviewValidTile, Is.Not.Null);
             Assert.That(artSet.BuildPreviewInvalidTile, Is.Not.Null);
+            Assert.That(artSet.GroundTile, Is.Not.Null);
             Assert.That(artSet.SoilDetailTile, Is.Not.Null);
             Assert.That(artSet.StoneDetailTile, Is.Not.Null);
             Assert.That(artSet.HardRockDetailTile, Is.Not.Null);
@@ -1701,6 +1702,16 @@ namespace Minebot.Tests.EditMode
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Generated/Prompts/minebot-prefab-gameplay-art-batch-001.md"), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Art/Minebot/Generated/Selected/minebot-prefab-gameplay-art-manifest-001.md"), Is.Not.Null);
             CollectionAssert.IsEmpty(new List<string>(artSet.GetDualGridValidationIssues()));
+        }
+
+        [Test]
+        public void DefaultPresentationAssetsUseGroundTileForFloorRendering()
+        {
+            MinebotPresentationAssets assets = LoadDefaultPresentationAssets();
+
+            Assert.That(assets.GroundTile, Is.Not.Null);
+            Assert.That(assets.DualGridTerrainTileFor(TerrainRenderLayerId.Floor, 1), Is.EqualTo(assets.GroundTile));
+            Assert.That(assets.DualGridTerrainTileFor(TerrainRenderLayerId.Floor, 15), Is.EqualTo(assets.GroundTile));
         }
 
         [Test]

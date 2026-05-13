@@ -437,6 +437,7 @@ MonoBehaviour:
   ultraHardDetailTile: {fileID: 11400000, guid: 73b31cb43794e42169ec45249b381054, type: 2}
   buildPreviewValidTile: {fileID: 11400000, guid: 16c0cbb2b106a492cb6f0f52bd5ada45, type: 2}
   buildPreviewInvalidTile: {fileID: 11400000, guid: f468a47b07aeb4281bffb70d8d30dfe9, type: 2}
+  groundTile: {fileID: 11400000, guid: 5f3fa5ba34971024991278aa48907928, type: 2}
   hologramOverlayAtlas: {fileID: 2800000, guid: 2e1b5bc1880364d748bc30677f4a4540, type: 3}
   bitmapGlyphAtlas: {fileID: 2800000, guid: 0756fa162f9f249aab6793f908b5097f, type: 3}
   bitmapGlyphDescriptor: {fileID: 4900000, guid: 9560ad685c4ff44a5bfa09673f9fa52c, type: 3}

@@ -115,6 +115,10 @@ namespace Minebot.Presentation
         [InspectorLabel("建造无效预览瓦片")]
         private TileBase buildPreviewInvalidTile;
 
+        [SerializeField]
+        [InspectorLabel("Ground Tile")]
+        private TileBase groundTile;
+
         [Header("全息覆盖层")]
         [SerializeField]
         [InspectorLabel("全息覆盖图集")]
@@ -268,6 +272,7 @@ namespace Minebot.Presentation
         public TileBase UltraHardDetailTile => ultraHardDetailTile;
         public TileBase BuildPreviewValidTile => buildPreviewValidTile;
         public TileBase BuildPreviewInvalidTile => buildPreviewInvalidTile;
+        public TileBase GroundTile => groundTile;
         public Texture2D HologramOverlayAtlas => hologramOverlayAtlas;
         public Texture2D BitmapGlyphAtlas => bitmapGlyphAtlas;
         public TextAsset BitmapGlyphDescriptor => bitmapGlyphDescriptor;
@@ -673,7 +678,8 @@ namespace Minebot.Presentation
             Vector2? configuredScanLabelOffset = null,
             Color? configuredScanLabelColor = null,
             float configuredScanLabelFontSize = 4f,
-            int configuredScanLabelSortingOrder = 35)
+            int configuredScanLabelSortingOrder = 35,
+            TileBase configuredGroundTile = null)
         {
             dangerTile = danger;
             markerTile = marker;
@@ -688,6 +694,7 @@ namespace Minebot.Presentation
             ultraHardDetailTile = ultraHardDetail;
             buildPreviewValidTile = buildPreviewValid;
             buildPreviewInvalidTile = buildPreviewInvalid;
+            groundTile = configuredGroundTile;
             dangerOutlineTiles = dangerOutline ?? Array.Empty<TileBase>();
             fogNearDualGridTiles = fogNearDualGrid ?? Array.Empty<TileBase>();
             fogDeepDualGridTiles = fogDeepDualGrid ?? Array.Empty<TileBase>();

@@ -32,6 +32,7 @@ namespace Minebot.Editor
         private const string HologramPromptPath = "Assets/Art/Minebot/Generated/Prompts/minebot-hologram-feedback-batch-001.md";
         private const string HologramManifestPath = "Assets/Art/Minebot/Generated/Selected/minebot-hologram-asset-manifest-001.md";
         private const string HologramRecordTemplatePath = "Assets/Art/Minebot/Docs/holographic-feedback-record-template.md";
+        private const string GroundTilePath = "Assets/Art/My/Tiles/GroundTile.asset";
         private const string FloorTilePath = "Assets/Art/Minebot/Tiles/Tile_FloorCave.asset";
         private const string SoilWallTilePath = "Assets/Art/Minebot/Tiles/Tile_WallSoil.asset";
         private const string StoneWallTilePath = "Assets/Art/Minebot/Tiles/Tile_WallStone.asset";
@@ -369,7 +370,8 @@ namespace Minebot.Editor
                 new Vector2(0f, 0.7f),
                 new Color(0.62f, 1f, 0.96f, 1f),
                 DefaultScanLabelFontSize,
-                35);
+                35,
+                LoadTile(GroundTilePath));
             MinebotPrefabGameplayArtSupport.ConfigureArtSet(artSet);
             EditorUtility.SetDirty(artSet);
         }

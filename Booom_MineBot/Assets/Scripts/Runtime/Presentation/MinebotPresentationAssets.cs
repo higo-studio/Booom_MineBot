@@ -27,6 +27,7 @@ namespace Minebot.Presentation
         public TileBase ScanHintTile { get; private set; }
         public TileBase BuildPreviewValidTile { get; private set; }
         public TileBase BuildPreviewInvalidTile { get; private set; }
+        public TileBase GroundTile { get; private set; }
         public TileBase[] WallContourTiles { get; private set; }
         public TileBase[] DangerContourTiles { get; private set; }
         public TileBase[] DangerOutlineTiles { get; private set; }
@@ -144,6 +145,7 @@ namespace Minebot.Presentation
                 ScanHintTile = resolvedArtSet != null ? resolvedArtSet.ScanHintTile : missingDefaults.ScanHintTile,
                 BuildPreviewValidTile = resolvedArtSet != null ? resolvedArtSet.BuildPreviewValidTile : missingDefaults.BuildPreviewValidTile,
                 BuildPreviewInvalidTile = resolvedArtSet != null ? resolvedArtSet.BuildPreviewInvalidTile : missingDefaults.BuildPreviewInvalidTile,
+                GroundTile = resolvedArtSet != null ? resolvedArtSet.GroundTile : missingDefaults.GroundTile,
                 WallContourTiles = wallContours,
                 DangerContourTiles = dangerContours,
                 DangerOutlineTiles = NormalizeDangerOutlineTiles(resolvedArtSet != null ? resolvedArtSet.DangerOutlineTiles : null, missingDefaults.DangerOutlineTiles),
@@ -261,7 +263,7 @@ namespace Minebot.Presentation
                 case TerrainRenderLayerId.Boundary:
                     return TileForContourIndex(BoundaryDualGridTiles, index);
                 default:
-                    return TileForContourIndex(FloorDualGridTiles, index);
+                    return GroundTile != null ? GroundTile : TileForContourIndex(FloorDualGridTiles, index);
             }
         }
 
@@ -437,7 +439,10 @@ namespace Minebot.Presentation
                 missing.Add("默认 MinebotPresentationArtSet");
             }
 
-            AppendMissingIndexedTiles(missing, "DG Floor", assets.FloorDualGridTiles);
+            if (assets.GroundTile == null)
+            {
+                AppendMissingIndexedTiles(missing, "DG Floor", assets.FloorDualGridTiles);
+            }
             AppendMissingIndexedTiles(missing, "DG Soil", assets.SoilDualGridTiles);
             AppendMissingIndexedTiles(missing, "DG Stone", assets.StoneDualGridTiles);
             AppendMissingIndexedTiles(missing, "DG HardRock", assets.HardRockDualGridTiles);
