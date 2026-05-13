@@ -64,7 +64,9 @@ Material:
     - _Fullscreen_DstColorBlend: 10
     - _Fullscreen_SrcAlphaBlend: 1
     - _Fullscreen_SrcColorBlend: 5
-    - _Scale: 2
+    - _Intensity: 10
+    - _Rounded: 1
+    - _Scale: 6
     - _Stencil: 0
     - _StencilComp: 8
     - _StencilOp: 0
