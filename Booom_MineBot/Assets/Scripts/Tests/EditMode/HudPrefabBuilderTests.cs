@@ -59,7 +59,7 @@ namespace Minebot.Tests.EditMode
                 try
                 {
                     MinebotHudView view = instance.GetComponent<MinebotHudView>();
-                    view.EnsureDefaultStructure(null, MinebotHudDefaults.MinimumBuildButtonCount);
+                    view.EnsureDefaultStructure(MinebotHudDefaults.MinimumBuildButtonCount);
 
                     RectTransform rootRect = instance.GetComponent<RectTransform>();
                     Assert.That(rootRect.localScale, Is.EqualTo(Vector3.one));

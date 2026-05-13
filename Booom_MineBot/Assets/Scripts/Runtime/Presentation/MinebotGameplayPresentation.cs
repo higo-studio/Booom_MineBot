@@ -8,7 +8,6 @@ using Minebot.HazardInference;
 using Minebot.Progression;
 using Minebot.UI;
 using Minebot.WaveSurvival;
-using TMPro;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -90,7 +89,6 @@ namespace Minebot.Presentation
         private readonly Dictionary<GridPosition, MinebotCellFxView> miningCrackViews = new Dictionary<GridPosition, MinebotCellFxView>();
         private readonly Dictionary<RobotState, float> destroyedRobotVisualExpiry = new Dictionary<RobotState, float>();
         private readonly List<GameObject> buildingViews = new List<GameObject>();
-        private static TMP_FontAsset runtimeFontAsset;
         private MinebotHudView hudView;
         private MinebotGameplayAudioController audioController;
         private UpgradeDefinition[] currentCandidates = Array.Empty<UpgradeDefinition>();
@@ -1225,7 +1223,7 @@ namespace Minebot.Presentation
         private void EnsureHud()
         {
             hudView = ResolveHudView();
-            hudView.EnsureDefaultStructure(GetDefaultTmpFontAsset(), Mathf.Max(2, availableBuildingDefinitions.Length));
+            hudView.EnsureDefaultStructure(Mathf.Max(2, availableBuildingDefinitions.Length));
             hudView.ApplyGraphics(
                 assets != null ? assets.HudPanelBackground : null,
                 assets != null ? assets.HudStatusIcon : null,
@@ -1316,12 +1314,6 @@ namespace Minebot.Presentation
             }
 
             ShowFeedback($"已选择建筑：{availableBuildingDefinitions[index].DisplayName}，点击空地建造。");
-        }
-
-        private static TMP_FontAsset GetDefaultTmpFontAsset()
-        {
-            runtimeFontAsset = runtimeFontAsset ?? MinebotHudFontUtility.GetDefaultFontAsset();
-            return runtimeFontAsset;
         }
 
         private static void EnsureEventSystem()

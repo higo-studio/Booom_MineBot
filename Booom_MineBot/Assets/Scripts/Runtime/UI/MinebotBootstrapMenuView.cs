@@ -42,7 +42,7 @@ namespace Minebot.UI
         public TMP_Text LeaderboardEntriesText => leaderboardEntriesText;
         public TMP_Text StatusText => statusText;
 
-        public void EnsureDefaultStructure(TMP_FontAsset runtimeFontAsset, MinebotHudDefaults.BootstrapMenuLayout layout)
+        public void EnsureDefaultStructure(MinebotHudDefaults.BootstrapMenuLayout layout)
         {
             MinebotHudUiFactory.ConfigureCanvasRoot(gameObject);
 
@@ -73,8 +73,7 @@ namespace Minebot.UI
                 24f,
                 56f,
                 layout.TitleFontSize,
-                TextAnchor.MiddleCenter,
-                runtimeFontAsset);
+                TextAnchor.MiddleCenter);
             titleText.text = "BOOOM MINEBOT";
 
             subtitleText = MinebotHudUiFactory.EnsureTopStretchText(
@@ -86,8 +85,7 @@ namespace Minebot.UI
                 28f,
                 48f,
                 layout.SubtitleFontSize,
-                TextAnchor.MiddleCenter,
-                runtimeFontAsset);
+                TextAnchor.MiddleCenter);
             subtitleText.text = "启动页";
 
             startButton = MinebotHudUiFactory.EnsureTopLeftButton(
@@ -100,8 +98,7 @@ namespace Minebot.UI
                 52f,
                 layout.SubtitleFontSize,
                 layout.ButtonColor,
-                TextAnchor.MiddleCenter,
-                runtimeFontAsset);
+                TextAnchor.MiddleCenter);
             SetButtonLabel(startButton, "开始游戏");
 
             quitButton = MinebotHudUiFactory.EnsureTopLeftButton(
@@ -114,8 +111,7 @@ namespace Minebot.UI
                 52f,
                 layout.SubtitleFontSize,
                 layout.ButtonColor,
-                TextAnchor.MiddleCenter,
-                runtimeFontAsset);
+                TextAnchor.MiddleCenter);
             SetButtonLabel(quitButton, "退出游戏");
 
             statusText = MinebotHudUiFactory.EnsureTopStretchText(
@@ -127,8 +123,7 @@ namespace Minebot.UI
                 28f,
                 28f,
                 16,
-                TextAnchor.MiddleCenter,
-                runtimeFontAsset);
+                TextAnchor.MiddleCenter);
             statusText.text = string.Empty;
 
             leaderboardTitleText = MinebotHudUiFactory.EnsureTopStretchText(
@@ -140,8 +135,7 @@ namespace Minebot.UI
                 28f,
                 32f,
                 layout.SubtitleFontSize,
-                TextAnchor.MiddleLeft,
-                runtimeFontAsset);
+                TextAnchor.MiddleLeft);
             leaderboardTitleText.text = "本地前十";
 
             leaderboardEntriesText = MinebotHudUiFactory.EnsureBottomStretchText(
@@ -153,8 +147,7 @@ namespace Minebot.UI
                 28f,
                 278f,
                 layout.LeaderboardFontSize,
-                TextAnchor.UpperLeft,
-                runtimeFontAsset);
+                TextAnchor.UpperLeft);
             leaderboardEntriesText.text = "暂无成绩";
         }
 

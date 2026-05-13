@@ -18,7 +18,7 @@ namespace Minebot.UI
         public TMP_Text ContentText => contentText;
         public string Content => contentText != null ? contentText.text : string.Empty;
 
-        public void EnsureDefaultStructure(TMP_FontAsset runtimeFontAsset, MinebotHudDefaults.TextPanelLayout layout)
+        public void EnsureDefaultStructure(MinebotHudDefaults.TextPanelLayout layout)
         {
             MinebotHudUiFactory.StretchToParent((RectTransform)transform);
             backgroundImage = MinebotHudUiFactory.EnsureStretchImage(backgroundImage, transform, "Background", new Color(0.05f, 0.08f, 0.09f, 0.86f));
@@ -29,8 +29,7 @@ namespace Minebot.UI
                 "Content Text",
                 layout.FontSize,
                 layout.Alignment,
-                new Vector4(layout.Padding.x + 42f, layout.Padding.y + 4f, layout.Padding.z + 8f, layout.Padding.w + 8f),
-                runtimeFontAsset);
+                new Vector4(layout.Padding.x + 42f, layout.Padding.y + 4f, layout.Padding.z + 8f, layout.Padding.w + 8f));
         }
 
         public void SetText(string text)

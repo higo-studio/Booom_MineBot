@@ -54,7 +54,7 @@ namespace Minebot.Editor
             try
             {
                 MinebotHudTextPanelView view = root.GetComponent<MinebotHudTextPanelView>();
-                view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), layout);
+                view.EnsureDefaultStructure(layout);
                 PrefabUtility.SaveAsPrefabAsset(root, assetPath);
             }
             finally
@@ -69,7 +69,7 @@ namespace Minebot.Editor
             try
             {
                 MinebotHudOptionPanelView view = root.GetComponent<MinebotHudOptionPanelView>();
-                view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), buttonCount, layout);
+                view.EnsureDefaultStructure(buttonCount, layout);
                 view.SetTitle(defaultTitle);
                 PrefabUtility.SaveAsPrefabAsset(root, assetPath);
             }
@@ -85,7 +85,7 @@ namespace Minebot.Editor
             try
             {
                 MinebotHudMinimapPanelView view = root.GetComponent<MinebotHudMinimapPanelView>();
-                view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), layout);
+                view.EnsureDefaultStructure(layout);
                 PrefabUtility.SaveAsPrefabAsset(root, assetPath);
             }
             finally
@@ -100,7 +100,7 @@ namespace Minebot.Editor
             try
             {
                 MinebotHudGameOverPanelView view = root.GetComponent<MinebotHudGameOverPanelView>();
-                view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), layout);
+                view.EnsureDefaultStructure(layout);
                 PrefabUtility.SaveAsPrefabAsset(root, assetPath);
             }
             finally
@@ -115,7 +115,7 @@ namespace Minebot.Editor
             try
             {
                 MinebotBootstrapMenuView view = root.GetComponent<MinebotBootstrapMenuView>();
-                view.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), layout);
+                view.EnsureDefaultStructure(layout);
                 PrefabUtility.SaveAsPrefabAsset(root, assetPath);
             }
             finally

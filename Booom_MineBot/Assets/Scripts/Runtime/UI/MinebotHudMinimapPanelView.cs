@@ -18,7 +18,7 @@ namespace Minebot.UI
         public Texture MapTexture => minimapImage != null ? minimapImage.texture : null;
         public string Summary => summaryText != null ? summaryText.text : string.Empty;
 
-        public void EnsureDefaultStructure(TMP_FontAsset runtimeFontAsset, MinebotHudDefaults.MinimapPanelLayout layout)
+        public void EnsureDefaultStructure(MinebotHudDefaults.MinimapPanelLayout layout)
         {
             MinebotHudUiFactory.StretchToParent((RectTransform)transform);
             backgroundImage = MinebotHudUiFactory.EnsureStretchImage(backgroundImage, transform, "Background", new Color(0.05f, 0.08f, 0.09f, 0.86f));
@@ -39,8 +39,7 @@ namespace Minebot.UI
                 layout.SidePadding,
                 layout.SummaryHeight,
                 layout.SummaryFontSize,
-                TextAnchor.MiddleLeft,
-                runtimeFontAsset);
+                TextAnchor.MiddleLeft);
         }
 
         public void SetTexture(Texture texture)

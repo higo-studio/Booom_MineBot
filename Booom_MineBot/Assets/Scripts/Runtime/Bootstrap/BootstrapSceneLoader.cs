@@ -108,7 +108,7 @@ namespace Minebot.Bootstrap
                 startPageView.name = MinebotHudDefaults.BootstrapMenuObjectName;
             }
 
-            startPageView.EnsureDefaultStructure(MinebotHudFontUtility.GetDefaultFontAsset(), MinebotHudDefaults.BootstrapMenu);
+            startPageView.EnsureDefaultStructure(MinebotHudDefaults.BootstrapMenu);
             startPageView.BindButtons(HandleStartClicked, HandleQuitClicked);
             startPageView.SetLeaderboardSummary(BuildLeaderboardSummary());
             startPageView.SetLoadingState(gameplayLoadRequested);

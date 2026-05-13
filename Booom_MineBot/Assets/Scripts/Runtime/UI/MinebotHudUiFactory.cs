@@ -62,7 +62,7 @@ namespace Minebot.UI
             rect.localScale = Vector3.one;
         }
 
-        public static TMP_Text EnsureFillText(TMP_Text current, Transform parent, string objectName, int fontSize, TextAnchor alignment, Vector4 padding, TMP_FontAsset runtimeFontAsset)
+        public static TMP_Text EnsureFillText(TMP_Text current, Transform parent, string objectName, int fontSize, TextAnchor alignment, Vector4 padding)
         {
             Transform child = current != null ? current.transform : parent.Find(objectName);
             if (child == null)
@@ -90,11 +90,6 @@ namespace Minebot.UI
             text.enableAutoSizing = false;
             text.enableWordWrapping = true;
             text.overflowMode = TextOverflowModes.Overflow;
-            if (runtimeFontAsset != null)
-            {
-                text.font = runtimeFontAsset;
-            }
-
             return text;
         }
 
@@ -162,7 +157,7 @@ namespace Minebot.UI
             return image;
         }
 
-        public static TMP_Text EnsureTopStretchText(TMP_Text current, Transform parent, string objectName, float left, float top, float right, float height, int fontSize, TextAnchor alignment, TMP_FontAsset runtimeFontAsset)
+        public static TMP_Text EnsureTopStretchText(TMP_Text current, Transform parent, string objectName, float left, float top, float right, float height, int fontSize, TextAnchor alignment)
         {
             Transform child = current != null ? current.transform : parent.Find(objectName);
             if (child == null)
@@ -188,15 +183,10 @@ namespace Minebot.UI
             text.enableAutoSizing = false;
             text.enableWordWrapping = true;
             text.overflowMode = TextOverflowModes.Overflow;
-            if (runtimeFontAsset != null)
-            {
-                text.font = runtimeFontAsset;
-            }
-
             return text;
         }
 
-        public static TMP_Text EnsureBottomStretchText(TMP_Text current, Transform parent, string objectName, float left, float bottom, float right, float height, int fontSize, TextAnchor alignment, TMP_FontAsset runtimeFontAsset)
+        public static TMP_Text EnsureBottomStretchText(TMP_Text current, Transform parent, string objectName, float left, float bottom, float right, float height, int fontSize, TextAnchor alignment)
         {
             Transform child = current != null ? current.transform : parent.Find(objectName);
             if (child == null)
@@ -228,15 +218,10 @@ namespace Minebot.UI
             text.enableAutoSizing = false;
             text.enableWordWrapping = true;
             text.overflowMode = TextOverflowModes.Overflow;
-            if (runtimeFontAsset != null)
-            {
-                text.font = runtimeFontAsset;
-            }
-
             return text;
         }
 
-        public static Button EnsureTopStretchButton(Button current, Transform parent, string objectName, float left, float top, float right, float height, int fontSize, Color backgroundColor, TMP_FontAsset runtimeFontAsset)
+        public static Button EnsureTopStretchButton(Button current, Transform parent, string objectName, float left, float top, float right, float height, int fontSize, Color backgroundColor)
         {
             Transform child = current != null ? current.transform : parent.Find(objectName);
             if (child == null)
@@ -252,11 +237,11 @@ namespace Minebot.UI
             image.color = backgroundColor;
 
             Button button = GetOrAdd<Button>(child.gameObject);
-            EnsureFillText(null, child, "Label", fontSize, TextAnchor.MiddleLeft, new Vector4(10f, 5f, 10f, 5f), runtimeFontAsset);
+            EnsureFillText(null, child, "Label", fontSize, TextAnchor.MiddleLeft, new Vector4(10f, 5f, 10f, 5f));
             return button;
         }
 
-        public static Button EnsureTopLeftButton(Button current, Transform parent, string objectName, float left, float top, float width, float height, int fontSize, Color backgroundColor, TextAnchor alignment, TMP_FontAsset runtimeFontAsset)
+        public static Button EnsureTopLeftButton(Button current, Transform parent, string objectName, float left, float top, float width, float height, int fontSize, Color backgroundColor, TextAnchor alignment)
         {
             Transform child = current != null ? current.transform : parent.Find(objectName);
             if (child == null)
@@ -277,7 +262,7 @@ namespace Minebot.UI
             image.color = backgroundColor;
 
             Button button = GetOrAdd<Button>(child.gameObject);
-            EnsureFillText(null, child, "Label", fontSize, alignment, new Vector4(8f, 6f, 8f, 6f), runtimeFontAsset);
+            EnsureFillText(null, child, "Label", fontSize, alignment, new Vector4(8f, 6f, 8f, 6f));
             return button;
         }
 

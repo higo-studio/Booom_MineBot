@@ -25,7 +25,7 @@ namespace Minebot.UI
         public TMP_Text TitleText => titleText;
         public Button[] OptionButtons => optionButtons;
 
-        public void EnsureDefaultStructure(TMP_FontAsset runtimeFontAsset, int buttonCount, MinebotHudDefaults.OptionPanelLayout layout)
+        public void EnsureDefaultStructure(int buttonCount, MinebotHudDefaults.OptionPanelLayout layout)
         {
             MinebotHudUiFactory.StretchToParent((RectTransform)transform);
 
@@ -45,10 +45,9 @@ namespace Minebot.UI
                 layout.SidePadding,
                 layout.TitleHeight,
                 layout.TitleFontSize,
-                TextAnchor.UpperLeft,
-                runtimeFontAsset);
+                TextAnchor.UpperLeft);
 
-            EnsureButtonArray(buttonCount, runtimeFontAsset, layout);
+            EnsureButtonArray(buttonCount, layout);
         }
 
         public void BindButtons(Action<int> onClick)
@@ -147,7 +146,7 @@ namespace Minebot.UI
             }
         }
 
-        private void EnsureButtonArray(int buttonCount, TMP_FontAsset runtimeFontAsset, MinebotHudDefaults.OptionPanelLayout layout)
+        private void EnsureButtonArray(int buttonCount, MinebotHudDefaults.OptionPanelLayout layout)
         {
             int safeCount = Mathf.Max(0, buttonCount);
             if (optionButtons == null || optionButtons.Length != safeCount)
@@ -169,8 +168,7 @@ namespace Minebot.UI
                         layout.ButtonHeight,
                         layout.ButtonFontSize,
                         layout.ButtonColor,
-                        layout.ButtonTextAlignment,
-                        runtimeFontAsset);
+                        layout.ButtonTextAlignment);
                 }
                 else
                 {
@@ -183,8 +181,7 @@ namespace Minebot.UI
                         layout.SidePadding,
                         layout.ButtonHeight,
                         layout.ButtonFontSize,
-                        layout.ButtonColor,
-                        runtimeFontAsset);
+                        layout.ButtonColor);
                 }
             }
 

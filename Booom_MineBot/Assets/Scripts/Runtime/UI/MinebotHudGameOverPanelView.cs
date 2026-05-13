@@ -42,7 +42,7 @@ namespace Minebot.UI
         public TMP_Text StatusText => statusText;
         public TMP_Text LeaderboardEntriesText => leaderboardEntriesText;
 
-        public void EnsureDefaultStructure(TMP_FontAsset runtimeFontAsset, MinebotHudDefaults.GameOverPanelLayout layout)
+        public void EnsureDefaultStructure(MinebotHudDefaults.GameOverPanelLayout layout)
         {
             MinebotHudUiFactory.StretchToParent((RectTransform)transform);
 
@@ -63,8 +63,7 @@ namespace Minebot.UI
                 18f,
                 36f,
                 layout.TitleFontSize,
-                TextAnchor.MiddleLeft,
-                runtimeFontAsset);
+                TextAnchor.MiddleLeft);
             titleText.text = "任务失败";
 
             summaryText = MinebotHudUiFactory.EnsureTopStretchText(
@@ -76,8 +75,7 @@ namespace Minebot.UI
                 18f,
                 62f,
                 layout.SummaryFontSize,
-                TextAnchor.UpperLeft,
-                runtimeFontAsset);
+                TextAnchor.UpperLeft);
             summaryText.text = string.Empty;
 
             promptText = MinebotHudUiFactory.EnsureTopStretchText(
@@ -89,8 +87,7 @@ namespace Minebot.UI
                 18f,
                 24f,
                 layout.BodyFontSize,
-                TextAnchor.MiddleLeft,
-                runtimeFontAsset);
+                TextAnchor.MiddleLeft);
             promptText.text = "输入名字保存本地排行榜：";
 
             nameInputField = EnsureTopStretchInputField(
@@ -103,8 +100,7 @@ namespace Minebot.UI
                 42f,
                 layout.BodyFontSize,
                 layout.InputColor,
-                layout.NameCharacterLimit,
-                runtimeFontAsset);
+                layout.NameCharacterLimit);
 
             submitButton = MinebotHudUiFactory.EnsureTopLeftButton(
                 submitButton,
@@ -116,8 +112,7 @@ namespace Minebot.UI
                 42f,
                 layout.BodyFontSize,
                 new Color(0.16f, 0.23f, 0.24f, 0.96f),
-                TextAnchor.MiddleCenter,
-                runtimeFontAsset);
+                TextAnchor.MiddleCenter);
             SetButtonLabel(submitButton, "保存成绩");
 
             statusText = MinebotHudUiFactory.EnsureTopStretchText(
@@ -129,8 +124,7 @@ namespace Minebot.UI
                 18f,
                 26f,
                 layout.BodyFontSize,
-                TextAnchor.MiddleLeft,
-                runtimeFontAsset);
+                TextAnchor.MiddleLeft);
             statusText.text = string.Empty;
 
             leaderboardTitleText = MinebotHudUiFactory.EnsureTopStretchText(
@@ -142,8 +136,7 @@ namespace Minebot.UI
                 18f,
                 28f,
                 layout.BodyFontSize,
-                TextAnchor.MiddleLeft,
-                runtimeFontAsset);
+                TextAnchor.MiddleLeft);
             leaderboardTitleText.text = "本地前十";
 
             leaderboardEntriesText = MinebotHudUiFactory.EnsureBottomStretchText(
@@ -155,8 +148,7 @@ namespace Minebot.UI
                 18f,
                 110f,
                 layout.LeaderboardFontSize,
-                TextAnchor.UpperLeft,
-                runtimeFontAsset);
+                TextAnchor.UpperLeft);
             leaderboardEntriesText.text = "暂无成绩";
         }
 
@@ -269,8 +261,7 @@ namespace Minebot.UI
             float height,
             int fontSize,
             Color backgroundColor,
-            int characterLimit,
-            TMP_FontAsset runtimeFontAsset)
+            int characterLimit)
         {
             Transform child = current != null ? current.transform : parent.Find(objectName);
             if (child == null)
@@ -294,8 +285,8 @@ namespace Minebot.UI
             field.selectionColor = new Color(0.24f, 0.38f, 0.42f, 0.72f);
 
             RectTransform textArea = EnsureTextArea(child, "Text Area");
-            TMP_Text text = MinebotHudUiFactory.EnsureFillText(null, textArea, "Text", fontSize, TextAnchor.MiddleLeft, Vector4.zero, runtimeFontAsset);
-            TMP_Text placeholder = MinebotHudUiFactory.EnsureFillText(null, textArea, "Placeholder", fontSize, TextAnchor.MiddleLeft, Vector4.zero, runtimeFontAsset);
+            TMP_Text text = MinebotHudUiFactory.EnsureFillText(null, textArea, "Text", fontSize, TextAnchor.MiddleLeft, Vector4.zero);
+            TMP_Text placeholder = MinebotHudUiFactory.EnsureFillText(null, textArea, "Placeholder", fontSize, TextAnchor.MiddleLeft, Vector4.zero);
             placeholder.text = "PLAYER";
             placeholder.color = new Color(1f, 1f, 1f, 0.35f);
 
