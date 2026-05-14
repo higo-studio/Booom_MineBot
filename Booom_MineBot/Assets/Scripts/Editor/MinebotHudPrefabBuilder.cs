@@ -40,7 +40,6 @@ namespace Minebot.Editor
             CreateOptionPanelPrefab(MinebotHudDefaults.UpgradePanelAssetPath, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradeOptions, MinebotHudDefaults.UpgradeButtonCount, MinebotHudDefaults.UpgradeTitle);
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildPanelAssetPath, MinebotHudDefaults.BuildPanelObjectName, MinebotHudDefaults.BuildOptions, MinebotHudDefaults.MinimumBuildButtonCount, MinebotHudDefaults.BuildTitle);
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildingInteractionPanelAssetPath, MinebotHudDefaults.BuildingInteractionPanelObjectName, MinebotHudDefaults.BuildingInteractionOptions, MinebotHudDefaults.BuildingInteractionButtonCount, MinebotHudDefaults.BuildingInteractionTitle);
-            CreateBootstrapMenuPrefab(MinebotHudDefaults.BootstrapMenuAssetPath, MinebotHudDefaults.BootstrapMenuObjectName, MinebotHudDefaults.BootstrapMenu);
 
             CreateMainUiPrefab();
             UpdateDefaultHudReference();
@@ -100,21 +99,6 @@ namespace Minebot.Editor
             try
             {
                 MinebotHudGameOverPanelView view = root.GetComponent<MinebotHudGameOverPanelView>();
-                view.EnsureDefaultStructure(layout);
-                PrefabUtility.SaveAsPrefabAsset(root, assetPath);
-            }
-            finally
-            {
-                Object.DestroyImmediate(root);
-            }
-        }
-
-        private static void CreateBootstrapMenuPrefab(string assetPath, string objectName, MinebotHudDefaults.BootstrapMenuLayout layout)
-        {
-            GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(MinebotBootstrapMenuView));
-            try
-            {
-                MinebotBootstrapMenuView view = root.GetComponent<MinebotBootstrapMenuView>();
                 view.EnsureDefaultStructure(layout);
                 PrefabUtility.SaveAsPrefabAsset(root, assetPath);
             }

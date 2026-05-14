@@ -8,7 +8,6 @@ namespace Minebot.UI
         public const string RootAssetPath = "Assets/Resources/Minebot/UI/MainUI.prefab";
         public const string PanelFolderResourcePath = "Minebot/UI/Panels";
         public const string PanelFolderAssetPath = "Assets/Resources/Minebot/UI/Panels";
-        public const string ScreenFolderResourcePath = "Minebot/UI/Screens";
         public const string ScreenFolderAssetPath = "Assets/Resources/Minebot/UI/Screens";
 
         public const string StatusPanelResourcePath = PanelFolderResourcePath + "/StatusPanel";
@@ -20,8 +19,6 @@ namespace Minebot.UI
         public const string UpgradePanelResourcePath = PanelFolderResourcePath + "/UpgradePanel";
         public const string BuildPanelResourcePath = PanelFolderResourcePath + "/BuildPanel";
         public const string BuildingInteractionPanelResourcePath = PanelFolderResourcePath + "/BuildingInteractionPanel";
-        public const string BootstrapMenuResourcePath = ScreenFolderResourcePath + "/BootstrapMenu";
-
         public const string StatusPanelAssetPath = PanelFolderAssetPath + "/StatusPanel.prefab";
         public const string InteractionPanelAssetPath = PanelFolderAssetPath + "/InteractionPanel.prefab";
         public const string FeedbackPanelAssetPath = PanelFolderAssetPath + "/FeedbackPanel.prefab";
@@ -31,8 +28,6 @@ namespace Minebot.UI
         public const string UpgradePanelAssetPath = PanelFolderAssetPath + "/UpgradePanel.prefab";
         public const string BuildPanelAssetPath = PanelFolderAssetPath + "/BuildPanel.prefab";
         public const string BuildingInteractionPanelAssetPath = PanelFolderAssetPath + "/BuildingInteractionPanel.prefab";
-        public const string BootstrapMenuAssetPath = ScreenFolderAssetPath + "/BootstrapMenu.prefab";
-
         public const string StatusPanelObjectName = "Status Panel";
         public const string InteractionPanelObjectName = "Interaction Panel";
         public const string FeedbackPanelObjectName = "Feedback Panel";
@@ -42,8 +37,6 @@ namespace Minebot.UI
         public const string UpgradePanelObjectName = "Upgrade Panel";
         public const string BuildPanelObjectName = "Build Panel";
         public const string BuildingInteractionPanelObjectName = "Building Interaction Panel";
-        public const string BootstrapMenuObjectName = "Bootstrap Menu";
-
         public const string UpgradeTitle = "升级可用：按 1/2 或点击";
         public const string BuildTitle = "建筑模式：选择建筑后点击空地";
         public const string BuildingInteractionTitle = "建筑交互";
@@ -122,15 +115,6 @@ namespace Minebot.UI
             18,
             17,
             16);
-        public static readonly BootstrapMenuLayout BootstrapMenu = new BootstrapMenuLayout(
-            new Color(0.01f, 0.02f, 0.03f, 0.72f),
-            new Color(0.05f, 0.07f, 0.08f, 0.96f),
-            new Color(0.16f, 0.23f, 0.24f, 0.96f),
-            new Vector2(760f, 620f),
-            48,
-            19,
-            18);
-
         public static readonly OptionPanelLayout UpgradeOptions = new OptionPanelLayout(
             new Color(0.05f, 0.07f, 0.08f, 0.92f),
             new Color(0.16f, 0.23f, 0.24f, 0.96f),
@@ -261,28 +245,6 @@ namespace Minebot.UI
             public int BodyFontSize { get; }
             public int LeaderboardFontSize { get; }
             public int NameCharacterLimit { get; }
-        }
-
-        public readonly struct BootstrapMenuLayout
-        {
-            public BootstrapMenuLayout(Color scrimColor, Color panelColor, Color buttonColor, Vector2 panelSize, int titleFontSize, int subtitleFontSize, int leaderboardFontSize)
-            {
-                ScrimColor = scrimColor;
-                PanelColor = panelColor;
-                ButtonColor = buttonColor;
-                PanelSize = panelSize;
-                TitleFontSize = titleFontSize;
-                SubtitleFontSize = subtitleFontSize;
-                LeaderboardFontSize = leaderboardFontSize;
-            }
-
-            public Color ScrimColor { get; }
-            public Color PanelColor { get; }
-            public Color ButtonColor { get; }
-            public Vector2 PanelSize { get; }
-            public int TitleFontSize { get; }
-            public int SubtitleFontSize { get; }
-            public int LeaderboardFontSize { get; }
         }
 
         public enum OptionPanelFlow

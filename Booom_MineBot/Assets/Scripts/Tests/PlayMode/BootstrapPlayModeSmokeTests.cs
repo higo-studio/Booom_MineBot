@@ -130,10 +130,12 @@ namespace Minebot.Tests.PlayMode
 
             MinebotBootstrapMenuView menu = Object.FindAnyObjectByType<MinebotBootstrapMenuView>();
             Assert.That(menu, Is.Not.Null);
+            Assert.That(menu.GetComponent<Canvas>(), Is.Null);
+            Assert.That(menu.GetComponentInParent<Canvas>(), Is.Not.Null);
             Assert.That(menu.StartButton, Is.Not.Null);
             Assert.That(menu.QuitButton, Is.Not.Null);
-            Assert.That(menu.LeaderboardEntriesText, Is.Not.Null);
-            Assert.That(menu.LeaderboardEntriesText.text, Does.Contain("AAA"));
+            Assert.That(menu.StatusText, Is.Null);
+            Assert.That(menu.LeaderboardEntriesText, Is.Null);
 
             menu.StartButton.onClick.Invoke();
             yield return WaitUntilSceneIsActive(loader.Config != null ? loader.Config.GameplaySceneName : "Gameplay");

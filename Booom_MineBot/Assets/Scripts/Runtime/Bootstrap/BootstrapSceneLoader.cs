@@ -1,8 +1,5 @@
-using System.Collections.Generic;
-using Minebot.Progression;
 using Minebot.UI;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -24,6 +21,7 @@ namespace Minebot.Bootstrap
 
         private bool gameplayLoadRequested;
         private MinebotBootstrapMenuView startPageView;
+        private RectTransform startPageCanvasRoot;
         private MinebotRuntimeContext runtimeContext;
 
         public BootstrapConfig Config => config;
@@ -95,23 +93,28 @@ namespace Minebot.Bootstrap
                 return;
             }
 
-            EnsureEventSystem();
-
             if (startPageView == null)
             {
-                MinebotBootstrapMenuView prefab = startPagePrefab != null
-                    ? startPagePrefab
-                    : Resources.Load<MinebotBootstrapMenuView>(MinebotHudDefaults.BootstrapMenuResourcePath);
-                startPageView = prefab != null
-                    ? Instantiate(prefab)
-                    : new GameObject(MinebotHudDefaults.BootstrapMenuObjectName, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(MinebotBootstrapMenuView)).GetComponent<MinebotBootstrapMenuView>();
-                startPageView.name = MinebotHudDefaults.BootstrapMenuObjectName;
+                if (startPagePrefab == null)
+                {
+                    Debug.LogError("BootstrapSceneLoader 缺少 startPagePrefab。请在场景里显式引用 TitlePage.prefab。");
+                    return;
+                }
+
+                EnsureStartPageCanvasRoot();
+                startPageView = Instantiate(startPagePrefab, startPageCanvasRoot, false);
+                if (startPageView.transform is RectTransform rectTransform)
+                {
+                    StretchToParent(rectTransform);
+                }
+
+                if (!startPageView.HasRequiredBindings(out string missingBindings))
+                {
+                    Debug.LogError($"TitlePage.prefab 缺少 MinebotBootstrapMenuView 必需引用：{missingBindings}");
+                }
             }
 
-            startPageView.EnsureDefaultStructure(MinebotHudDefaults.BootstrapMenu);
             startPageView.BindButtons(HandleStartClicked, HandleQuitClicked);
-            startPageView.SetLeaderboardSummary(BuildLeaderboardSummary());
-            startPageView.SetLoadingState(gameplayLoadRequested);
             startPageView.SetVisible(true);
         }
 
@@ -119,11 +122,79 @@ namespace Minebot.Bootstrap
         {
             if (startPageView == null)
             {
+                DestroyStartPageCanvasRoot();
                 return;
             }
 
             Destroy(startPageView.gameObject);
             startPageView = null;
+            DestroyStartPageCanvasRoot();
+        }
+
+        private void EnsureStartPageCanvasRoot()
+        {
+            if (startPageCanvasRoot != null)
+            {
+                return;
+            }
+
+            var root = new GameObject("BootstrapUiRoot", typeof(RectTransform));
+            root.layer = 5;
+            root.transform.SetParent(transform, false);
+            ConfigureCanvasRoot(root);
+            startPageCanvasRoot = root.GetComponent<RectTransform>();
+        }
+
+        private void DestroyStartPageCanvasRoot()
+        {
+            if (startPageCanvasRoot == null)
+            {
+                return;
+            }
+
+            Destroy(startPageCanvasRoot.gameObject);
+            startPageCanvasRoot = null;
+        }
+
+        private static void ConfigureCanvasRoot(GameObject target)
+        {
+            if (target.transform is RectTransform rootRect)
+            {
+                StretchToParent(rootRect);
+            }
+
+            Canvas canvas = GetOrAdd<Canvas>(target);
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 200;
+            canvas.pixelPerfect = true;
+
+            CanvasScaler scaler = GetOrAdd<CanvasScaler>(target);
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            GetOrAdd<GraphicRaycaster>(target);
+        }
+
+        private static void StretchToParent(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
+            rect.localScale = Vector3.one;
+        }
+
+        private static T GetOrAdd<T>(GameObject target) where T : Component
+        {
+            T component = target.GetComponent<T>();
+            return component != null ? component : target.AddComponent<T>();
         }
 
         private void HandleStartClicked()
@@ -134,7 +205,6 @@ namespace Minebot.Bootstrap
             }
 
             gameplayLoadRequested = true;
-            startPageView?.SetLoadingState(true);
             SceneManager.LoadSceneAsync(GameplaySceneName, LoadSceneMode.Single);
         }
 
@@ -144,22 +214,5 @@ namespace Minebot.Bootstrap
             Application.Quit();
         }
 
-        private static string BuildLeaderboardSummary()
-        {
-            IReadOnlyList<LocalLeaderboardEntry> entries = LocalLeaderboardService.GetEntries();
-            return LocalLeaderboardSummaryFormatter.Format(entries);
-        }
-
-        private static void EnsureEventSystem()
-        {
-            if (FindAnyObjectByType<EventSystem>() != null)
-            {
-                return;
-            }
-
-            var eventSystem = new GameObject("EventSystem");
-            eventSystem.AddComponent<EventSystem>();
-            eventSystem.AddComponent<StandaloneInputModule>();
-        }
     }
 }

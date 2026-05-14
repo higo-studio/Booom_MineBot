@@ -27,7 +27,6 @@ namespace Minebot.Tests.EditMode
                 MinebotHudDefaults.UpgradePanelAssetPath,
                 MinebotHudDefaults.BuildPanelAssetPath,
                 MinebotHudDefaults.BuildingInteractionPanelAssetPath,
-                MinebotHudDefaults.BootstrapMenuAssetPath,
                 DefaultArtSetAssetPath);
 
             try
@@ -53,7 +52,6 @@ namespace Minebot.Tests.EditMode
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.UpgradePanelAssetPath), Is.Not.Null);
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BuildPanelAssetPath), Is.Not.Null);
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BuildingInteractionPanelAssetPath), Is.Not.Null);
-                Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BootstrapMenuAssetPath), Is.Not.Null);
 
                 GameObject instance = Object.Instantiate(rootPrefab);
                 try
@@ -89,10 +87,6 @@ namespace Minebot.Tests.EditMode
                 {
                     Object.DestroyImmediate(instance);
                 }
-
-                GameObject bootstrapMenuPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BootstrapMenuAssetPath);
-                Assert.That(bootstrapMenuPrefab, Is.Not.Null);
-                Assert.That(bootstrapMenuPrefab.GetComponent<MinebotBootstrapMenuView>(), Is.Not.Null);
             }
             finally
             {
