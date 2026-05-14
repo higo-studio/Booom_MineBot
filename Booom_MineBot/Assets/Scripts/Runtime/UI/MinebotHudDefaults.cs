@@ -14,7 +14,7 @@ namespace Minebot.UI
         public const string InteractionPanelResourcePath = PanelFolderResourcePath + "/InteractionPanel";
         public const string FeedbackPanelResourcePath = PanelFolderResourcePath + "/FeedbackPanel";
         public const string WarningPanelResourcePath = PanelFolderResourcePath + "/WarningPanel";
-        public const string GameOverPanelResourcePath = PanelFolderResourcePath + "/GameOverPanel";
+        public const string ScorePanelResourcePath = "Prefabs/Score Panel ";
         public const string MinimapPanelResourcePath = PanelFolderResourcePath + "/MinimapPanel";
         public const string UpgradePanelResourcePath = "Prefabs/Upgrade Panel";
         public const string BuildPanelResourcePath = PanelFolderResourcePath + "/BuildPanel";
@@ -23,7 +23,7 @@ namespace Minebot.UI
         public const string InteractionPanelAssetPath = PanelFolderAssetPath + "/InteractionPanel.prefab";
         public const string FeedbackPanelAssetPath = PanelFolderAssetPath + "/FeedbackPanel.prefab";
         public const string WarningPanelAssetPath = PanelFolderAssetPath + "/WarningPanel.prefab";
-        public const string GameOverPanelAssetPath = PanelFolderAssetPath + "/GameOverPanel.prefab";
+        public const string ScorePanelAssetPath = "Assets/Resources/Prefabs/Score Panel .prefab";
         public const string MinimapPanelAssetPath = PanelFolderAssetPath + "/MinimapPanel.prefab";
         public const string UpgradePanelAssetPath = "Assets/Resources/Prefabs/Upgrade Panel.prefab";
         public const string BuildPanelAssetPath = PanelFolderAssetPath + "/BuildPanel.prefab";
@@ -32,7 +32,7 @@ namespace Minebot.UI
         public const string InteractionPanelObjectName = "Interaction Panel";
         public const string FeedbackPanelObjectName = "Feedback Panel";
         public const string WarningPanelObjectName = "Warning Panel";
-        public const string GameOverPanelObjectName = "Game Over Panel";
+        public const string ScorePanelObjectName = "Score Panel";
         public const string MinimapPanelObjectName = "Minimap Panel";
         public const string UpgradePanelObjectName = "Upgrade Panel";
         public const string BuildPanelObjectName = "Build Panel";
@@ -106,14 +106,6 @@ namespace Minebot.UI
         public static readonly TextPanelLayout FeedbackText = new TextPanelLayout(15, TextAnchor.MiddleRight, new Vector4(4f, 4f, 4f, 4f));
         public static readonly TextPanelLayout WarningText = new TextPanelLayout(19, TextAnchor.MiddleCenter, new Vector4(8f, 4f, 8f, 4f));
         public static readonly MinimapPanelLayout MinimapPanel = new MinimapPanelLayout(16f, 16f, 104f, 40f, 18);
-        public static readonly GameOverPanelLayout GameOverPanel = new GameOverPanelLayout(
-            new Color(0.05f, 0.07f, 0.08f, 0.94f),
-            new Color(0.12f, 0.18f, 0.2f, 0.98f),
-            32,
-            22,
-            18,
-            17,
-            16);
         public static readonly OptionPanelLayout BuildOptions = new OptionPanelLayout(
             new Color(0.03f, 0.05f, 0.06f, 0.9f),
             new Color(0.04f, 0.12f, 0.15f, 0.96f),
@@ -206,28 +198,6 @@ namespace Minebot.UI
             public float MapSize { get; }
             public float SummaryHeight { get; }
             public int SummaryFontSize { get; }
-        }
-
-        public readonly struct GameOverPanelLayout
-        {
-            public GameOverPanelLayout(Color backgroundColor, Color inputColor, int titleFontSize, int summaryFontSize, int bodyFontSize, int leaderboardFontSize, int nameCharacterLimit)
-            {
-                BackgroundColor = backgroundColor;
-                InputColor = inputColor;
-                TitleFontSize = titleFontSize;
-                SummaryFontSize = summaryFontSize;
-                BodyFontSize = bodyFontSize;
-                LeaderboardFontSize = leaderboardFontSize;
-                NameCharacterLimit = nameCharacterLimit;
-            }
-
-            public Color BackgroundColor { get; }
-            public Color InputColor { get; }
-            public int TitleFontSize { get; }
-            public int SummaryFontSize { get; }
-            public int BodyFontSize { get; }
-            public int LeaderboardFontSize { get; }
-            public int NameCharacterLimit { get; }
         }
 
         public enum OptionPanelFlow

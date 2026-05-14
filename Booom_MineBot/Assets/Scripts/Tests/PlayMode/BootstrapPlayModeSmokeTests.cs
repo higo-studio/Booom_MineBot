@@ -6,6 +6,7 @@ using Minebot.GridMining;
 using Minebot.Presentation;
 using Minebot.Progression;
 using Minebot.UI;
+using TMPro;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -134,8 +135,21 @@ namespace Minebot.Tests.PlayMode
             Assert.That(menu.GetComponentInParent<Canvas>(), Is.Not.Null);
             Assert.That(menu.StartButton, Is.Not.Null);
             Assert.That(menu.QuitButton, Is.Not.Null);
+            Assert.That(menu.LeaderboardButton, Is.Not.Null);
             Assert.That(menu.StatusText, Is.Null);
             Assert.That(menu.LeaderboardEntriesText, Is.Null);
+
+            menu.LeaderboardButton.onClick.Invoke();
+            yield return null;
+
+            GameObject rankPanel = GameObject.Find("Rank Panel");
+            Assert.That(rankPanel, Is.Not.Null);
+            Assert.That(rankPanel.GetComponent<Canvas>(), Is.Null);
+            Assert.That(rankPanel.GetComponentInParent<Canvas>(), Is.Not.Null);
+            TMP_Text[] rankTexts = rankPanel.GetComponentsInChildren<TMP_Text>(true);
+            Assert.That(System.Array.Exists(rankTexts, text => text != null && text.text == "AAA"), Is.True);
+            Assert.That(System.Array.Exists(rankTexts, text => text != null && text.text == "123"), Is.True);
+            Assert.That(System.Array.Exists(rankTexts, text => text != null && text.text == "Wave 7"), Is.True);
 
             menu.StartButton.onClick.Invoke();
             yield return WaitUntilSceneIsActive(loader.Config != null ? loader.Config.GameplaySceneName : "Gameplay");

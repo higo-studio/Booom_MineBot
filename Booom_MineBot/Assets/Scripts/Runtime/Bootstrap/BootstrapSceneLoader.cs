@@ -1,4 +1,5 @@
 using Minebot.UI;
+using Minebot.Progression;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -19,9 +20,13 @@ namespace Minebot.Bootstrap
         [SerializeField]
         private MinebotBootstrapMenuView startPagePrefab;
 
+        private const string RankPageResourcePath = "Prefabs/Rank Panel ";
+        private const string RankPageObjectName = "Rank Panel";
         private bool gameplayLoadRequested;
         private MinebotBootstrapMenuView startPageView;
+        private MinebotRankPageView rankPageView;
         private RectTransform startPageCanvasRoot;
+        private int rankPageShownFrame = -1;
         private MinebotRuntimeContext runtimeContext;
 
         public BootstrapConfig Config => config;
@@ -114,8 +119,21 @@ namespace Minebot.Bootstrap
                 }
             }
 
-            startPageView.BindButtons(HandleStartClicked, HandleQuitClicked);
+            startPageView.BindButtons(HandleStartClicked, HandleQuitClicked, HandleLeaderboardClicked);
             startPageView.SetVisible(true);
+        }
+
+        private void Update()
+        {
+            if (rankPageView == null || !rankPageView.IsVisible)
+            {
+                return;
+            }
+
+            if (Time.frameCount > rankPageShownFrame && Input.anyKeyDown)
+            {
+                rankPageView.SetVisible(false);
+            }
         }
 
         private void DestroyStartPageView()
@@ -128,6 +146,7 @@ namespace Minebot.Bootstrap
 
             Destroy(startPageView.gameObject);
             startPageView = null;
+            rankPageView = null;
             DestroyStartPageCanvasRoot();
         }
 
@@ -206,6 +225,50 @@ namespace Minebot.Bootstrap
 
             gameplayLoadRequested = true;
             SceneManager.LoadSceneAsync(GameplaySceneName, LoadSceneMode.Single);
+        }
+
+        private void HandleLeaderboardClicked()
+        {
+            EnsureRankPageView();
+            if (rankPageView == null)
+            {
+                return;
+            }
+
+            rankPageView.SetEntries(LocalLeaderboardService.GetEntries());
+            rankPageView.SetVisible(true);
+            rankPageShownFrame = Time.frameCount;
+        }
+
+        private void EnsureRankPageView()
+        {
+            if (rankPageView != null)
+            {
+                return;
+            }
+
+            EnsureStartPageCanvasRoot();
+            GameObject prefab = Resources.Load<GameObject>(RankPageResourcePath);
+            if (prefab == null)
+            {
+                Debug.LogError($"BootstrapSceneLoader 缺少排行榜页面资源：{RankPageResourcePath}");
+                return;
+            }
+
+            GameObject instance = Instantiate(prefab, startPageCanvasRoot, false);
+            instance.name = RankPageObjectName;
+            if (instance.transform is RectTransform rectTransform)
+            {
+                StretchToParent(rectTransform);
+            }
+
+            rankPageView = new MinebotRankPageView(instance);
+            if (!rankPageView.HasRequiredBindings(out string missingBindings))
+            {
+                Debug.LogError($"Rank Panel.prefab 缺少必需引用：{missingBindings}");
+            }
+
+            rankPageView.SetVisible(false);
         }
 
         private static void HandleQuitClicked()

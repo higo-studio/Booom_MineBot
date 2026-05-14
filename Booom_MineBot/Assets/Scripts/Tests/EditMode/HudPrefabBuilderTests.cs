@@ -22,8 +22,8 @@ namespace Minebot.Tests.EditMode
                 MinebotHudDefaults.InteractionPanelAssetPath,
                 MinebotHudDefaults.FeedbackPanelAssetPath,
                 MinebotHudDefaults.WarningPanelAssetPath,
-                MinebotHudDefaults.GameOverPanelAssetPath,
                 MinebotHudDefaults.MinimapPanelAssetPath,
+                MinebotHudDefaults.ScorePanelAssetPath,
                 MinebotHudDefaults.UpgradePanelAssetPath,
                 MinebotHudDefaults.BuildPanelAssetPath,
                 MinebotHudDefaults.BuildingInteractionPanelAssetPath,
@@ -47,8 +47,8 @@ namespace Minebot.Tests.EditMode
 
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.StatusPanelAssetPath), Is.Not.Null);
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.WarningPanelAssetPath), Is.Not.Null);
-                Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.GameOverPanelAssetPath), Is.Not.Null);
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.MinimapPanelAssetPath), Is.Not.Null);
+                Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.ScorePanelAssetPath), Is.Not.Null);
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.UpgradePanelAssetPath), Is.Not.Null);
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BuildPanelAssetPath), Is.Not.Null);
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(MinebotHudDefaults.BuildingInteractionPanelAssetPath), Is.Not.Null);
@@ -74,7 +74,7 @@ namespace Minebot.Tests.EditMode
                     Assert.That(view.StatusPanel, Is.Null);
                     Assert.That(view.WarningPanel, Is.Null);
                     Assert.That(view.MinimapPanel, Is.Null);
-                    Assert.That(view.GameOverPanel, Is.Not.Null);
+                    Assert.That(view.ScorePanel, Is.Not.Null);
                     Assert.That(view.UpgradePanel, Is.Not.Null);
                     Assert.That(view.BuildPanel, Is.Null);
                     Assert.That(view.BuildingInteractionPanel, Is.Not.Null);

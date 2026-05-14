@@ -111,7 +111,6 @@ namespace Minebot.Presentation
         private bool isSubscribed;
         private bool defaultFacilitiesRegistered;
         private string leaderboardNameInput = "PLAYER";
-        private string leaderboardStatus = string.Empty;
         private bool leaderboardSubmitted;
 
         public TilemapGridPresentation GridPresentation => gridPresentation;
@@ -316,7 +315,6 @@ namespace Minebot.Presentation
             if (!services.Vitals.IsDead)
             {
                 leaderboardSubmitted = false;
-                leaderboardStatus = string.Empty;
             }
 
             UpdatePlayerVisualState(Time.deltaTime);
@@ -2053,7 +2051,7 @@ namespace Minebot.Presentation
                     services.Waves.WaveInterval);
             }
 
-            RefreshGameOverPanel();
+            RefreshScorePanel();
 
             DisableMinimapPanel();
             RefreshUpgradePanel();
@@ -2073,34 +2071,27 @@ namespace Minebot.Presentation
             hudView.MinimapPanel.SetVisible(false);
         }
 
-        private void RefreshGameOverPanel()
+        private void RefreshScorePanel()
         {
-            if (hudView == null || hudView.GameOverPanel == null)
+            if (hudView == null || hudView.ScorePanel == null)
             {
                 return;
             }
 
             bool isDead = services != null && services.Vitals.IsDead;
-            MinebotHudGameOverPanelView panel = hudView.GameOverPanel;
+            MinebotScorePageView panel = hudView.ScorePanel;
             panel.SetVisible(isDead);
             if (!isDead)
             {
-                panel.SetSummary(string.Empty);
-                panel.SetStatus(string.Empty);
-                panel.SetLeaderboardSummary(string.Empty);
+                panel.SetScore(0);
                 panel.SetSubmissionEnabled(false);
                 return;
             }
 
             panel.BindNameChanged(value => leaderboardNameInput = value);
             panel.BindSubmit(HandleLeaderboardSubmit);
-            panel.SetSummary(
-                $"本局得分 {services.Scores?.CurrentScore ?? 0}\n" +
-                $"存活波次 {services.Waves.BestSurvivedWave}");
-            panel.SetPrompt("输入名字保存本地排行榜：");
+            panel.SetScore(services.Scores?.CurrentScore ?? 0);
             panel.SetNameInput(leaderboardNameInput);
-            panel.SetStatus(leaderboardSubmitted ? leaderboardStatus : string.Empty);
-            panel.SetLeaderboardSummary(BuildLeaderboardSummary());
             panel.SetSubmissionEnabled(!leaderboardSubmitted);
         }
 
@@ -2112,22 +2103,13 @@ namespace Minebot.Presentation
             }
 
             leaderboardNameInput = rawName;
-            bool accepted = LocalLeaderboardService.TryAddEntry(
+            LocalLeaderboardService.TryAddEntry(
                 leaderboardNameInput,
                 services.Scores?.CurrentScore ?? 0,
                 services.Waves.BestSurvivedWave,
-                out int rank);
+                out _);
             leaderboardSubmitted = true;
-            leaderboardStatus = accepted
-                ? $"已保存到本地排行榜，第 {rank + 1} 名。"
-                : "成绩未进入前十，但本地排行榜已刷新。";
             RefreshHud();
-        }
-
-        private static string BuildLeaderboardSummary()
-        {
-            IReadOnlyList<LocalLeaderboardEntry> entries = LocalLeaderboardService.GetEntries();
-            return LocalLeaderboardSummaryFormatter.Format(entries);
         }
 
         private string BuildInteractionText()

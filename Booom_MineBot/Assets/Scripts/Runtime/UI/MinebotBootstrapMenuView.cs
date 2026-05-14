@@ -29,6 +29,9 @@ namespace Minebot.UI
         private Button quitButton;
 
         [SerializeField]
+        private Button leaderboardButton;
+
+        [SerializeField]
         private TMP_Text statusText;
 
         [SerializeField]
@@ -39,6 +42,7 @@ namespace Minebot.UI
 
         public Button StartButton => startButton;
         public Button QuitButton => quitButton;
+        public Button LeaderboardButton => leaderboardButton;
         public TMP_Text LeaderboardEntriesText => leaderboardEntriesText;
         public TMP_Text StatusText => statusText;
 
@@ -46,23 +50,40 @@ namespace Minebot.UI
         {
             bool missingStart = startButton == null;
             bool missingQuit = quitButton == null;
-            if (!missingStart && !missingQuit)
+            bool missingLeaderboard = leaderboardButton == null;
+            if (!missingStart && !missingQuit && !missingLeaderboard)
             {
                 missingBindings = null;
                 return true;
             }
 
-            if (missingStart && missingQuit)
+            if (missingStart && missingQuit && missingLeaderboard)
             {
-                missingBindings = "startButton, quitButton";
+                missingBindings = "startButton, quitButton, leaderboardButton";
                 return false;
             }
 
-            missingBindings = missingStart ? "startButton" : "quitButton";
+            var missing = new System.Collections.Generic.List<string>(3);
+            if (missingStart)
+            {
+                missing.Add("startButton");
+            }
+
+            if (missingQuit)
+            {
+                missing.Add("quitButton");
+            }
+
+            if (missingLeaderboard)
+            {
+                missing.Add("leaderboardButton");
+            }
+
+            missingBindings = string.Join(", ", missing);
             return false;
         }
 
-        public void BindButtons(Action onStart, Action onQuit)
+        public void BindButtons(Action onStart, Action onQuit, Action onLeaderboard)
         {
             if (startButton != null)
             {
@@ -74,6 +95,12 @@ namespace Minebot.UI
             {
                 quitButton.onClick.RemoveAllListeners();
                 quitButton.onClick.AddListener(() => onQuit?.Invoke());
+            }
+
+            if (leaderboardButton != null)
+            {
+                leaderboardButton.onClick.RemoveAllListeners();
+                leaderboardButton.onClick.AddListener(() => onLeaderboard?.Invoke());
             }
         }
 

@@ -93,8 +93,8 @@ namespace Minebot.UI
         [SerializeField]
         private MinebotHudTextPanelView warningPanel;
 
-        [SerializeField]
-        private MinebotHudGameOverPanelView gameOverPanel;
+        [NonSerialized]
+        private MinebotScorePageView scorePanel;
 
         [SerializeField]
         private MinebotHudMinimapPanelView minimapPanel;
@@ -133,7 +133,7 @@ namespace Minebot.UI
         public MinebotHudTextPanelView InteractionPanel => interactionPanel;
         public MinebotHudTextPanelView FeedbackPanel => feedbackPanel;
         public MinebotHudTextPanelView WarningPanel => warningPanel;
-        public MinebotHudGameOverPanelView GameOverPanel => gameOverPanel;
+        public MinebotScorePageView ScorePanel => scorePanel;
         public MinebotHudMinimapPanelView MinimapPanel => minimapPanel;
         public MinebotUpgradePageView UpgradePanel => upgradePanel;
         public MinebotHudOptionPanelView BuildPanel => buildPanel;
@@ -179,7 +179,7 @@ namespace Minebot.UI
             interactionPanel = EnsureTextPanel(interactionPanel, interactionSlot, MinebotHudDefaults.InteractionPanelObjectName, MinebotHudDefaults.InteractionPanelResourcePath, MinebotHudDefaults.InteractionText);
             feedbackPanel = EnsureTextPanel(feedbackPanel, feedbackSlot, MinebotHudDefaults.FeedbackPanelObjectName, MinebotHudDefaults.FeedbackPanelResourcePath, MinebotHudDefaults.FeedbackText);
             warningPanel = EnsureTextPanel(warningPanel, warningSlot, MinebotHudDefaults.WarningPanelObjectName, MinebotHudDefaults.WarningPanelResourcePath, MinebotHudDefaults.WarningText);
-            gameOverPanel = EnsureGameOverPanel(gameOverPanel, gameOverSlot, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanelResourcePath, MinebotHudDefaults.GameOverPanel);
+            scorePanel = EnsureScorePage(scorePanel, gameOverSlot, MinebotHudDefaults.ScorePanelObjectName, MinebotHudDefaults.ScorePanelResourcePath);
             minimapPanel = EnsureMinimapPanel(minimapPanel, minimapSlot, MinebotHudDefaults.MinimapPanelObjectName, MinebotHudDefaults.MinimapPanelResourcePath, MinebotHudDefaults.MinimapPanel);
 
             upgradePanel = EnsureUpgradePage(upgradePanel, upgradeSlot, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradePanelResourcePath);
@@ -246,7 +246,6 @@ namespace Minebot.UI
             interactionPanel?.ApplyGraphics(panelBackground, interactionIcon);
             feedbackPanel?.ApplyGraphics(panelBackground, feedbackIcon);
             warningPanel?.ApplyGraphics(panelBackground, warningIcon);
-            gameOverPanel?.ApplyGraphics(panelBackground, warningIcon);
             minimapPanel?.ApplyGraphics(panelBackground);
             buildPanel?.ApplyGraphics(panelBackground, buildIcon);
             buildingInteractionPanel?.ApplyGraphics(panelBackground, buildingInteractionIcon);
@@ -518,11 +517,35 @@ namespace Minebot.UI
             return panel;
         }
 
-        private static MinebotHudGameOverPanelView EnsureGameOverPanel(MinebotHudGameOverPanelView current, RectTransform slot, string objectName, string resourcePath, MinebotHudDefaults.GameOverPanelLayout layout)
+        private static MinebotScorePageView EnsureScorePage(MinebotScorePageView current, RectTransform slot, string objectName, string resourcePath)
         {
-            MinebotHudGameOverPanelView panel = ResolvePanel(current, slot, objectName, resourcePath);
-            panel.EnsureDefaultStructure(layout);
-            return panel;
+            if (current != null)
+            {
+                return current;
+            }
+
+            Transform existing = slot.Find(objectName);
+            if (existing != null)
+            {
+                return CreateScorePageView(existing.gameObject);
+            }
+
+            GameObject prefab = Resources.Load<GameObject>(resourcePath);
+            if (prefab == null)
+            {
+                Debug.LogError($"MinebotHudView 缺少结算页面资源：{resourcePath}");
+                return null;
+            }
+
+            GameObject instance = Instantiate(prefab, slot, false);
+            instance.name = objectName;
+            instance.transform.SetAsLastSibling();
+            if (instance.transform is RectTransform rectTransform)
+            {
+                MinebotHudUiFactory.StretchToParent(rectTransform);
+            }
+
+            return CreateScorePageView(instance);
         }
 
         private void EnsureTemplateOverlayStructure()
@@ -531,7 +554,7 @@ namespace Minebot.UI
             upgradeSlot = MinebotHudUiFactory.EnsureSlot(ref upgradeSlot, transform, UpgradeSlotName, MinebotHudDefaults.UpgradeSlot);
             buildingInteractionSlot = MinebotHudUiFactory.EnsureSlot(ref buildingInteractionSlot, transform, BuildingInteractionSlotName, MinebotHudDefaults.BuildingInteractionSlot);
 
-            gameOverPanel = EnsureGameOverPanel(gameOverPanel, gameOverSlot, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanelResourcePath, MinebotHudDefaults.GameOverPanel);
+            scorePanel = EnsureScorePage(scorePanel, gameOverSlot, MinebotHudDefaults.ScorePanelObjectName, MinebotHudDefaults.ScorePanelResourcePath);
             upgradePanel = EnsureUpgradePage(upgradePanel, upgradeSlot, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradePanelResourcePath);
             buildingInteractionPanel = EnsureOptionPanel(buildingInteractionPanel, buildingInteractionSlot, MinebotHudDefaults.BuildingInteractionPanelObjectName, MinebotHudDefaults.BuildingInteractionPanelResourcePath, MinebotHudDefaults.BuildingInteractionButtonCount, MinebotHudDefaults.BuildingInteractionOptions, MinebotHudDefaults.BuildingInteractionTitle);
             RenameButton(buildingInteractionPanel, 0, RepairStationInteractionButtonName);
@@ -732,6 +755,18 @@ namespace Minebot.UI
             }
 
             page.SetCancelVisible(false);
+            page.SetVisible(false);
+            return page;
+        }
+
+        private static MinebotScorePageView CreateScorePageView(GameObject root)
+        {
+            var page = new MinebotScorePageView(root);
+            if (!page.HasRequiredBindings(out string missingBindings))
+            {
+                Debug.LogError($"Score Panel.prefab 缺少必需引用：{missingBindings}");
+            }
+
             page.SetVisible(false);
             return page;
         }

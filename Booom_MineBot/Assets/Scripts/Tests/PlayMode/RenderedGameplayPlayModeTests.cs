@@ -856,9 +856,14 @@ namespace Minebot.Tests.PlayMode
             yield return null;
             Assert.That(presentation.IsGameOver, Is.True);
             Assert.That(hudView, Is.Not.Null);
-            Assert.That(hudView.GameOverPanel, Is.Not.Null);
-            Assert.That(hudView.GameOverPanel.NameInputField, Is.Not.Null);
-            Assert.That(hudView.GameOverPanel.SubmitButton, Is.Not.Null);
+            Assert.That(hudView.ScorePanel, Is.Not.Null);
+            Assert.That(hudView.ScorePanel.GameObject.name, Is.EqualTo("Score Panel"));
+            Assert.That(hudView.ScorePanel.GameObject.GetComponent<Canvas>(), Is.Null);
+            Assert.That(hudView.ScorePanel.GameObject.GetComponentInParent<Canvas>(), Is.Not.Null);
+            Assert.That(hudView.ScorePanel.NameInputField, Is.Not.Null);
+            Assert.That(hudView.ScorePanel.SubmitButton, Is.Not.Null);
+            Assert.That(hudView.ScorePanel.ScoreText, Is.Not.Null);
+            Assert.That(hudView.ScorePanel.ScoreText.text, Is.EqualTo((services.Scores?.CurrentScore ?? 0).ToString()));
             int robotsBeforeGameOverClick = services.Robots.Count;
             int healthBeforeGameOverClick = services.Vitals.CurrentHealth;
             repairButton.onClick.Invoke();
@@ -866,12 +871,12 @@ namespace Minebot.Tests.PlayMode
             yield return null;
             Assert.That(services.Vitals.CurrentHealth, Is.EqualTo(healthBeforeGameOverClick));
             Assert.That(services.Robots.Count, Is.EqualTo(robotsBeforeGameOverClick));
-            hudView.GameOverPanel.SetNameInput("BOT");
-            hudView.GameOverPanel.SubmitButton.onClick.Invoke();
+            hudView.ScorePanel.SetNameInput("BOT");
+            hudView.ScorePanel.SubmitButton.onClick.Invoke();
             yield return null;
             Assert.That(LocalLeaderboardService.GetEntries().Count, Is.EqualTo(1));
             Assert.That(LocalLeaderboardService.GetEntries()[0].playerName, Is.EqualTo("BOT"));
-            Assert.That(hudView.GameOverPanel.StatusText.text, Does.Contain("已保存"));
+            Assert.That(hudView.ScorePanel.SubmitButton.interactable, Is.False);
         }
 
         [UnityTest]

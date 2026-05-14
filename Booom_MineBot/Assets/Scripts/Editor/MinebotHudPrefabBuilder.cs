@@ -34,7 +34,6 @@ namespace Minebot.Editor
             CreateTextPanelPrefab(MinebotHudDefaults.InteractionPanelAssetPath, MinebotHudDefaults.InteractionPanelObjectName, MinebotHudDefaults.InteractionText);
             CreateTextPanelPrefab(MinebotHudDefaults.FeedbackPanelAssetPath, MinebotHudDefaults.FeedbackPanelObjectName, MinebotHudDefaults.FeedbackText);
             CreateTextPanelPrefab(MinebotHudDefaults.WarningPanelAssetPath, MinebotHudDefaults.WarningPanelObjectName, MinebotHudDefaults.WarningText);
-            CreateGameOverPanelPrefab(MinebotHudDefaults.GameOverPanelAssetPath, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanel);
             CreateMinimapPanelPrefab(MinebotHudDefaults.MinimapPanelAssetPath, MinebotHudDefaults.MinimapPanelObjectName, MinebotHudDefaults.MinimapPanel);
 
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildPanelAssetPath, MinebotHudDefaults.BuildPanelObjectName, MinebotHudDefaults.BuildOptions, MinebotHudDefaults.MinimumBuildButtonCount, MinebotHudDefaults.BuildTitle);
@@ -83,21 +82,6 @@ namespace Minebot.Editor
             try
             {
                 MinebotHudMinimapPanelView view = root.GetComponent<MinebotHudMinimapPanelView>();
-                view.EnsureDefaultStructure(layout);
-                PrefabUtility.SaveAsPrefabAsset(root, assetPath);
-            }
-            finally
-            {
-                Object.DestroyImmediate(root);
-            }
-        }
-
-        private static void CreateGameOverPanelPrefab(string assetPath, string objectName, MinebotHudDefaults.GameOverPanelLayout layout)
-        {
-            GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(MinebotHudGameOverPanelView));
-            try
-            {
-                MinebotHudGameOverPanelView view = root.GetComponent<MinebotHudGameOverPanelView>();
                 view.EnsureDefaultStructure(layout);
                 PrefabUtility.SaveAsPrefabAsset(root, assetPath);
             }

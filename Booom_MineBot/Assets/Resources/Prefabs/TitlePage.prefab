@@ -163,6 +163,7 @@ MonoBehaviour:
   subtitleText: {fileID: 0}
   startButton: {fileID: 4874595174636276189}
   quitButton: {fileID: 1928127301110218877}
+  leaderboardButton: {fileID: 5995956108720557836}
   statusText: {fileID: 0}
   leaderboardTitleText: {fileID: 0}
   leaderboardEntriesText: {fileID: 0}
