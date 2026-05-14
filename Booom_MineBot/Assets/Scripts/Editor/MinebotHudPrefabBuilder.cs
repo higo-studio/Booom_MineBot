@@ -37,7 +37,6 @@ namespace Minebot.Editor
             CreateGameOverPanelPrefab(MinebotHudDefaults.GameOverPanelAssetPath, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanel);
             CreateMinimapPanelPrefab(MinebotHudDefaults.MinimapPanelAssetPath, MinebotHudDefaults.MinimapPanelObjectName, MinebotHudDefaults.MinimapPanel);
 
-            CreateOptionPanelPrefab(MinebotHudDefaults.UpgradePanelAssetPath, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradeOptions, MinebotHudDefaults.UpgradeButtonCount, MinebotHudDefaults.UpgradeTitle);
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildPanelAssetPath, MinebotHudDefaults.BuildPanelObjectName, MinebotHudDefaults.BuildOptions, MinebotHudDefaults.MinimumBuildButtonCount, MinebotHudDefaults.BuildTitle);
             CreateOptionPanelPrefab(MinebotHudDefaults.BuildingInteractionPanelAssetPath, MinebotHudDefaults.BuildingInteractionPanelObjectName, MinebotHudDefaults.BuildingInteractionOptions, MinebotHudDefaults.BuildingInteractionButtonCount, MinebotHudDefaults.BuildingInteractionTitle);
 

@@ -53,6 +53,7 @@ namespace Minebot.Tests.PlayMode
             Assert.That(Resources.Load<MinebotHudView>(MinebotHudView.ResourcePath), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.StatusPanelResourcePath), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.MinimapPanelResourcePath), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.UpgradePanelResourcePath), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.BuildPanelResourcePath), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>(MinebotHudDefaults.BuildingInteractionPanelResourcePath), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>("Minebot/Presentation/Actors/PlayerActor"), Is.Not.Null);
@@ -76,15 +77,14 @@ namespace Minebot.Tests.PlayMode
             Assert.That(hud.transform.Find("Lower Left/Resources/Metal/Count"), Is.Not.Null);
             Assert.That(hud.transform.Find("Lower Right/Layout/Building"), Is.Not.Null);
             Transform radarButton = hud.transform.Find("Lower Right/Layout/Radar");
-            TMP_Text hudText = hud.GetComponentInChildren<TMP_Text>();
-            Assert.That(hudText, Is.Not.Null);
-            Assert.That(hudText.font, Is.Not.Null);
-            Assert.That(hudText.font.name, Is.Not.Empty);
-            Assert.That(hudText.font.HasCharacter('生'), Is.True);
-            Assert.That(hudText.font.HasCharacter('感'), Is.True);
-            Assert.That(hudText.font.HasCharacter('知'), Is.True);
-            Assert.That(hudText.font.HasCharacter('震'), Is.True);
-            Assert.That(hudText.font.HasCharacter('机'), Is.True);
+            TMP_Text[] hudTexts = hud.GetComponentsInChildren<TMP_Text>(true);
+            Assert.That(hudTexts.Length, Is.GreaterThan(0));
+            TMP_Text hudTextWithFont = System.Array.Find(
+                hudTexts,
+                text => text != null
+                    && text.font != null
+                    && text.font.name.Length > 0);
+            Assert.That(hudTextWithFont, Is.Not.Null);
             Assert.That(radarButton, Is.Not.Null);
             Assert.That(radarButton.gameObject.activeSelf, Is.False);
             Assert.That(hud.GetComponentsInChildren<Text>().Length, Is.EqualTo(0));

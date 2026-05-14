@@ -16,7 +16,7 @@ namespace Minebot.UI
         public const string WarningPanelResourcePath = PanelFolderResourcePath + "/WarningPanel";
         public const string GameOverPanelResourcePath = PanelFolderResourcePath + "/GameOverPanel";
         public const string MinimapPanelResourcePath = PanelFolderResourcePath + "/MinimapPanel";
-        public const string UpgradePanelResourcePath = PanelFolderResourcePath + "/UpgradePanel";
+        public const string UpgradePanelResourcePath = "Prefabs/Upgrade Panel";
         public const string BuildPanelResourcePath = PanelFolderResourcePath + "/BuildPanel";
         public const string BuildingInteractionPanelResourcePath = PanelFolderResourcePath + "/BuildingInteractionPanel";
         public const string StatusPanelAssetPath = PanelFolderAssetPath + "/StatusPanel.prefab";
@@ -25,7 +25,7 @@ namespace Minebot.UI
         public const string WarningPanelAssetPath = PanelFolderAssetPath + "/WarningPanel.prefab";
         public const string GameOverPanelAssetPath = PanelFolderAssetPath + "/GameOverPanel.prefab";
         public const string MinimapPanelAssetPath = PanelFolderAssetPath + "/MinimapPanel.prefab";
-        public const string UpgradePanelAssetPath = PanelFolderAssetPath + "/UpgradePanel.prefab";
+        public const string UpgradePanelAssetPath = "Assets/Resources/Prefabs/Upgrade Panel.prefab";
         public const string BuildPanelAssetPath = PanelFolderAssetPath + "/BuildPanel.prefab";
         public const string BuildingInteractionPanelAssetPath = PanelFolderAssetPath + "/BuildingInteractionPanel.prefab";
         public const string StatusPanelObjectName = "Status Panel";
@@ -37,7 +37,6 @@ namespace Minebot.UI
         public const string UpgradePanelObjectName = "Upgrade Panel";
         public const string BuildPanelObjectName = "Build Panel";
         public const string BuildingInteractionPanelObjectName = "Building Interaction Panel";
-        public const string UpgradeTitle = "升级可用：按 1/2 或点击";
         public const string BuildTitle = "建筑模式：选择建筑后点击空地";
         public const string BuildingInteractionTitle = "建筑交互";
 
@@ -89,11 +88,11 @@ namespace Minebot.UI
             new Vector2(392f, 170f));
 
         public static readonly SlotLayout UpgradeSlot = new SlotLayout(
-            new Vector2(1f, 0f),
-            new Vector2(1f, 0f),
-            new Vector2(1f, 0f),
-            new Vector2(-28f, 174f),
-            new Vector2(396f, 168f));
+            Vector2.zero,
+            Vector2.one,
+            new Vector2(0.5f, 0.5f),
+            Vector2.zero,
+            Vector2.zero);
 
         public static readonly SlotLayout BuildingInteractionSlot = new SlotLayout(
             new Vector2(1f, 0f),
@@ -115,22 +114,6 @@ namespace Minebot.UI
             18,
             17,
             16);
-        public static readonly OptionPanelLayout UpgradeOptions = new OptionPanelLayout(
-            new Color(0.05f, 0.07f, 0.08f, 0.92f),
-            new Color(0.16f, 0.23f, 0.24f, 0.96f),
-            new Color(0.24f, 0.38f, 0.42f, 1f),
-            20,
-            17,
-            16f,
-            16f,
-            42f,
-            64f,
-            44f,
-            52f,
-            0f,
-            TextAnchor.MiddleLeft,
-            OptionPanelFlow.Vertical);
-
         public static readonly OptionPanelLayout BuildOptions = new OptionPanelLayout(
             new Color(0.03f, 0.05f, 0.06f, 0.9f),
             new Color(0.04f, 0.12f, 0.15f, 0.96f),

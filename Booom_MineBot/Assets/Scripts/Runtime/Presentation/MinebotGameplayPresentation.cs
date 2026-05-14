@@ -138,7 +138,7 @@ namespace Minebot.Presentation
             }
         }
 
-        public bool IsUpgradePanelShowing => hudView != null && hudView.UpgradePanel != null && hudView.UpgradePanel.gameObject.activeSelf;
+        public bool IsUpgradePanelShowing => hudView != null && hudView.UpgradePanel != null && hudView.UpgradePanel.IsVisible;
         public bool IsRepairInteractionButtonShowing => hudView != null && hudView.RepairStationInteractionButton != null && hudView.RepairStationInteractionButton.gameObject.activeInHierarchy;
         public bool IsRobotFactoryInteractionButtonShowing => hudView != null && hudView.RobotFactoryInteractionButton != null && hudView.RobotFactoryInteractionButton.gameObject.activeInHierarchy;
         public bool IsGameOver => services != null && services.Vitals.IsDead;
@@ -2512,14 +2512,18 @@ namespace Minebot.Presentation
             currentCandidates = services.Upgrades.GetCandidates(MinebotHudDefaults.UpgradeButtonCount);
             bool show = currentCandidates.Length > 0;
             hudView.UpgradePanel.SetVisible(show);
-            hudView.UpgradePanel.SetTitle(MinebotHudDefaults.UpgradeTitle);
+            hudView.UpgradePanel.SetCancelVisible(false);
 
             for (int i = 0; i < MinebotHudDefaults.UpgradeButtonCount; i++)
             {
                 bool hasCandidate = i < currentCandidates.Length;
                 UpgradeDefinition upgrade = hasCandidate ? currentCandidates[i] : null;
-                string label = hasCandidate ? $"{i + 1}. {upgrade.displayName} - {DescribeUpgrade(upgrade)}" : string.Empty;
-                hudView.UpgradePanel.SetButton(i, hasCandidate, label);
+                hudView.UpgradePanel.SetOption(
+                    i,
+                    hasCandidate,
+                    hasCandidate ? upgrade.displayName : string.Empty,
+                    hasCandidate ? DescribeUpgrade(upgrade) : string.Empty,
+                    hasCandidate ? BuildUpgradeHint(i) : string.Empty);
                 if (!hasCandidate)
                 {
                     continue;
@@ -2644,6 +2648,11 @@ namespace Minebot.Presentation
             }
 
             return parts.Count > 0 ? string.Join("，", parts) : "立即生效";
+        }
+
+        private static string BuildUpgradeHint(int index)
+        {
+            return $"按 {index + 1} 键选择";
         }
 
         private int CountMarkedCells()

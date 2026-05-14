@@ -99,8 +99,8 @@ namespace Minebot.UI
         [SerializeField]
         private MinebotHudMinimapPanelView minimapPanel;
 
-        [SerializeField]
-        private MinebotHudOptionPanelView upgradePanel;
+        [NonSerialized]
+        private MinebotUpgradePageView upgradePanel;
 
         [SerializeField]
         private MinebotHudOptionPanelView buildPanel;
@@ -135,7 +135,7 @@ namespace Minebot.UI
         public MinebotHudTextPanelView WarningPanel => warningPanel;
         public MinebotHudGameOverPanelView GameOverPanel => gameOverPanel;
         public MinebotHudMinimapPanelView MinimapPanel => minimapPanel;
-        public MinebotHudOptionPanelView UpgradePanel => upgradePanel;
+        public MinebotUpgradePageView UpgradePanel => upgradePanel;
         public MinebotHudOptionPanelView BuildPanel => buildPanel;
         public MinebotHudOptionPanelView BuildingInteractionPanel => buildingInteractionPanel;
         public bool UsesTemplateHud => usingTemplateHud;
@@ -182,7 +182,7 @@ namespace Minebot.UI
             gameOverPanel = EnsureGameOverPanel(gameOverPanel, gameOverSlot, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanelResourcePath, MinebotHudDefaults.GameOverPanel);
             minimapPanel = EnsureMinimapPanel(minimapPanel, minimapSlot, MinebotHudDefaults.MinimapPanelObjectName, MinebotHudDefaults.MinimapPanelResourcePath, MinebotHudDefaults.MinimapPanel);
 
-            upgradePanel = EnsureOptionPanel(upgradePanel, upgradeSlot, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradePanelResourcePath, MinebotHudDefaults.UpgradeButtonCount, MinebotHudDefaults.UpgradeOptions, MinebotHudDefaults.UpgradeTitle);
+            upgradePanel = EnsureUpgradePage(upgradePanel, upgradeSlot, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradePanelResourcePath);
             buildPanel = EnsureOptionPanel(buildPanel, buildSlot, MinebotHudDefaults.BuildPanelObjectName, MinebotHudDefaults.BuildPanelResourcePath, Mathf.Max(MinebotHudDefaults.MinimumBuildButtonCount, buildButtonCount), MinebotHudDefaults.BuildOptions, MinebotHudDefaults.BuildTitle);
             buildingInteractionPanel = EnsureOptionPanel(buildingInteractionPanel, buildingInteractionSlot, MinebotHudDefaults.BuildingInteractionPanelObjectName, MinebotHudDefaults.BuildingInteractionPanelResourcePath, MinebotHudDefaults.BuildingInteractionButtonCount, MinebotHudDefaults.BuildingInteractionOptions, MinebotHudDefaults.BuildingInteractionTitle);
             RenameButton(buildingInteractionPanel, 0, RepairStationInteractionButtonName);
@@ -193,7 +193,7 @@ namespace Minebot.UI
         {
             if (upgradePanel != null)
             {
-                upgradePanel.BindButtons(onClick);
+                upgradePanel.BindButtons(onClick, null);
             }
         }
 
@@ -248,7 +248,6 @@ namespace Minebot.UI
             warningPanel?.ApplyGraphics(panelBackground, warningIcon);
             gameOverPanel?.ApplyGraphics(panelBackground, warningIcon);
             minimapPanel?.ApplyGraphics(panelBackground);
-            upgradePanel?.ApplyGraphics(panelBackground, upgradeIcon);
             buildPanel?.ApplyGraphics(panelBackground, buildIcon);
             buildingInteractionPanel?.ApplyGraphics(panelBackground, buildingInteractionIcon);
         }
@@ -486,6 +485,32 @@ namespace Minebot.UI
             return panel;
         }
 
+        private static MinebotUpgradePageView EnsureUpgradePage(MinebotUpgradePageView current, RectTransform slot, string objectName, string resourcePath)
+        {
+            if (current != null)
+            {
+                return current;
+            }
+
+            Transform existing = slot.Find(objectName);
+            if (existing != null)
+            {
+                return CreateUpgradePageView(existing.gameObject);
+            }
+
+            GameObject prefab = Resources.Load<GameObject>(resourcePath);
+            if (prefab == null)
+            {
+                Debug.LogError($"MinebotHudView 缺少升级页面资源：{resourcePath}");
+                return null;
+            }
+
+            GameObject instance = Instantiate(prefab, slot, false);
+            instance.name = objectName;
+            instance.transform.SetAsLastSibling();
+            return CreateUpgradePageView(instance);
+        }
+
         private static MinebotHudMinimapPanelView EnsureMinimapPanel(MinebotHudMinimapPanelView current, RectTransform slot, string objectName, string resourcePath, MinebotHudDefaults.MinimapPanelLayout layout)
         {
             MinebotHudMinimapPanelView panel = ResolvePanel(current, slot, objectName, resourcePath);
@@ -507,7 +532,7 @@ namespace Minebot.UI
             buildingInteractionSlot = MinebotHudUiFactory.EnsureSlot(ref buildingInteractionSlot, transform, BuildingInteractionSlotName, MinebotHudDefaults.BuildingInteractionSlot);
 
             gameOverPanel = EnsureGameOverPanel(gameOverPanel, gameOverSlot, MinebotHudDefaults.GameOverPanelObjectName, MinebotHudDefaults.GameOverPanelResourcePath, MinebotHudDefaults.GameOverPanel);
-            upgradePanel = EnsureOptionPanel(upgradePanel, upgradeSlot, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradePanelResourcePath, MinebotHudDefaults.UpgradeButtonCount, MinebotHudDefaults.UpgradeOptions, MinebotHudDefaults.UpgradeTitle);
+            upgradePanel = EnsureUpgradePage(upgradePanel, upgradeSlot, MinebotHudDefaults.UpgradePanelObjectName, MinebotHudDefaults.UpgradePanelResourcePath);
             buildingInteractionPanel = EnsureOptionPanel(buildingInteractionPanel, buildingInteractionSlot, MinebotHudDefaults.BuildingInteractionPanelObjectName, MinebotHudDefaults.BuildingInteractionPanelResourcePath, MinebotHudDefaults.BuildingInteractionButtonCount, MinebotHudDefaults.BuildingInteractionOptions, MinebotHudDefaults.BuildingInteractionTitle);
             RenameButton(buildingInteractionPanel, 0, RepairStationInteractionButtonName);
             RenameButton(buildingInteractionPanel, 1, RobotFactoryInteractionButtonName);
@@ -696,6 +721,19 @@ namespace Minebot.UI
             {
                 button.name = objectName;
             }
+        }
+
+        private static MinebotUpgradePageView CreateUpgradePageView(GameObject root)
+        {
+            var page = new MinebotUpgradePageView(root);
+            if (!page.HasRequiredBindings(out string missingBindings))
+            {
+                Debug.LogError($"Upgrade Panel.prefab 缺少必需引用：{missingBindings}");
+            }
+
+            page.SetCancelVisible(false);
+            page.SetVisible(false);
+            return page;
         }
 
         private static T ResolvePanel<T>(T current, RectTransform slot, string objectName, string resourcePath) where T : Component
