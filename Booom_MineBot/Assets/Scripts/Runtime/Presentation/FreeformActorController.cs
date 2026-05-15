@@ -9,7 +9,7 @@ namespace Minebot.Presentation
         private readonly KinematicCharacterMotor2D motor = new KinematicCharacterMotor2D();
 
         [SerializeField]
-        private float moveSpeed = 4f;
+        private float moveSpeed = 2.5f;
 
         [SerializeField]
         private float collisionRadius = ActorContactProbe.DefaultCollisionRadius;

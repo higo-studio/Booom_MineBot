@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a273dc3c3e2264a55821a8bf493b4c10, type: 3}
   m_Name: GameBlance
   m_EditorClassIdentifier: 
-  playerMaxHealth: 3
-  firstUpgradeThreshold: 25
-  upgradeThresholdIncrease: 10
+  playerMaxHealth: 10
+  firstUpgradeThreshold: 1
+  upgradeThresholdIncrease: 0
   startingResources:
     metal: 1
     energy: 4
@@ -34,13 +34,13 @@ MonoBehaviour:
   playerMarkerCapacity: 3
   soilMetalRange: {x: 0, y: 0}
   soilEnergyRange: {x: 0, y: 0}
-  soilExperienceRange: {x: 0, y: 1}
+  soilExperienceRange: {x: 1, y: 5}
   stoneMetalRange: {x: 0, y: 0}
   stoneEnergyRange: {x: 0, y: 0}
-  stoneExperienceRange: {x: 1, y: 2}
+  stoneExperienceRange: {x: 5, y: 10}
   hardRockMetalRange: {x: 0, y: 0}
   hardRockEnergyRange: {x: 0, y: 0}
-  hardRockExperienceRange: {x: 2, y: 3}
+  hardRockExperienceRange: {x: 10, y: 15}
   ultraHardMetalRange: {x: 0, y: 0}
   ultraHardEnergyRange: {x: 0, y: 0}
-  ultraHardExperienceRange: {x: 3, y: 4}
+  ultraHardExperienceRange: {x: 15, y: 20}

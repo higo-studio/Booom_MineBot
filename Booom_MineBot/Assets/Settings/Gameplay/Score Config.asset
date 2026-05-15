@@ -16,7 +16,7 @@ MonoBehaviour:
   stoneWallScore: 10
   hardRockWallScore: 15
   ultraHardWallScore: 25
-  earthquakeBombScore: 20
-  waveSurvivedScore: 50
+  earthquakeBombScore: 10
+  waveSurvivedScore: 100
   defaultBuildingScore: 30
   buildingScores: []

@@ -39,7 +39,7 @@ namespace Minebot.Presentation
         private float freeMoveStepSeconds = 0.25f;
 
         [SerializeField]
-        private float autoMineInterval = 0.18f;
+        private float autoMineInterval = 0.2f;
 
         public float AutoMineInterval => autoMineInterval;
 

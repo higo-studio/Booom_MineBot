@@ -14,16 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerMiningTickIntervalSeconds: 0.1
   miningDisengageGraceSeconds: 0.5
-  playerBaseAttack: 1
-  soilMaxHealth: 20
-  soilDefense: 0
+  playerBaseAttack: 100
+  soilMaxHealth: 200
+  soilDefense: 90
   soilAttackBonus: 1
-  stoneMaxHealth: 50
-  stoneDefense: 2
+  stoneMaxHealth: 200
+  stoneDefense: 110
   stoneAttackBonus: 3
-  hardRockMaxHealth: 70
-  hardRockDefense: 4
+  hardRockMaxHealth: 250
+  hardRockDefense: 120
   hardRockAttackBonus: 5
-  ultraHardMaxHealth: 90
-  ultraHardDefense: 6
+  ultraHardMaxHealth: 250
+  ultraHardDefense: 130
   ultraHardAttackBonus: 7
