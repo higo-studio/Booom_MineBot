@@ -144,6 +144,12 @@ namespace Minebot.Presentation
         private MinebotRankPageView rankPageView;
         private int rankPageShownFrame = -1;
 
+        // 事件日志系统
+        private const int MaxEventLogLines = 15;
+        private readonly List<string> eventLogLines = new List<string>();
+        private MiningProgressSnapshot? lastMiningSnapshot;
+        private PresentationActorState? lastPlayerState;
+
         public TilemapGridPresentation GridPresentation => gridPresentation;
         public MinebotPickupRenderer PickupRenderer => pickupRenderer;
         public GridPosition RepairStationPosition => ResolveFacilityPosition(RepairStationBuildingId, repairStationPosition);
@@ -351,6 +357,7 @@ namespace Minebot.Presentation
             UpdatePlayerVisualState(Time.deltaTime);
             UpdateCameraFraming();
             ApplyWaveShake();  // 波次震动效果
+            RefreshEventLog(); // 更新事件日志
             audioController?.SyncState(services, playerActorView != null ? playerActorView.transform : transform, GetFirstRobotMiningAnchor());
             bool waveResolutionActive = services.Session != null && services.Session.IsWaveResolutionActive;
             bool pauseSimulation = IsSimulationPausedByUpgradePanel();
@@ -426,6 +433,11 @@ namespace Minebot.Presentation
             bool hazardSenseUpdated = services.Session.TickPassiveHazardSense(deltaTime);
             bool robotsChanged = services.Session.TickRobots(deltaTime);
             bool pickupRewardsGranted = services.Session.TickWorldPickups(deltaTime, PlayerWorldPosition);
+            if (miningRecoveryChanged)
+            {
+                RemoveMiningProgressLog();
+                AddEventLog("[MINE] 挖掘中断");
+            }
             if (robotsChanged)
             {
                 RefreshAfterRobotAutomationTick();
@@ -1550,6 +1562,8 @@ namespace Minebot.Presentation
             SetPlayerVisualState(PresentationActorState.Blocked, 0.18f);
             audioController?.StopPlayerMiningLoop();
             audioController?.PlayPlayerBlock();
+            RemoveMiningProgressLog();
+            AddEventLog("[MINE] 挖掘中断");
         }
 
         public void NotifyPlayerMiningContact(GridPosition target)
@@ -1568,6 +1582,9 @@ namespace Minebot.Presentation
                     return;
                 case MineInteractionResult.Mined:
                     audioController?.StopPlayerMiningLoop();
+                    // 删除进度日志，添加"已破坏"日志
+                    RemoveMiningProgressLog();
+                    AddEventLog("[MINE] 已破坏");
                     if (services != null)
                     {
                         IReadOnlyList<MineClearedCell> clearedCells = services.Session.LastMineResolution.ClearedCells;
@@ -1590,6 +1607,8 @@ namespace Minebot.Presentation
                 case MineInteractionResult.TriggeredBomb:
                     audioController?.StopPlayerMiningLoop();
                     audioController?.PlayPlayerDamage();
+                    RemoveMiningProgressLog();
+                    AddEventLog("[MINE] 触发炸弹！");
                     return;
                 case MineInteractionResult.DrillTooWeak:
                     audioController?.StopPlayerMiningLoop();
@@ -3127,6 +3146,229 @@ namespace Minebot.Presentation
             int markerLevel = services.PlayerMiningState.MarkerUpgradeCount;
 
             hudView.UpdateDebugStats(maxHealth, moveSpeed, playerBaseAttack, markerCapacity, healthLevel, moveSpeedLevel, attackLevel, markerLevel);
+        }
+
+        // ==================== 事件日志系统 ====================
+
+        private void AddEventLog(string message)
+        {
+            eventLogLines.Add(message);
+            while (eventLogLines.Count > MaxEventLogLines)
+            {
+                eventLogLines.RemoveAt(0);
+            }
+            UpdateEventLogDisplay();
+        }
+
+        private void RemoveMiningProgressLog()
+        {
+            // 移除进度条格式的 [MINE] 日志（包含 ■ 或 □ 的）
+            int mineIndex = -1;
+            for (int i = 0; i < eventLogLines.Count; i++)
+            {
+                if (eventLogLines[i].StartsWith("[MINE]") && (eventLogLines[i].Contains("■") || eventLogLines[i].Contains("□")))
+                {
+                    mineIndex = i;
+                    break;
+                }
+            }
+            if (mineIndex >= 0)
+            {
+                eventLogLines.RemoveAt(mineIndex);
+            }
+        }
+
+        private void UpdateEventLogDisplay()
+        {
+            if (hudView == null)
+            {
+                return;
+            }
+
+            hudView.UpdateEventLog(eventLogLines.ToArray());
+        }
+
+        private void RefreshEventLog()
+        {
+            // 更新波次警告
+            if (services != null && services.Waves != null)
+            {
+                float timeUntilNextWave = services.Waves.TimeUntilNextWave;
+
+                // 10秒警告
+                if (timeUntilNextWave <= 10f && timeUntilNextWave > 9.5f)
+                {
+                    // 检查是否已经添加过这个警告
+                    bool alreadyLogged = false;
+                    foreach (string log in eventLogLines)
+                    {
+                        if (log.Contains("[WARNING]") && log.Contains("10s"))
+                        {
+                            alreadyLogged = true;
+                            break;
+                        }
+                    }
+                    if (!alreadyLogged)
+                    {
+                        AddEventLog("[WARNING] 地震波 10s 后到达");
+                    }
+                }
+
+                // 3秒警告
+                if (timeUntilNextWave <= 3f && timeUntilNextWave > 2.5f)
+                {
+                    bool alreadyLogged = false;
+                    foreach (string log in eventLogLines)
+                    {
+                        if (log.Contains("[WARNING]") && log.Contains("危险区"))
+                        {
+                            alreadyLogged = true;
+                            break;
+                        }
+                    }
+                    if (!alreadyLogged)
+                    {
+                        AddEventLog("[WARNING] 危险区逼近！立即撤离！");
+                    }
+                }
+            }
+
+            // 更新玩家状态（只在状态切换时打印）
+            if (playerVisualState != PresentationActorState.Idle && playerVisualState != lastPlayerState)
+            {
+                string playerState = playerVisualState switch
+                {
+                    PresentationActorState.Moving => "[BOT] 移动中",
+                    PresentationActorState.Mining => "[BOT] 挖掘中",
+                    PresentationActorState.Blocked => "[BOT] 受阻",
+                    PresentationActorState.Destroyed => "[BOT] 损毁",
+                    _ => null
+                };
+
+                if (playerState != null)
+                {
+                    eventLogLines.Add(playerState);
+                    while (eventLogLines.Count > MaxEventLogLines)
+                    {
+                        eventLogLines.RemoveAt(0);
+                    }
+                }
+            }
+            lastPlayerState = playerVisualState;
+
+            // 更新挖掘进度
+            if (services != null && services.Session != null)
+            {
+                var snapshots = services.Session.ActiveMiningProgressSnapshots;
+                if (snapshots != null && snapshots.Count > 0)
+                {
+                    // 获取最新的挖掘进度（玩家正在挖掘的）
+                    MiningProgressSnapshot? currentSnapshot = null;
+                    MiningProgressSnapshot? completedSnapshot = null;
+                    for (int i = 0; i < snapshots.Count; i++)
+                    {
+                        MiningProgressSnapshot snap = snapshots[i];
+                        // 记录已完成挖掘的快照
+                        if (snap.IsValid && snap.CurrentHealth >= snap.MaxHealth)
+                        {
+                            GridPosition playerPos = services.PlayerMiningState.Position;
+                            if (snap.Position.Equals(playerPos))
+                            {
+                                completedSnapshot = snap;
+                            }
+                        }
+                        // 记录正在挖掘的快照
+                        else if (snap.IsValid && snap.CurrentHealth < snap.MaxHealth)
+                        {
+                            GridPosition playerPos = services.PlayerMiningState.Position;
+                            if (snap.Position.Equals(playerPos))
+                            {
+                                currentSnapshot = snap;
+                                break;
+                            }
+                            if (currentSnapshot == null)
+                            {
+                                currentSnapshot = snap;
+                            }
+                        }
+                    }
+
+                    // 优先显示玩家位置已完成的快照
+                    if (completedSnapshot.HasValue)
+                    {
+                        currentSnapshot = completedSnapshot;
+                    }
+
+                    // 如果当前有快照，记录下来
+                    MiningProgressSnapshot? previousSnapshot = lastMiningSnapshot;
+                    if (currentSnapshot.HasValue)
+                    {
+                        lastMiningSnapshot = currentSnapshot;
+                    }
+
+                    // 决定显示什么日志
+                    string mineLog = null;
+                    if (currentSnapshot.HasValue)
+                    {
+                        mineLog = FormatMiningProgress(currentSnapshot.Value);
+                    }
+                    else if (previousSnapshot.HasValue && previousSnapshot.Value.DamageNormalized >= 1f)
+                    {
+                        // 上一个快照已挖掘完成，继续显示"已破坏"
+                        mineLog = "[MINE] 已破坏";
+                        lastMiningSnapshot = null; // 清除记录，下次不再显示
+                    }
+
+                    if (mineLog != null)
+                    {
+                        // 移除进度条格式的旧 [MINE] 日志（包含 ■ 或 □ 的）
+                        int mineIndex = -1;
+                        for (int i = 0; i < eventLogLines.Count; i++)
+                        {
+                            if (eventLogLines[i].StartsWith("[MINE]") && (eventLogLines[i].Contains("■") || eventLogLines[i].Contains("□")))
+                            {
+                                mineIndex = i;
+                                break;
+                            }
+                        }
+                        if (mineIndex >= 0)
+                        {
+                            eventLogLines.RemoveAt(mineIndex);
+                        }
+
+                        // 直接添加 [MINE] 日志（不覆盖）
+                        eventLogLines.Add(mineLog);
+
+                        // 保持日志数量不超过上限
+                        while (eventLogLines.Count > MaxEventLogLines)
+                        {
+                            eventLogLines.RemoveAt(0);
+                        }
+                    }
+                }
+            }
+
+            UpdateEventLogDisplay();
+        }
+
+        private static string FormatMiningProgress(MiningProgressSnapshot snapshot)
+        {
+            // 挖掘完成时显示已破坏（100%）
+            if (snapshot.DamageNormalized >= 1f)
+            {
+                return "[MINE] 已破坏";
+            }
+
+            int filledBlocks = Mathf.RoundToInt(snapshot.DamageNormalized * 10f);
+            var progressBuilder = new System.Text.StringBuilder("[MINE] ");
+            for (int i = 0; i < 10; i++)
+            {
+                progressBuilder.Append(i < filledBlocks ? "■" : "□");
+            }
+            progressBuilder.Append(' ');
+            progressBuilder.Append(Mathf.RoundToInt(snapshot.DamageNormalized * 100f));
+            progressBuilder.Append('%');
+            return progressBuilder.ToString();
         }
     }
 }

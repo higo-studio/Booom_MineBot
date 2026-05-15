@@ -115,6 +115,10 @@ namespace Minebot.UI
         [InspectorLabel("调试数值显示文本")]
         private TMPro.TMP_Text debugStatsText;
 
+        [SerializeField]
+        [InspectorLabel("事件日志文本")]
+        private TMPro.TMP_Text eventLogText;
+
         private bool usingTemplateHud;
         private TMP_Text templateWorkingCountText;
         private TMP_Text templateWaitingCountText;
@@ -810,7 +814,23 @@ namespace Minebot.UI
             }
 
             string healthLevelText = maxHealth >= 10 ? "Lv.Max" : $"Lv.{healthLevel}";
-            debugStatsText.text = $"护甲 {healthLevelText}（{maxHealth}）\n履带 Lv.{moveSpeedLevel}（{moveSpeed:F2}）\n钻头 Lv.{attackLevel}（{drillAttack}）\n探测 Lv.{markerLevel}（{markerCapacity}）";
+            debugStatsText.text = $"护甲 {healthLevelText}（{maxHealth}）\n履带 Lv.{moveSpeedLevel}（{moveSpeed:F2}）\n钻头 Lv.{attackLevel}（{drillAttack}）\n分析 Lv.{markerLevel}（{markerCapacity}）";
+        }
+
+        public void UpdateEventLog(string[] logLines)
+        {
+            if (eventLogText == null)
+            {
+                return;
+            }
+
+            if (logLines == null || logLines.Length == 0)
+            {
+                eventLogText.text = string.Empty;
+                return;
+            }
+
+            eventLogText.text = string.Join("\n", logLines);
         }
 
     }
