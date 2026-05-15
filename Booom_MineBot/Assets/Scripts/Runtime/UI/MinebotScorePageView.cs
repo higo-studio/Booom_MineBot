@@ -67,7 +67,10 @@ namespace Minebot.UI
             }
 
             confirmButton.onClick.RemoveAllListeners();
-            confirmButton.onClick.AddListener(() => onSubmit?.Invoke(GetNameInput()));
+            confirmButton.onClick.AddListener(() => {
+                Debug.Log("[MinebotScorePageView] ConfirmButton pressed, name: " + GetNameInput());
+                onSubmit?.Invoke(GetNameInput());
+            });
         }
 
         public void BindNameChanged(Action<string> onChanged)

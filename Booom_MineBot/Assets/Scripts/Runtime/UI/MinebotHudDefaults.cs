@@ -74,11 +74,11 @@ namespace Minebot.UI
             new Vector2(528f, 86f));
 
         public static readonly SlotLayout GameOverSlot = new SlotLayout(
-            new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f),
+            new Vector2(0f, 0f),
+            new Vector2(1f, 1f),
             new Vector2(0.5f, 0.5f),
             Vector2.zero,
-            new Vector2(760f, 408f));
+            Vector2.zero);
 
         public static readonly SlotLayout MinimapSlot = new SlotLayout(
             new Vector2(0f, 0f),
