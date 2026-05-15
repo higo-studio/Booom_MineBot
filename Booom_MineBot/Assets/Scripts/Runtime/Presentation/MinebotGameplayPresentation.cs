@@ -2272,6 +2272,12 @@ namespace Minebot.Presentation
                 services.Experience.Experience,
                 services.Experience.NextThreshold);
 
+            // 更新标记计数显示：剩余数/总数
+            int markerCapacity = services.PlayerMiningState.MarkerCapacity;
+            int markedCount = services.Hazards.CountMarkedCells();
+            int remaining = markerCapacity - markedCount;
+            hudView.UpdateTemplateMarkCount(remaining, markerCapacity);
+
             if (hudView.InteractionPanel != null)
             {
                 hudView.InteractionPanel.SetText(BuildResourcePanelText(resources));

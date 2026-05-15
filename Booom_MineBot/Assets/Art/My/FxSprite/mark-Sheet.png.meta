@@ -1,10 +1,25 @@
 fileFormatVersion: 2
-guid: d1b8774243fbfe64cbc704ecadb876f3
+guid: bb2ccdf5288145d4daf8858e117265fe
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -8714834053131370567
-    second: UI_OtherIcon_0
+      213: 8920183555732569567
+    second: mark-Sheet_0
+  - first:
+      213: -4936304644386735215
+    second: mark-Sheet_1
+  - first:
+      213: 3520956638201143914
+    second: mark-Sheet_2
+  - first:
+      213: -8111566839488433796
+    second: mark-Sheet_3
+  - first:
+      213: 7815416028348301672
+    second: mark-Sheet_4
+  - first:
+      213: -898562562480163101
+    second: mark-Sheet_5
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -51,7 +66,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 32
+  spritePixelsToUnits: 16
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -100,111 +115,133 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: UI_OtherIcon_0
+      name: mark-Sheet_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 32
-        width: 58
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        y: 0
+        width: 16
+        height: 24
+      alignment: 9
+      pivot: {x: 0.5, y: 0.33333334}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 9bf70a21a90be0780800000000000000
-      internalID: -8714834053131370567
+      spriteID: fdd78baceabdacb70800000000000000
+      internalID: 8920183555732569567
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: UI_OtherIcon_1
-      rect:
-        serializedVersion: 2
-        x: 0
-        y: 16
-        width: 58
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: d0cabdb7a8e9eed4b9194b6b844da08f
-      internalID: 875610596
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: UI_OtherIcon_2
-      rect:
-        serializedVersion: 2
-        x: 0
-        y: 0
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 0d5b7cf8288bfae49a6171450518b0a7
-      internalID: 205468343
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: UI_OtherIcon_3
+      name: mark-Sheet_1
       rect:
         serializedVersion: 2
         x: 16
         y: 0
         width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        height: 24
+      alignment: 9
+      pivot: {x: 0.5, y: 0.33333334}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
-      tessellationDetail: 0
+      tessellationDetail: -1
       bones: []
-      spriteID: 35f1958b8b270eb4198ee25ae0545c2a
-      internalID: -366345052
+      spriteID: 19bb7306419be7bb0800000000000000
+      internalID: -4936304644386735215
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: UI_OtherIcon_4
+      name: mark-Sheet_2
       rect:
         serializedVersion: 2
         x: 32
         y: 0
         width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        height: 24
+      alignment: 9
+      pivot: {x: 0.5, y: 0.33333334}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
-      tessellationDetail: 0
+      tessellationDetail: -1
       bones: []
-      spriteID: 382344b2e23093b47b7f3605252f4545
-      internalID: 1421821946
+      spriteID: a6268895863fcd030800000000000000
+      internalID: 3520956638201143914
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mark-Sheet_3
+      rect:
+        serializedVersion: 2
+        x: 48
+        y: 0
+        width: 16
+        height: 24
+      alignment: 9
+      pivot: {x: 0.5, y: 0.33333334}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c713478bfeced6f80800000000000000
+      internalID: -8111566839488433796
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mark-Sheet_4
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 0
+        width: 16
+        height: 24
+      alignment: 9
+      pivot: {x: 0.5, y: 0.33333334}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 861489d487fe57c60800000000000000
+      internalID: 7815416028348301672
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mark-Sheet_5
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 0
+        width: 16
+        height: 24
+      alignment: 9
+      pivot: {x: 0.5, y: 0.33333334}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3e6b7e63c1aa783f0800000000000000
+      internalID: -898562562480163101
       vertices: []
       indices: 
       edges: []
@@ -213,7 +250,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5cd57c688cb92734c8b20fc71d1cdd5d
+    spriteID: 6c058dc6d99c1604eb5b5f9e1f2e78e3
     internalID: 0
     vertices: []
     indices: 
@@ -223,11 +260,12 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      UI_OtherIcon_0: -8714834053131370567
-      UI_OtherIcon_1: 875610596
-      UI_OtherIcon_2: 205468343
-      UI_OtherIcon_3: -366345052
-      UI_OtherIcon_4: 1421821946
+      mark-Sheet_0: 8920183555732569567
+      mark-Sheet_1: -4936304644386735215
+      mark-Sheet_2: 3520956638201143914
+      mark-Sheet_3: -8111566839488433796
+      mark-Sheet_4: 7815416028348301672
+      mark-Sheet_5: -898562562480163101
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

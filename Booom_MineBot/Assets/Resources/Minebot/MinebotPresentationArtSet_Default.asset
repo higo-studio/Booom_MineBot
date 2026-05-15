@@ -423,7 +423,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: cc8e21790ccfa4e7a893644c262ff421, type: 2}
   - {fileID: 11400000, guid: 46dfd4c21825d492fbdebdf3ad9fd37f, type: 2}
   dangerTile: {fileID: 11400000, guid: 6683ea565f0ba34439b9e239b0bb4c91, type: 2}
-  markerTile: {fileID: 11400000, guid: 72aa5024b3fc24142b00e607645a9793, type: 2}
+  markerTile: {fileID: 11400000, guid: 28d43456ba3e7224b8e5ebede2849918, type: 2}
   scanHintTile: {fileID: 11400000, guid: 749469656695a49dfbbcd0a1c1c1c093, type: 2}
   dangerOutlineTiles:
   - {fileID: 11400000, guid: 0a30322d070c8409bb118aee73bdfd43, type: 2}
