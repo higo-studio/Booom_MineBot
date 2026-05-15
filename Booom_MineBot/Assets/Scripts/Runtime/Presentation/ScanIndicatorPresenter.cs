@@ -36,10 +36,17 @@ namespace Minebot.Presentation
                 return;
             }
 
+            // 清理已销毁的标签
+            labels.RemoveAll(label => label == null);
+
             for (int i = 0; i < readings.Count; i++)
             {
                 BitmapGlyphLabel label = EnsureLabel(i);
                 ScanReading reading = readings[i];
+                if (label == null || label.gameObject == null)
+                {
+                    continue;
+                }
                 label.gameObject.SetActive(true);
                 label.SetText(
                     reading.BombCount.ToString(),
@@ -53,7 +60,10 @@ namespace Minebot.Presentation
 
             for (int i = readings.Count; i < labels.Count; i++)
             {
-                labels[i].gameObject.SetActive(false);
+                if (labels[i] != null && labels[i].gameObject != null)
+                {
+                    labels[i].gameObject.SetActive(false);
+                }
             }
         }
 

@@ -542,7 +542,11 @@ namespace Minebot.Presentation
             }
 
             gridPresentation.Refresh(services, repairStationPosition, robotFactoryPosition);
-            scanIndicatorPresenter?.Refresh();
+            // 检查 scanIndicatorPresenter 是否有效（可能在场景切换后被销毁）
+            if (scanIndicatorPresenter != null && scanIndicatorPresenter.gameObject != null)
+            {
+                scanIndicatorPresenter.Refresh();
+            }
             RefreshActors();
             RefreshPickups();
             RefreshBuildings();
@@ -920,7 +924,19 @@ namespace Minebot.Presentation
             gridPresentation.SetGmBombRevealEnabled(gmBombRevealEnabled);
             playerActorView = EnsureActorView(actorRoot, PlayerViewName, assets.PlayerActorPrefab, assets.PlayerSprite, assets.PlayerSortingOrder);
             playerView = playerActorView.BodyRenderer;
-            playerFreeform = EnsureFreeformActor(playerActorView.gameObject, services != null ? services.PlayerMiningState.Position : GridPosition.Zero);
+            
+            // 初始化玩家位置：如果服务已加载则使用玩家出生点，否则使用地图中心
+            GridPosition playerStartPosition = GridPosition.Zero;
+            if (services != null && services.Grid != null)
+            {
+                playerStartPosition = services.PlayerMiningState.Position;
+            }
+            else if (services != null && services.Grid != null)
+            {
+                // 地图中心作为默认位置
+                playerStartPosition = new GridPosition(services.Grid.Size.x / 2, services.Grid.Size.y / 2);
+            }
+            playerFreeform = EnsureFreeformActor(playerActorView.gameObject, playerStartPosition);
             EnsureCircleCollider(playerActorView.gameObject, assets.PlayerColliderRadius);
             // EnsureDefaultFacilityBuildings(); // 已屏蔽开局建筑生成
             EnsureHud();
@@ -993,7 +1009,7 @@ namespace Minebot.Presentation
 
             camera.orthographic = true;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.05f, 0.07f, 0.08f, 1f);
+            camera.backgroundColor = new Color(0.039f, 0.043f, 0.043f, 1f);  // #0a0b0b
             // 确保相机本地位置为(0,0,0)，震动效果会在localPosition上叠加
             camera.transform.localPosition = Vector3.zero;
 
@@ -1022,7 +1038,7 @@ namespace Minebot.Presentation
                 rig = camera.transform.parent != null ? camera.transform.parent : camera.transform;
             }
 
-            if (services == null)
+            if (services == null || services.Grid == null)
             {
                 rig.position = new Vector3(6f, 6f, -10f);
                 camera.orthographicSize = 6.5f;
@@ -1390,7 +1406,11 @@ namespace Minebot.Presentation
         private void OnPassiveHazardSenseUpdated(IReadOnlyList<ScanReading> readings)
         {
             ApplyHazardSenseReadings(readings);
-            scanIndicatorPresenter?.Refresh();
+            // 检查 scanIndicatorPresenter 是否有效（可能在场景切换后被销毁）
+            if (scanIndicatorPresenter != null && scanIndicatorPresenter.gameObject != null)
+            {
+                scanIndicatorPresenter.Refresh();
+            }
             RefreshHud();
         }
 
@@ -1560,9 +1580,16 @@ namespace Minebot.Presentation
 
         private void RefreshActors()
         {
-            if (playerFreeform == null)
+            if (playerFreeform == null || playerActorView == null)
             {
-                playerFreeform = EnsureFreeformActor(playerActorView.gameObject, services.PlayerMiningState.Position);
+                // 如果 playerActorView 为空，说明场景正在重新初始化，等待下一帧
+                // 或者如果 services 为空，说明场景刚切换，不需要刷新
+                return;
+            }
+
+            if (services == null)
+            {
+                return;
             }
 
             playerFreeform.MoveSpeedMultiplier = Mathf.Max(0.1f, services.PlayerMiningState.MoveSpeedMultiplier);
@@ -1827,6 +1854,12 @@ namespace Minebot.Presentation
             var staleTargets = new List<GridPosition>();
             foreach (KeyValuePair<GridPosition, MinebotCellFxView> pair in miningCrackViews)
             {
+                // 跳过已销毁的视图
+                if (pair.Value == null)
+                {
+                    staleTargets.Add(pair.Key);
+                    continue;
+                }
                 if (!activeTargets.Contains(pair.Key))
                 {
                     staleTargets.Add(pair.Key);
@@ -2204,8 +2237,27 @@ namespace Minebot.Presentation
 
         private void LoadBootstrapScene()
         {
+            Debug.Log($"[LoadBootstrapScene] 开始加载 Bootstrap 场景");
+            Debug.Log($"  - 当前场景: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+            Debug.Log($"  - isActiveAndEnabled: {isActiveAndEnabled}");
+            Debug.Log($"  - gameObject.activeSelf: {gameObject.activeSelf}");
+            Debug.Log($"  - gameObject.activeInHierarchy: {gameObject.activeInHierarchy}");
+            
+            // 记录当前 presentation 的状态，用于后续验证
+            bool wasEnabled = isActiveAndEnabled;
+            
+            // 只清理服务和视图引用，不要销毁物体
+            // 让场景切换自然处理物体销毁
+            services = null;
+            serviceContainer = null;
+            hudView = null;
+            rankPageView = null;
+            playerFreeform = null;
+            
             MinebotServices.ResetForTests();
-            UnityEngine.SceneManagement.SceneManager.LoadSceneAsync("Bootstrap", UnityEngine.SceneManagement.LoadSceneMode.Single);
+            Debug.Log($"[LoadBootstrapScene] 调用 SceneManager.LoadScene");
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Bootstrap", UnityEngine.SceneManagement.LoadSceneMode.Single);
+            Debug.Log($"[LoadBootstrapScene] SceneManager.LoadScene 返回");
         }
 
         private string BuildInteractionText()
