@@ -145,10 +145,42 @@ namespace Minebot.Presentation
         private int rankPageShownFrame = -1;
 
         // 事件日志系统
-        private const int MaxEventLogLines = 15;
-        private readonly List<string> eventLogLines = new List<string>();
+        private const int MaxEventLogLines = 20;
+        private readonly List<EventLogEntry> eventLogEntries = new List<EventLogEntry>();
         private MiningProgressSnapshot? lastMiningSnapshot;
         private PresentationActorState? lastPlayerState;
+        private bool lastWaveResolutionActive;
+
+        public enum EventLogType
+        {
+            Normal,    // #00fffa
+            Warning,   // #ffe900
+            Error      // #ff007a
+        }
+
+        private readonly struct EventLogEntry
+        {
+            public string Message { get; }
+            public EventLogType Type { get; }
+
+            public EventLogEntry(string message, EventLogType type)
+            {
+                Message = message;
+                Type = type;
+            }
+
+            public string ToColoredString()
+            {
+                string colorHex = Type switch
+                {
+                    EventLogType.Normal => "#00fffa",
+                    EventLogType.Warning => "#ffe900",
+                    EventLogType.Error => "#ff007a",
+                    _ => "#00fffa"
+                };
+                return $"<color={colorHex}>{Message}</color>";
+            }
+        }
 
         public TilemapGridPresentation GridPresentation => gridPresentation;
         public MinebotPickupRenderer PickupRenderer => pickupRenderer;
@@ -389,6 +421,15 @@ namespace Minebot.Presentation
             bool waveResolutionActive = services.Session != null && services.Session.IsWaveResolutionActive;
             bool pauseSimulation = IsSimulationPausedByUpgradePanel();
             gridPresentation?.SetWaveCountdownPaused(pauseSimulation || waveResolutionActive);
+
+            // 检测波次结算开始，打印3条错误日志
+            if (waveResolutionActive && !lastWaveResolutionActive)
+            {
+                AddEventLog("[WARNING] 地震波已到达", EventLogType.Error);
+                AddEventLog("[WARNING] 检测到炸弹被触发", EventLogType.Error);
+                AddEventLog("[WARNING] 危险区坍塌", EventLogType.Error);
+            }
+            lastWaveResolutionActive = waveResolutionActive;
 
             if (waveResolutionActive)
             {
@@ -798,6 +839,17 @@ namespace Minebot.Presentation
             }
 
             UpgradeDefinition selected = currentCandidates[index];
+            
+            // 记录升级前属性（与调试数值一致）
+            int oldMaxHealth = services.Vitals.MaxHealth;
+            float oldMoveSpeed = services.PlayerMiningState.MoveSpeedMultiplier;
+            int totalAttackBefore = services.Mining != null
+                ? services.Mining.EffectiveAttackFor(services.PlayerMiningState.DrillTier, includePlayerBaseAttack: true)
+                    - services.Mining.EffectiveAttackFor(services.PlayerMiningState.DrillTier, includePlayerBaseAttack: false)
+                : 0;
+            int oldAttack = totalAttackBefore + services.PlayerMiningState.MiningDamageBonus;
+            int oldMarker = services.PlayerMiningState.MarkerCapacity;
+            
             bool applied = services.Upgrades.Select(selected);
             if (applied && !services.Experience.HasPendingUpgrade && !services.Vitals.IsDead)
             {
@@ -807,6 +859,27 @@ namespace Minebot.Presentation
             if (applied)
             {
                 audioController?.PlayUpgradeApply();
+                
+                // 打印升级日志（与调试数值一致）
+                int newMaxHealth = services.Vitals.MaxHealth;
+                float newMoveSpeed = services.PlayerMiningState.MoveSpeedMultiplier;
+                int totalAttackAfter = services.Mining != null
+                    ? services.Mining.EffectiveAttackFor(services.PlayerMiningState.DrillTier, includePlayerBaseAttack: true)
+                        - services.Mining.EffectiveAttackFor(services.PlayerMiningState.DrillTier, includePlayerBaseAttack: false)
+                    : 0;
+                int newAttack = totalAttackAfter + services.PlayerMiningState.MiningDamageBonus;
+                int newMarker = services.PlayerMiningState.MarkerCapacity;
+                
+                var parts = new List<string>();
+                if (selected.maxHealthDelta > 0) parts.Add($"最大生命 {oldMaxHealth}→{newMaxHealth}");
+                if (selected.moveSpeedMultiplierDelta > 0) parts.Add($"移动速度 {Mathf.RoundToInt(oldMoveSpeed * 100)}%→{Mathf.RoundToInt(newMoveSpeed * 100)}%");
+                if (selected.drillTierDelta > 0 || selected.miningDamageDelta > 0) parts.Add($"钻头功率 {oldAttack}→{newAttack}");
+                if (selected.markerCapacityDelta > 0) parts.Add($"标记数量 {oldMarker}→{newMarker}");
+                
+                if (parts.Count > 0)
+                {
+                    AddEventLog($"[BOT] {selected.displayName} " + string.Join("，", parts));
+                }
             }
             else
             {
@@ -1435,6 +1508,10 @@ namespace Minebot.Presentation
             if (reward.Metal > 0 || reward.Energy > 0 || reward.Experience > 0)
             {
                 feedbackMessage = $"+{reward.Metal} 金属 / +{reward.Energy} 能量 / +{reward.Experience} 经验";
+                // 打印资源获取日志（每种资源单独输出）
+                if (reward.Metal > 0) AddEventLog($"[BOT] 收集到金属废料({reward.Metal})");
+                if (reward.Energy > 0) AddEventLog($"[BOT] 收集到能量矿石({reward.Energy})");
+                if (reward.Experience > 0) AddEventLog($"[BOT] 收集到地质数据({reward.Experience})");
             }
         }
 
@@ -1608,7 +1685,8 @@ namespace Minebot.Presentation
                     audioController?.StopPlayerMiningLoop();
                     audioController?.PlayPlayerDamage();
                     RemoveMiningProgressLog();
-                    AddEventLog("[MINE] 触发炸弹！");
+                    AddEventLog("[MINE] 触发炸弹", EventLogType.Error);
+                    AddEventLog("[BOT] 护甲受损", EventLogType.Error);
                     return;
                 case MineInteractionResult.DrillTooWeak:
                     audioController?.StopPlayerMiningLoop();
@@ -2895,22 +2973,22 @@ namespace Minebot.Presentation
 
             if (upgrade.currentHealthRestoreDelta > 0)
             {
-                parts.Add($"立即回复 +{upgrade.currentHealthRestoreDelta} 生命");
+                parts.Add($"修复 {upgrade.currentHealthRestoreDelta} 护甲");
             }
 
             if (upgrade.miningDamageDelta > 0)
             {
-                parts.Add($"钻头 +{upgrade.miningDamageDelta}");
+                parts.Add($"钻头功率 +{upgrade.miningDamageDelta}");
             }
 
             if (upgrade.moveSpeedMultiplierDelta > 0f)
             {
-                parts.Add($"移速 +{Mathf.RoundToInt(upgrade.moveSpeedMultiplierDelta * 100f)}%");
+                parts.Add($"移动速度 +{Mathf.RoundToInt(upgrade.moveSpeedMultiplierDelta * 100f)}%");
             }
 
             if (upgrade.markerCapacityDelta > 0)
             {
-                parts.Add($"标记 +{upgrade.markerCapacityDelta}");
+                parts.Add($"标记数量 +{upgrade.markerCapacityDelta}");
             }
 
             return parts.Count > 0 ? string.Join("，", parts) : "立即生效";
@@ -3150,12 +3228,12 @@ namespace Minebot.Presentation
 
         // ==================== 事件日志系统 ====================
 
-        private void AddEventLog(string message)
+        public void AddEventLog(string message, EventLogType type = EventLogType.Normal)
         {
-            eventLogLines.Add(message);
-            while (eventLogLines.Count > MaxEventLogLines)
+            eventLogEntries.Add(new EventLogEntry(message, type));
+            while (eventLogEntries.Count > MaxEventLogLines)
             {
-                eventLogLines.RemoveAt(0);
+                eventLogEntries.RemoveAt(0);
             }
             UpdateEventLogDisplay();
         }
@@ -3164,9 +3242,10 @@ namespace Minebot.Presentation
         {
             // 移除进度条格式的 [MINE] 日志（包含 ■ 或 □ 的）
             int mineIndex = -1;
-            for (int i = 0; i < eventLogLines.Count; i++)
+            for (int i = 0; i < eventLogEntries.Count; i++)
             {
-                if (eventLogLines[i].StartsWith("[MINE]") && (eventLogLines[i].Contains("■") || eventLogLines[i].Contains("□")))
+                string msg = eventLogEntries[i].Message;
+                if (msg.StartsWith("[MINE]") && (msg.Contains("■") || msg.Contains("□")))
                 {
                     mineIndex = i;
                     break;
@@ -3174,7 +3253,7 @@ namespace Minebot.Presentation
             }
             if (mineIndex >= 0)
             {
-                eventLogLines.RemoveAt(mineIndex);
+                eventLogEntries.RemoveAt(mineIndex);
             }
         }
 
@@ -3185,7 +3264,12 @@ namespace Minebot.Presentation
                 return;
             }
 
-            hudView.UpdateEventLog(eventLogLines.ToArray());
+            string[] coloredLines = new string[eventLogEntries.Count];
+            for (int i = 0; i < eventLogEntries.Count; i++)
+            {
+                coloredLines[i] = eventLogEntries[i].ToColoredString();
+            }
+            hudView.UpdateEventLog(coloredLines);
         }
 
         private void RefreshEventLog()
@@ -3198,11 +3282,10 @@ namespace Minebot.Presentation
                 // 10秒警告
                 if (timeUntilNextWave <= 10f && timeUntilNextWave > 9.5f)
                 {
-                    // 检查是否已经添加过这个警告
                     bool alreadyLogged = false;
-                    foreach (string log in eventLogLines)
+                    foreach (var entry in eventLogEntries)
                     {
-                        if (log.Contains("[WARNING]") && log.Contains("10s"))
+                        if (entry.Message.Contains("[WARNING]") && entry.Message.Contains("10s"))
                         {
                             alreadyLogged = true;
                             break;
@@ -3210,17 +3293,17 @@ namespace Minebot.Presentation
                     }
                     if (!alreadyLogged)
                     {
-                        AddEventLog("[WARNING] 地震波 10s 后到达");
+                        AddEventLog("[WARNING] 地震波 10s 后到达", EventLogType.Warning);
                     }
                 }
 
                 // 3秒警告
-                if (timeUntilNextWave <= 3f && timeUntilNextWave > 2.5f)
+                if (timeUntilNextWave <= 3f && timeUntilNextWave > 2.95f)
                 {
                     bool alreadyLogged = false;
-                    foreach (string log in eventLogLines)
+                    foreach (var entry in eventLogEntries)
                     {
-                        if (log.Contains("[WARNING]") && log.Contains("危险区"))
+                        if (entry.Message.Contains("[WARNING]") && entry.Message.Contains("危险区"))
                         {
                             alreadyLogged = true;
                             break;
@@ -3228,7 +3311,7 @@ namespace Minebot.Presentation
                     }
                     if (!alreadyLogged)
                     {
-                        AddEventLog("[WARNING] 危险区逼近！立即撤离！");
+                        AddEventLog("[WARNING] 地震波将到达，远离危险区", EventLogType.Warning);
                     }
                 }
             }
@@ -3241,17 +3324,17 @@ namespace Minebot.Presentation
                     PresentationActorState.Moving => "[BOT] 移动中",
                     PresentationActorState.Mining => "[BOT] 挖掘中",
                     PresentationActorState.Blocked => "[BOT] 受阻",
-                    PresentationActorState.Destroyed => "[BOT] 损毁",
+                    PresentationActorState.Destroyed => "[BOT] 机体损殳▓▓ 动力单元离线 编码解析失败 0x13 响应中断",
                     _ => null
                 };
 
-                if (playerState != null)
+                EventLogType stateLogType = playerVisualState == PresentationActorState.Destroyed
+                    ? EventLogType.Error
+                    : EventLogType.Normal;
+                eventLogEntries.Add(new EventLogEntry(playerState, stateLogType));
+                while (eventLogEntries.Count > MaxEventLogLines)
                 {
-                    eventLogLines.Add(playerState);
-                    while (eventLogLines.Count > MaxEventLogLines)
-                    {
-                        eventLogLines.RemoveAt(0);
-                    }
+                    eventLogEntries.RemoveAt(0);
                 }
             }
             lastPlayerState = playerVisualState;
@@ -3262,13 +3345,11 @@ namespace Minebot.Presentation
                 var snapshots = services.Session.ActiveMiningProgressSnapshots;
                 if (snapshots != null && snapshots.Count > 0)
                 {
-                    // 获取最新的挖掘进度（玩家正在挖掘的）
                     MiningProgressSnapshot? currentSnapshot = null;
                     MiningProgressSnapshot? completedSnapshot = null;
                     for (int i = 0; i < snapshots.Count; i++)
                     {
                         MiningProgressSnapshot snap = snapshots[i];
-                        // 记录已完成挖掘的快照
                         if (snap.IsValid && snap.CurrentHealth >= snap.MaxHealth)
                         {
                             GridPosition playerPos = services.PlayerMiningState.Position;
@@ -3277,7 +3358,6 @@ namespace Minebot.Presentation
                                 completedSnapshot = snap;
                             }
                         }
-                        // 记录正在挖掘的快照
                         else if (snap.IsValid && snap.CurrentHealth < snap.MaxHealth)
                         {
                             GridPosition playerPos = services.PlayerMiningState.Position;
@@ -3293,39 +3373,39 @@ namespace Minebot.Presentation
                         }
                     }
 
-                    // 优先显示玩家位置已完成的快照
                     if (completedSnapshot.HasValue)
                     {
                         currentSnapshot = completedSnapshot;
                     }
 
-                    // 如果当前有快照，记录下来
                     MiningProgressSnapshot? previousSnapshot = lastMiningSnapshot;
                     if (currentSnapshot.HasValue)
                     {
                         lastMiningSnapshot = currentSnapshot;
                     }
 
-                    // 决定显示什么日志
                     string mineLog = null;
+                    EventLogType mineLogType = EventLogType.Normal;
                     if (currentSnapshot.HasValue)
                     {
                         mineLog = FormatMiningProgress(currentSnapshot.Value);
+                        mineLogType = EventLogType.Normal;
                     }
                     else if (previousSnapshot.HasValue && previousSnapshot.Value.DamageNormalized >= 1f)
                     {
-                        // 上一个快照已挖掘完成，继续显示"已破坏"
                         mineLog = "[MINE] 已破坏";
-                        lastMiningSnapshot = null; // 清除记录，下次不再显示
+                        mineLogType = EventLogType.Normal;
+                        lastMiningSnapshot = null;
                     }
 
                     if (mineLog != null)
                     {
                         // 移除进度条格式的旧 [MINE] 日志（包含 ■ 或 □ 的）
                         int mineIndex = -1;
-                        for (int i = 0; i < eventLogLines.Count; i++)
+                        for (int i = 0; i < eventLogEntries.Count; i++)
                         {
-                            if (eventLogLines[i].StartsWith("[MINE]") && (eventLogLines[i].Contains("■") || eventLogLines[i].Contains("□")))
+                            string msg = eventLogEntries[i].Message;
+                            if (msg.StartsWith("[MINE]") && (msg.Contains("■") || msg.Contains("□")))
                             {
                                 mineIndex = i;
                                 break;
@@ -3333,16 +3413,14 @@ namespace Minebot.Presentation
                         }
                         if (mineIndex >= 0)
                         {
-                            eventLogLines.RemoveAt(mineIndex);
+                            eventLogEntries.RemoveAt(mineIndex);
                         }
 
-                        // 直接添加 [MINE] 日志（不覆盖）
-                        eventLogLines.Add(mineLog);
+                        eventLogEntries.Add(new EventLogEntry(mineLog, mineLogType));
 
-                        // 保持日志数量不超过上限
-                        while (eventLogLines.Count > MaxEventLogLines)
+                        while (eventLogEntries.Count > MaxEventLogLines)
                         {
-                            eventLogLines.RemoveAt(0);
+                            eventLogEntries.RemoveAt(0);
                         }
                     }
                 }

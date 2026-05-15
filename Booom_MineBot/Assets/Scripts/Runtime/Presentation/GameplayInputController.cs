@@ -39,7 +39,7 @@ namespace Minebot.Presentation
         private float freeMoveStepSeconds = 0.25f;
 
         [SerializeField]
-        private float autoMineInterval = 0.2f;
+        private float autoMineInterval = 0.1f;
 
         public float AutoMineInterval => autoMineInterval;
 
@@ -278,10 +278,12 @@ namespace Minebot.Presentation
                     if (marked)
                     {
                         presentation.AudioController?.PlayMarkerSet();
+                        presentation.AddEventLog("[BOT] 已标记此坐标");
                     }
                     else if (wasMarked)
                     {
                         presentation.AudioController?.PlayMarkerClear();
+                        presentation.AddEventLog("[BOT] 取消标记此坐标");
                     }
                     else
                     {
