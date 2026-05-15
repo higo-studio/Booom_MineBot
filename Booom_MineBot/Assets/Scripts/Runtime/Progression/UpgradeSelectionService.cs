@@ -73,6 +73,24 @@ namespace Minebot.Progression
             playerMining.MarkerCapacity += Math.Max(0, upgrade.markerCapacityDelta);
             vitals.IncreaseMaxHealth(upgrade.maxHealthDelta);
             vitals.RestoreHealth(upgrade.currentHealthRestoreDelta);
+
+            // 更新每个项目的升级次数
+            if (upgrade.maxHealthDelta > 0)
+            {
+                playerMining.HealthUpgradeCount++;
+            }
+            if (upgrade.moveSpeedMultiplierDelta > 0f)
+            {
+                playerMining.MoveSpeedUpgradeCount++;
+            }
+            if (upgrade.drillTierDelta > 0 || upgrade.miningDamageDelta > 0)
+            {
+                playerMining.AttackUpgradeCount++;
+            }
+            if (upgrade.markerCapacityDelta > 0)
+            {
+                playerMining.MarkerUpgradeCount++;
+            }
             experience.ConfirmUpgrade(thresholdIncrease);
             cachedCandidates = Array.Empty<UpgradeDefinition>();
             return true;
@@ -129,11 +147,11 @@ namespace Minebot.Progression
         {
             return new[]
             {
-                new UpgradeDefinition { id = "health", displayName = "生命扩容", maxHealthDelta = 1, weight = 1 },
-                new UpgradeDefinition { id = "heal", displayName = "紧急维修", currentHealthRestoreDelta = 1, weight = 10 },
-                new UpgradeDefinition { id = "drill", displayName = "钻头升级", drillTierDelta = 1, miningDamageDelta = 1, weight = 10 },
-                new UpgradeDefinition { id = "move", displayName = "移动提速", moveSpeedMultiplierDelta = 0.03f, weight = 10 },
-                new UpgradeDefinition { id = "marker", displayName = "标记扩容", markerCapacityDelta = 1, weight = 8 }
+                new UpgradeDefinition { id = "health", displayName = "装甲加固", maxHealthDelta = 1, weight = 1 },
+                new UpgradeDefinition { id = "heal", displayName = "应急修复", currentHealthRestoreDelta = 1, weight = 10 },
+                new UpgradeDefinition { id = "drill", displayName = "钻头强化", drillTierDelta = 1, miningDamageDelta = 1, weight = 10 },
+                new UpgradeDefinition { id = "move", displayName = "履带优化", moveSpeedMultiplierDelta = 0.03f, weight = 10 },
+                new UpgradeDefinition { id = "marker", displayName = "探测扩展", markerCapacityDelta = 1, weight = 8 }
             };
         }
     }

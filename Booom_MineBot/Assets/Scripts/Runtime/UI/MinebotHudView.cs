@@ -111,6 +111,10 @@ namespace Minebot.UI
         [SerializeField]
         private RectTransform healthBackground;
 
+        [SerializeField]
+        [InspectorLabel("调试数值显示文本")]
+        private TMPro.TMP_Text debugStatsText;
+
         private bool usingTemplateHud;
         private TMP_Text templateWorkingCountText;
         private TMP_Text templateWaitingCountText;
@@ -796,6 +800,17 @@ namespace Minebot.UI
             var fallback = new GameObject(objectName, typeof(RectTransform), typeof(T)).GetComponent<T>();
             fallback.transform.SetParent(slot, false);
             return fallback;
+        }
+
+        public void UpdateDebugStats(int maxHealth, float moveSpeed, int drillAttack, int markerCapacity, int healthLevel, int moveSpeedLevel, int attackLevel, int markerLevel)
+        {
+            if (debugStatsText == null)
+            {
+                return;
+            }
+
+            string healthLevelText = maxHealth >= 10 ? "Lv.Max" : $"Lv.{healthLevel}";
+            debugStatsText.text = $"护甲 {healthLevelText}（{maxHealth}）\n履带 Lv.{moveSpeedLevel}（{moveSpeed:F2}）\n钻头 Lv.{attackLevel}（{drillAttack}）\n探测 Lv.{markerLevel}（{markerCapacity}）";
         }
 
     }

@@ -32,7 +32,7 @@ namespace Minebot.Progression
 
             Level++;
             Experience -= NextThreshold;
-            NextThreshold += Math.Max(1, nextThresholdIncrease);
+            NextThreshold += nextThresholdIncrease;
             HasPendingUpgrade = Experience >= NextThreshold;
         }
     }

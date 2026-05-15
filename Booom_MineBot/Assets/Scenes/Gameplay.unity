@@ -186,6 +186,12 @@ MonoBehaviour:
   artSet: {fileID: 11400000, guid: f801161cb5131405da52b0b0fcafd9e1, type: 2}
   hudPrefab: {fileID: 0}
   repairMetalCost: 2
+  waveShakeIntensityLight: 0.01
+  waveShakeIntensityHeavy: 0.03
+  waveShakeFrequencyLight: 25
+  waveShakeFrequencyHeavy: 40
+  waveEndShakeIntensity: 0.5
+  waveEndShakeDuration: 3
 --- !u!114 &200004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -200,7 +206,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   repairMetalCost: 2
   freeMoveStepSeconds: 0.25
-  autoMineInterval: 0.18
+  autoMineInterval: 0.2
 --- !u!1 &9638105
 GameObject:
   m_ObjectHideFlags: 0

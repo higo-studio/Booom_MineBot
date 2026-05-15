@@ -2223,6 +2223,7 @@ namespace Minebot.Presentation
             RefreshUpgradePanel();
             RefreshBuildPanel();
             RefreshBuildingInteractionPanel();
+            RefreshDebugStats();
         }
 
         private void DisableMinimapPanel()
@@ -2878,10 +2879,9 @@ namespace Minebot.Presentation
                 parts.Add($"立即回复 +{upgrade.currentHealthRestoreDelta} 生命");
             }
 
-            int drillBonus = Mathf.Max(0, upgrade.drillTierDelta) + Mathf.Max(0, upgrade.miningDamageDelta);
-            if (drillBonus > 0)
+            if (upgrade.miningDamageDelta > 0)
             {
-                parts.Add($"钻头 +{drillBonus}");
+                parts.Add($"钻头 +{upgrade.miningDamageDelta}");
             }
 
             if (upgrade.moveSpeedMultiplierDelta > 0f)
@@ -3100,6 +3100,33 @@ namespace Minebot.Presentation
             var cameraData = camera.gameObject.AddComponent(cameraDataType);
             var property = cameraDataType.GetProperty("renderPostProcessing");
             property?.SetValue(cameraData, true);
+        }
+
+        private void RefreshDebugStats()
+        {
+            if (hudView == null || services == null)
+            {
+                return;
+            }
+
+            int maxHealth = services.Vitals.MaxHealth;
+            float moveSpeed = playerFreeform != null ? playerFreeform.MoveSpeed : 0f;
+            // 只显示玩家基础攻击力，不包含钻头加值
+            int playerBaseAttack = services.Mining != null
+                ? services.Mining.EffectiveAttackFor(services.PlayerMiningState.DrillTier, includePlayerBaseAttack: true)
+                    - services.Mining.EffectiveAttackFor(services.PlayerMiningState.DrillTier, includePlayerBaseAttack: false)
+                : 0;
+            // 加上 MiningDamageBonus（升级获得的攻击加成）
+            playerBaseAttack += services.PlayerMiningState.MiningDamageBonus;
+            int markerCapacity = services.PlayerMiningState.MarkerCapacity;
+
+            // 直接使用 PlayerMiningState 中记录的实际升级次数
+            int healthLevel = services.PlayerMiningState.HealthUpgradeCount;
+            int moveSpeedLevel = services.PlayerMiningState.MoveSpeedUpgradeCount;
+            int attackLevel = services.PlayerMiningState.AttackUpgradeCount;
+            int markerLevel = services.PlayerMiningState.MarkerUpgradeCount;
+
+            hudView.UpdateDebugStats(maxHealth, moveSpeed, playerBaseAttack, markerCapacity, healthLevel, moveSpeedLevel, attackLevel, markerLevel);
         }
     }
 }

@@ -86,6 +86,10 @@ namespace Minebot.GridMining
             MarkerCapacity = markerCapacity;
             MiningDamageBonus = miningDamageBonus;
             MoveSpeedMultiplier = moveSpeedMultiplier;
+            HealthUpgradeCount = 0;
+            MoveSpeedUpgradeCount = 0;
+            AttackUpgradeCount = 0;
+            MarkerUpgradeCount = 0;
         }
 
         public GridPosition Position { get; private set; }
@@ -93,6 +97,10 @@ namespace Minebot.GridMining
         public int MarkerCapacity { get; set; }
         public int MiningDamageBonus { get; set; }
         public float MoveSpeedMultiplier { get; set; }
+        public int HealthUpgradeCount { get; set; }
+        public int MoveSpeedUpgradeCount { get; set; }
+        public int AttackUpgradeCount { get; set; }
+        public int MarkerUpgradeCount { get; set; }
 
         public void Teleport(GridPosition position)
         {
