@@ -955,17 +955,10 @@ namespace Minebot.Presentation
             playerActorView = EnsureActorView(actorRoot, PlayerViewName, assets.PlayerActorPrefab, assets.PlayerSprite, assets.PlayerSortingOrder);
             playerView = playerActorView.BodyRenderer;
             
-            // 初始化玩家位置：如果服务已加载则使用玩家出生点，否则使用地图中心
-            GridPosition playerStartPosition = GridPosition.Zero;
-            if (services != null && services.Grid != null)
-            {
-                playerStartPosition = services.PlayerMiningState.Position;
-            }
-            else if (services != null && services.Grid != null)
-            {
-                // 地图中心作为默认位置
-                playerStartPosition = new GridPosition(services.Grid.Size.x / 2, services.Grid.Size.y / 2);
-            }
+            // 初始化玩家位置：始终使用地图中心，确保每次重开时玩家从中心开始
+            GridPosition playerStartPosition = services != null && services.Grid != null
+                ? new GridPosition(services.Grid.Size.x / 2, services.Grid.Size.y / 2)
+                : GridPosition.Zero;
             playerFreeform = EnsureFreeformActor(playerActorView.gameObject, playerStartPosition);
             EnsureCircleCollider(playerActorView.gameObject, assets.PlayerColliderRadius);
             // EnsureDefaultFacilityBuildings(); // 已屏蔽开局建筑生成
@@ -2366,26 +2359,17 @@ namespace Minebot.Presentation
         private void LoadBootstrapScene()
         {
             Debug.Log($"[LoadBootstrapScene] 开始加载 Bootstrap 场景");
-            Debug.Log($"  - 当前场景: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
-            Debug.Log($"  - isActiveAndEnabled: {isActiveAndEnabled}");
-            Debug.Log($"  - gameObject.activeSelf: {gameObject.activeSelf}");
-            Debug.Log($"  - gameObject.activeInHierarchy: {gameObject.activeInHierarchy}");
             
-            // 记录当前 presentation 的状态，用于后续验证
-            bool wasEnabled = isActiveAndEnabled;
-            
-            // 只清理服务和视图引用，不要销毁物体
-            // 让场景切换自然处理物体销毁
+            // 清理所有状态，包括服务和视图引用
             services = null;
             serviceContainer = null;
             hudView = null;
             rankPageView = null;
             playerFreeform = null;
+            playerActorView = null;
             
             MinebotServices.ResetForTests();
-            Debug.Log($"[LoadBootstrapScene] 调用 SceneManager.LoadScene");
             UnityEngine.SceneManagement.SceneManager.LoadScene("Bootstrap", UnityEngine.SceneManagement.LoadSceneMode.Single);
-            Debug.Log($"[LoadBootstrapScene] SceneManager.LoadScene 返回");
         }
 
         private string BuildInteractionText()
