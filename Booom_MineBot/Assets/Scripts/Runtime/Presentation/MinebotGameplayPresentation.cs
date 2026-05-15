@@ -71,6 +71,35 @@ namespace Minebot.Presentation
         [SerializeField]
         private int repairMetalCost = 2;
 
+        [SerializeField]
+        [InspectorLabel("波次震动强度（最后10秒）")]
+        private float waveShakeIntensityLight = 0.01f;
+
+        [SerializeField]
+        [InspectorLabel("波次震动强度（最后3秒）")]
+        private float waveShakeIntensityHeavy = 0.03f;
+
+        [SerializeField]
+        [InspectorLabel("波次震动频率（最后10秒）")]
+        private float waveShakeFrequencyLight = 25f;
+
+        [SerializeField]
+        [InspectorLabel("波次震动频率（最后3秒）")]
+        private float waveShakeFrequencyHeavy = 40f;
+
+        [SerializeField]
+        [InspectorLabel("波次结束后震动初始强度")]
+        private float waveEndShakeIntensity = 0.5f;
+
+        [SerializeField]
+        [InspectorLabel("波次结束后震动持续时间")]
+        private float waveEndShakeDuration = 3f;
+
+        private Vector3 originalCameraLocalPosition;
+        private float waveShakePhase;
+        private float waveEndShakeRemaining;
+        private float waveEndShakeIntensityCurrent;
+
         private MinebotContainer serviceContainer;
         private RuntimeServiceRegistry services;
         private MinebotPresentationAssets assets;
@@ -321,6 +350,7 @@ namespace Minebot.Presentation
 
             UpdatePlayerVisualState(Time.deltaTime);
             UpdateCameraFraming();
+            ApplyWaveShake();  // 波次震动效果
             audioController?.SyncState(services, playerActorView != null ? playerActorView.transform : transform, GetFirstRobotMiningAnchor());
             bool waveResolutionActive = services.Session != null && services.Session.IsWaveResolutionActive;
             bool pauseSimulation = IsSimulationPausedByUpgradePanel();
@@ -1779,6 +1809,104 @@ namespace Minebot.Presentation
             }
 
             camera.transform.localPosition = originalPos;
+        }
+
+        private void ApplyWaveShake()
+        {
+            if (services == null || services.Waves == null)
+            {
+                return;
+            }
+
+            float timeUntilNextWave = services.Waves.TimeUntilNextWave;
+            Camera camera = Camera.main;
+            if (camera == null)
+            {
+                return;
+            }
+
+            // 处理波次结束时的震动（从 -1 变为 0 时触发）
+            if (timeUntilNextWave <= 0f)
+            {
+                // 检查是否需要触发波次结束震动
+                if (waveEndShakeRemaining <= 0f && Time.timeScale > 0)
+                {
+                    // 如果之前有波次正在进行（waveEndShakeRemaining 从正值减小到 0），触发结束震动
+                    // 通过检查 waveEndShakeIntensityCurrent 是否大于 0 来判断
+                    if (waveEndShakeIntensityCurrent > 0f)
+                    {
+                        // 波次刚结束，触发强震动
+                        waveEndShakeRemaining = waveEndShakeDuration;
+                        waveEndShakeIntensityCurrent = waveEndShakeIntensity;
+                    }
+                    else
+                    {
+                        // 没有波次时不震动
+                        camera.transform.localPosition = Vector3.zero;
+                        return;
+                    }
+                }
+
+                // 处理波次结束震动
+                if (waveEndShakeRemaining > 0f)
+                {
+                    waveEndShakeRemaining -= Time.deltaTime;
+                    
+                    // 线性减弱震动强度
+                    float t = Mathf.Clamp01(waveEndShakeRemaining / waveEndShakeDuration);
+                    float endIntensity = waveEndShakeIntensity * t;
+                    
+                    // 高频率震动
+                    waveShakePhase += Time.deltaTime * 50f;
+                    float endOffsetX = Mathf.Sin(waveShakePhase * 1.1f) * endIntensity;
+                    float endOffsetY = Mathf.Cos(waveShakePhase * 0.9f) * endIntensity;
+                    camera.transform.localPosition = new Vector3(endOffsetX, endOffsetY, 0f);
+                    
+                    // 当震动结束时清除强度标记
+                    if (waveEndShakeRemaining <= 0f)
+                    {
+                        waveEndShakeIntensityCurrent = 0f;
+                        camera.transform.localPosition = Vector3.zero;
+                    }
+                    return;
+                }
+
+                camera.transform.localPosition = Vector3.zero;
+                return;
+            }
+
+            // 记录波次即将结束的状态，用于检测波次结束
+            waveEndShakeIntensityCurrent = timeUntilNextWave;
+
+            // 计算震动强度
+            float intensity = 0f;
+            if (timeUntilNextWave <= 3f)
+            {
+                intensity = waveShakeIntensityHeavy;
+            }
+            else if (timeUntilNextWave <= 10f)
+            {
+                // 10秒到3秒之间线性插值
+                float t = (timeUntilNextWave - 3f) / (10f - 3f);
+                intensity = Mathf.Lerp(waveShakeIntensityHeavy, waveShakeIntensityLight, t);
+            }
+
+            if (intensity <= 0f)
+            {
+                camera.transform.localPosition = Vector3.zero;
+                return;
+            }
+
+            // 计算当前使用的频率
+            float frequency = timeUntilNextWave <= 3f
+                ? waveShakeFrequencyHeavy
+                : Mathf.Lerp(waveShakeFrequencyHeavy, waveShakeFrequencyLight, (timeUntilNextWave - 3f) / (10f - 3f));
+
+            // 计算震动偏移
+            waveShakePhase += Time.deltaTime * frequency;
+            float offsetX = Mathf.Sin(waveShakePhase * 1.1f) * intensity;
+            float offsetY = Mathf.Cos(waveShakePhase * 0.9f) * intensity;
+            camera.transform.localPosition = new Vector3(offsetX, offsetY, 0f);
         }
 
         private void EnsureAudioController()
