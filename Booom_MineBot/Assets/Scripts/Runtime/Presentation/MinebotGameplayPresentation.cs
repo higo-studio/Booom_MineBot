@@ -2873,6 +2873,11 @@ namespace Minebot.Presentation
                 parts.Add($"最大生命 +{upgrade.maxHealthDelta}");
             }
 
+            if (upgrade.currentHealthRestoreDelta > 0)
+            {
+                parts.Add($"立即回复 +{upgrade.currentHealthRestoreDelta} 生命");
+            }
+
             int drillBonus = Mathf.Max(0, upgrade.drillTierDelta) + Mathf.Max(0, upgrade.miningDamageDelta);
             if (drillBonus > 0)
             {

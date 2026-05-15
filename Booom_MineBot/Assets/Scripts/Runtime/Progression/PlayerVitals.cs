@@ -24,6 +24,11 @@ namespace Minebot.Progression
             CurrentHealth = MaxHealth;
         }
 
+        public void RestoreHealth(int amount)
+        {
+            CurrentHealth = Math.Min(MaxHealth, CurrentHealth + Math.Max(0, amount));
+        }
+
         public void IncreaseMaxHealth(int amount)
         {
             MaxHealth += Math.Max(0, amount);

@@ -72,6 +72,7 @@ namespace Minebot.Progression
             playerMining.MoveSpeedMultiplier += Math.Max(0f, upgrade.moveSpeedMultiplierDelta);
             playerMining.MarkerCapacity += Math.Max(0, upgrade.markerCapacityDelta);
             vitals.IncreaseMaxHealth(upgrade.maxHealthDelta);
+            vitals.RestoreHealth(upgrade.currentHealthRestoreDelta);
             experience.ConfirmUpgrade(thresholdIncrease);
             cachedCandidates = Array.Empty<UpgradeDefinition>();
             return true;
@@ -129,9 +130,10 @@ namespace Minebot.Progression
             return new[]
             {
                 new UpgradeDefinition { id = "health", displayName = "生命扩容", maxHealthDelta = 1, weight = 1 },
-                new UpgradeDefinition { id = "drill", displayName = "钻头升级", drillTierDelta = 1, miningDamageDelta = 1, weight = 1 },
-                new UpgradeDefinition { id = "move", displayName = "移动提速", moveSpeedMultiplierDelta = 0.15f, weight = 1 },
-                new UpgradeDefinition { id = "marker", displayName = "标记扩容", markerCapacityDelta = 1, weight = 1 }
+                new UpgradeDefinition { id = "heal", displayName = "紧急维修", currentHealthRestoreDelta = 1, weight = 10 },
+                new UpgradeDefinition { id = "drill", displayName = "钻头升级", drillTierDelta = 1, miningDamageDelta = 1, weight = 10 },
+                new UpgradeDefinition { id = "move", displayName = "移动提速", moveSpeedMultiplierDelta = 0.03f, weight = 10 },
+                new UpgradeDefinition { id = "marker", displayName = "标记扩容", markerCapacityDelta = 1, weight = 8 }
             };
         }
     }

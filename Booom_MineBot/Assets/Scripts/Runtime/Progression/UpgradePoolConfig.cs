@@ -18,6 +18,9 @@ namespace Minebot.Progression
         [InspectorLabel("最大生命增量")]
         public int maxHealthDelta;
 
+        [InspectorLabel("当前生命回复量")]
+        public int currentHealthRestoreDelta;
+
         [InspectorLabel("挖掘伤害增量")]
         public int miningDamageDelta;
 
@@ -27,8 +30,9 @@ namespace Minebot.Progression
         [InspectorLabel("标记上限增量")]
         public int markerCapacityDelta;
 
-        [InspectorLabel("权重")]
-        public int weight = 1;
+        [InspectorLabel("出现权重")]
+        [Range(1, 100)]
+        public int weight = 10;
     }
 
     [CreateAssetMenu(menuName = "Minebot/成长/升级池")]
