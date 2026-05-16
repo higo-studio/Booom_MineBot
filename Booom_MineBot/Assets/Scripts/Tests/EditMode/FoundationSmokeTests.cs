@@ -183,7 +183,7 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void PickupRendererScalesSingleHoverIconByRewardAmount()
+        public void PickupRendererShowsOneHoverIconPerRewardAmountWithRandomScatter()
         {
             var pickups = new WorldPickupService();
             GridPosition origin = new GridPosition(2, 2);
@@ -198,15 +198,25 @@ namespace Minebot.Tests.EditMode
                 renderer.Configure(MinebotPresentationAssets.Create(MinebotPresentationAssets.LoadDefaultArtSet()));
                 renderer.SyncActivePickups(pickups.ActivePickups, position => new Vector3(position.X + 0.5f, position.Y + 0.5f, 0f));
 
-                Assert.That(renderer.HoverVisualCount, Is.EqualTo(1));
-                Assert.That(renderer.TotalVisualCount, Is.EqualTo(1));
+                Assert.That(renderer.HoverVisualCount, Is.EqualTo(5));
+                Assert.That(renderer.TotalVisualCount, Is.EqualTo(5));
                 SpriteRenderer[] spriteRenderers = root.GetComponentsInChildren<SpriteRenderer>();
-                Assert.That(spriteRenderers.Length, Is.EqualTo(1));
-                MinebotPickupView view = spriteRenderers[0].GetComponentInParent<MinebotPickupView>();
-                Assert.That(view, Is.Not.Null);
-                Assert.That(view.transform.localScale.x, Is.EqualTo(1.5f).Within(0.001f));
-                Assert.That(view.transform.localScale.y, Is.EqualTo(1.5f).Within(0.001f));
-                Assert.That(spriteRenderers[0].sortingOrder, Is.LessThan(40));
+                Assert.That(spriteRenderers.Length, Is.EqualTo(5));
+                var positions = new HashSet<string>();
+                for (int i = 0; i < spriteRenderers.Length; i++)
+                {
+                    MinebotPickupView view = spriteRenderers[i].GetComponentInParent<MinebotPickupView>();
+                    Assert.That(view, Is.Not.Null);
+                    Assert.That(view.transform.localScale.x, Is.EqualTo(1f).Within(0.001f));
+                    Assert.That(view.transform.localScale.y, Is.EqualTo(1f).Within(0.001f));
+                    Assert.That(spriteRenderers[i].sortingOrder, Is.LessThan(40));
+                    Vector3 position = view.transform.position;
+                    positions.Add($"{Math.Round(position.x, 2)}:{Math.Round(position.y, 2)}");
+                    Assert.That(Mathf.Abs(position.x - (origin.X + 0.5f)), Is.LessThanOrEqualTo(0.6f));
+                    Assert.That(Mathf.Abs(position.y - (origin.Y + 0.5f)), Is.LessThanOrEqualTo(0.9f));
+                }
+
+                Assert.That(positions.Count, Is.GreaterThan(1));
             }
             finally
             {

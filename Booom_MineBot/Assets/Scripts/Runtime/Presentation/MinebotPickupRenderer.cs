@@ -11,7 +11,7 @@ namespace Minebot.Presentation
         private const int PickupAbsorbSortingOrder = 34;
         private const int PickupHoverSortingOrderBase = 24;
         private const int PickupHoverSortingOrderSpan = 16;
-        private const float AmountScaleStep = 0.1f;
+        private const float AmountScatterMaxRadius = 0.34f;
 
         private struct HoverPickupVisual
         {
@@ -111,9 +111,8 @@ namespace Minebot.Presentation
                 fallbackHoverViews.Remove(primaryVisualKey);
             }
 
-            int amount = removedVisuals.Count > 0 ? removedVisuals[0].Amount : pickup.Amount;
             view ??= AcquireView(pickup.Type);
-            view.BeginAbsorbVisual(icon, startPosition, playerWorldPosition, PickupAbsorbSortingOrder, ComputeAmountScale(amount));
+            view.BeginAbsorbVisual(icon, startPosition, playerWorldPosition, PickupAbsorbSortingOrder);
             activeAbsorbViews.Add(view);
             ReleaseRemovedHoverViews(removedVisuals, primaryVisualKey);
             PushHoverVisuals();
@@ -194,19 +193,23 @@ namespace Minebot.Presentation
 
         private void UpsertHoverPickup(WorldPickupState pickup, Vector3 originWorld)
         {
-            UpsertHoverPickupVisual(pickup, originWorld);
+            int visualCount = Mathf.Max(1, pickup.Amount);
+            for (int visualIndex = 0; visualIndex < visualCount; visualIndex++)
+            {
+                UpsertHoverPickupVisual(pickup, originWorld, visualIndex);
+            }
         }
 
-        private void UpsertHoverPickupVisual(WorldPickupState pickup, Vector3 originWorld)
+        private void UpsertHoverPickupVisual(WorldPickupState pickup, Vector3 originWorld, int visualIndex)
         {
-            long visualKey = CreateVisualKey(pickup.Id, 0);
+            long visualKey = CreateVisualKey(pickup.Id, visualIndex);
             if (hoverLocations.TryGetValue(visualKey, out HoverPickupLocation location))
             {
                 List<HoverPickupVisual> visuals = BucketFor(location.Type).Visuals;
                 HoverPickupVisual visual = visuals[location.Index];
                 visual.Amount = pickup.Amount;
                 visual.OriginWorld = originWorld;
-                visual.Drift = pickup.Drift;
+                visual.Drift = pickup.Drift + ComputeAmountScatter(pickup.Id, visualIndex);
                 visual.Age = pickup.Age;
                 visual.SyncVersion = syncVersion;
                 visuals[location.Index] = visual;
@@ -218,10 +221,10 @@ namespace Minebot.Presentation
             {
                 VisualKey = visualKey,
                 PickupId = pickup.Id,
-                VisualIndex = 0,
+                VisualIndex = visualIndex,
                 Amount = pickup.Amount,
                 OriginWorld = originWorld,
-                Drift = pickup.Drift,
+                Drift = pickup.Drift + ComputeAmountScatter(pickup.Id, visualIndex),
                 Age = pickup.Age,
                 SyncVersion = syncVersion
             });
@@ -352,8 +355,7 @@ namespace Minebot.Presentation
                 view.ShowHoverVisual(
                     icon,
                     ComputeHoverPosition(visual.VisualKey, visual.Age, visual.OriginWorld, visual.Drift),
-                    ComputeHoverSortingOrder(visual),
-                    ComputeAmountScale(visual.Amount));
+                    ComputeHoverSortingOrder(visual));
             }
         }
 
@@ -440,9 +442,12 @@ namespace Minebot.Presentation
             return PickupHoverSortingOrderBase + layer;
         }
 
-        private static float ComputeAmountScale(int amount)
+        private static Vector2 ComputeAmountScatter(int pickupId, int visualIndex)
         {
-            return 1f + Mathf.Max(0, amount) * AmountScaleStep;
+            uint hash = Hash(unchecked((uint)((pickupId * 73856093) ^ (visualIndex * 19349663))));
+            float angle = Hash01(hash) * Mathf.PI * 2f;
+            float radius = Mathf.Sqrt(Hash01(Hash(hash ^ 0x9e3779b9u))) * AmountScatterMaxRadius;
+            return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
         }
 
         private static long CreateVisualKey(int pickupId, int visualIndex)
@@ -453,6 +458,21 @@ namespace Minebot.Presentation
         private static int CompareVisualIndex(HoverPickupVisual left, HoverPickupVisual right)
         {
             return left.VisualIndex.CompareTo(right.VisualIndex);
+        }
+
+        private static uint Hash(uint value)
+        {
+            value ^= value >> 16;
+            value *= 0x7feb352du;
+            value ^= value >> 15;
+            value *= 0x846ca68bu;
+            value ^= value >> 16;
+            return value;
+        }
+
+        private static float Hash01(uint value)
+        {
+            return (value & 0x00ffffff) / 16777216f;
         }
 
         private static Vector3 GridToWorldCenter(GridPosition position)
