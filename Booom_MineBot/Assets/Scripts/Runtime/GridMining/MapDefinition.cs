@@ -27,7 +27,8 @@ namespace Minebot.GridMining
         [InspectorLabel("静态标记")]
         public CellStaticFlags staticFlags;
 
-        [InspectorLabel("资源奖励")]
+        [Obsolete("地图格子奖励已废弃；运行时会在挖开岩壁时按硬度和奖励配置现场生成。")]
+        [InspectorLabel("资源奖励（废弃，运行时忽略）")]
         public ResourceAmount reward;
     }
 
@@ -77,7 +78,7 @@ namespace Minebot.GridMining
             for (int i = 0; i < cells.Length; i++)
             {
                 MapCellDefinition cell = cells[i];
-                initialCells[i] = new GridCellState(cell.terrainKind, cell.hardnessTier, cell.staticFlags, cell.reward);
+                initialCells[i] = new GridCellState(cell.terrainKind, cell.hardnessTier, cell.staticFlags, ResourceAmount.Zero);
             }
 
             return new LogicalGridState(size, FindSpawn(), initialCells);

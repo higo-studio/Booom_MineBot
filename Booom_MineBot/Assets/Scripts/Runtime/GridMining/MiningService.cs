@@ -125,19 +125,35 @@ namespace Minebot.GridMining
 
         private readonly LogicalGridState grid;
         private readonly MiningRules rules;
+        private readonly RewardConfig rewardConfig;
+        private readonly DeterministicRandom rewardRandom;
         private readonly Dictionary<GridPosition, MiningProgressState> progressByCell = new Dictionary<GridPosition, MiningProgressState>();
         private readonly List<MiningProgressSnapshot> activeSnapshotsBuffer = new List<MiningProgressSnapshot>();
         private readonly List<GridPosition> expiredProgressBuffer = new List<GridPosition>();
 
+        public const int DefaultRewardSeed = 20260425;
+
         public MiningService(LogicalGridState grid)
-            : this(grid, null)
+            : this(grid, null, RewardConfig.Default, DefaultRewardSeed)
         {
         }
 
         public MiningService(LogicalGridState grid, MiningRules rules)
+            : this(grid, rules, RewardConfig.Default, DefaultRewardSeed)
+        {
+        }
+
+        public MiningService(LogicalGridState grid, RewardConfig rewardConfig, int rewardSeed)
+            : this(grid, null, rewardConfig, rewardSeed)
+        {
+        }
+
+        public MiningService(LogicalGridState grid, MiningRules rules, RewardConfig rewardConfig, int rewardSeed)
         {
             this.grid = grid;
             this.rules = rules;
+            this.rewardConfig = rewardConfig;
+            rewardRandom = new DeterministicRandom(rewardSeed);
         }
 
         public float PlayerMiningTickIntervalSeconds => rules != null
@@ -445,7 +461,7 @@ namespace Minebot.GridMining
         private ResourceAmount OpenCell(GridPosition position, bool clearBomb)
         {
             ref GridCellState cell = ref grid.GetCellRef(position);
-            ResourceAmount reward = cell.Reward;
+            ResourceAmount reward = GenerateReward(cell.HardnessTier);
             cell.TerrainKind = TerrainKind.Empty;
             cell.IsRevealed = true;
             cell.IsMarked = false;
@@ -455,6 +471,26 @@ namespace Minebot.GridMining
             }
 
             return reward;
+        }
+
+        private ResourceAmount GenerateReward(HardnessTier hardnessTier)
+        {
+            return new ResourceAmount(
+                RandomRangeInclusive(rewardConfig.GetMetalRange(hardnessTier)),
+                RandomRangeInclusive(rewardConfig.GetEnergyRange(hardnessTier)),
+                RandomRangeInclusive(rewardConfig.GetExperienceRange(hardnessTier)));
+        }
+
+        private int RandomRangeInclusive(Vector2Int range)
+        {
+            int min = Mathf.Min(range.x, range.y);
+            int max = Mathf.Max(range.x, range.y);
+            if (max <= min)
+            {
+                return min;
+            }
+
+            return rewardRandom.Range(min, max + 1);
         }
     }
 }

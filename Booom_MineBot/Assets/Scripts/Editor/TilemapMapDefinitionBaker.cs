@@ -41,8 +41,7 @@ namespace Minebot.Editor
                     {
                         terrainKind = TerrainKind.Empty,
                         hardnessTier = HardnessTier.Soil,
-                        staticFlags = CellStaticFlags.None,
-                        reward = ResourceAmount.Zero
+                        staticFlags = CellStaticFlags.None
                     };
 
                     if (terrainTile != null && profile.TryGetTerrainRule(terrainTile, out TerrainTileRule terrainRule))
@@ -50,7 +49,6 @@ namespace Minebot.Editor
                         cell.terrainKind = terrainRule.terrainKind;
                         cell.hardnessTier = terrainRule.hardnessTier;
                         cell.staticFlags = terrainRule.staticFlags;
-                        cell.reward = terrainRule.reward;
                     }
 
                     cells[y * bounds.size.x + x] = cell;
@@ -80,10 +78,6 @@ namespace Minebot.Editor
                     }
 
                     cells[index].staticFlags |= overlayCell.flags;
-                    if (overlayCell.overrideReward)
-                    {
-                        cells[index].reward = overlayCell.rewardOverride;
-                    }
                 }
             }
 

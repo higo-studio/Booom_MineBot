@@ -245,6 +245,9 @@ namespace Minebot.Tests.EditMode
             RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
             GridPosition target = new GridPosition(registry.Grid.PlayerSpawn.X, registry.Grid.PlayerSpawn.Y - 2);
             registry.Grid.GetCellRef(target).ClearBomb();
+            ref GridCellState adjacentBomb = ref registry.Grid.GetCellRef(target + GridPosition.Right);
+            adjacentBomb.StaticFlags |= CellStaticFlags.Bomb;
+            adjacentBomb.IsMarked = true;
             registry.Economy.Add(new ResourceAmount(5, 0, 0));
             Assert.That(registry.RobotFactory.TryProduce(registry.Grid.PlayerSpawn, out RobotState robot), Is.True);
             int metalBefore = registry.Economy.Resources.Metal;
@@ -275,7 +278,6 @@ namespace Minebot.Tests.EditMode
             cell.TerrainKind = TerrainKind.MineableWall;
             cell.HardnessTier = HardnessTier.Soil;
             cell.StaticFlags |= CellStaticFlags.Bomb;
-            cell.Reward = new ResourceAmount(1, 0, 1);
             registry.Economy.Add(new ResourceAmount(5, 0, 0));
             Assert.That(registry.RobotFactory.TryProduce(registry.Grid.PlayerSpawn, out RobotState robot), Is.True);
             int healthBefore = registry.Vitals.CurrentHealth;
@@ -329,7 +331,6 @@ namespace Minebot.Tests.EditMode
             ref GridCellState cell = ref registry.Grid.GetCellRef(target);
             cell.TerrainKind = TerrainKind.MineableWall;
             cell.HardnessTier = HardnessTier.Soil;
-            cell.Reward = new ResourceAmount(1, 0, 1);
             cell.IsRevealed = false;
             registry.Waves.EvaluateDangerZones();
             Assert.That(registry.Grid.GetCell(spawn).IsDangerZone, Is.True);
@@ -355,7 +356,7 @@ namespace Minebot.Tests.EditMode
             GridPosition target = grid.PlayerSpawn + GridPosition.Up;
             SetWall(grid, target, CellStaticFlags.Bomb);
             var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
-            var mining = new MiningService(grid);
+            var mining = new MiningService(grid, CreateFixedRewardConfig(new ResourceAmount(1, 0, 1)), rewardSeed: 11);
             var hazards = new HazardService(grid);
             var economy = new PlayerEconomy(new ResourceAmount(0, 0, 0));
             var experience = new ExperienceService(4);
@@ -524,13 +525,24 @@ namespace Minebot.Tests.EditMode
             return new LogicalGridState(size, spawn, cells);
         }
 
+        private static RewardConfig CreateFixedRewardConfig(ResourceAmount reward)
+        {
+            var metal = new Vector2Int(reward.Metal, reward.Metal);
+            var energy = new Vector2Int(reward.Energy, reward.Energy);
+            var experience = new Vector2Int(reward.Experience, reward.Experience);
+            return new RewardConfig(
+                metal, energy, experience,
+                metal, energy, experience,
+                metal, energy, experience,
+                metal, energy, experience);
+        }
+
         private static void SetWall(LogicalGridState grid, GridPosition position, CellStaticFlags flags = CellStaticFlags.None)
         {
             ref GridCellState cell = ref grid.GetCellRef(position);
             cell.TerrainKind = TerrainKind.MineableWall;
             cell.HardnessTier = HardnessTier.Soil;
             cell.StaticFlags = flags;
-            cell.Reward = new ResourceAmount(1, 0, 1);
             cell.IsRevealed = false;
         }
 

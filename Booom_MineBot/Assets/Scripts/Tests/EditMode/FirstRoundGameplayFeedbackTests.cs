@@ -255,7 +255,6 @@ namespace Minebot.Tests.EditMode
             ref GridCellState targetCell = ref registry.Grid.GetCellRef(target);
             targetCell.TerrainKind = TerrainKind.MineableWall;
             targetCell.HardnessTier = HardnessTier.UltraHard;
-            targetCell.Reward = new ResourceAmount(3, 1, 2);
 
             MineInteractionResult weakResult = registry.Session.Mine(target);
             registry.PlayerMiningState.DrillTier = HardnessTier.UltraHard;

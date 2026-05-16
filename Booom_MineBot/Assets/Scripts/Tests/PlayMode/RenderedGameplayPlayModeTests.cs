@@ -267,7 +267,6 @@ namespace Minebot.Tests.PlayMode
 
             SetBombWall(services, minedPosition);
             SetBombWall(services, minedPosition + GridPosition.Right);
-            services.Grid.GetCellRef(minedPosition).Reward = new ResourceAmount(1, 0, 1);
             presentation.RefreshAll();
             yield return null;
 

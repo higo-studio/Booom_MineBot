@@ -8,11 +8,17 @@ namespace Minebot.Presentation
 {
     public sealed class MinebotPickupRenderer : MonoBehaviour
     {
-        private const int PickupSortingOrder = 34;
+        private const int PickupAbsorbSortingOrder = 34;
+        private const int PickupHoverSortingOrderBase = 24;
+        private const int PickupHoverSortingOrderSpan = 16;
+        private const float AmountScaleStep = 0.1f;
 
         private struct HoverPickupVisual
         {
-            public int Id;
+            public long VisualKey;
+            public int PickupId;
+            public int VisualIndex;
+            public int Amount;
             public Vector3 OriginWorld;
             public Vector2 Drift;
             public float Age;
@@ -45,8 +51,8 @@ namespace Minebot.Presentation
         private readonly PickupBucket metalBucket = new PickupBucket(WorldPickupType.Metal);
         private readonly PickupBucket energyBucket = new PickupBucket(WorldPickupType.Energy);
         private readonly PickupBucket experienceBucket = new PickupBucket(WorldPickupType.Experience);
-        private readonly Dictionary<int, HoverPickupLocation> hoverLocations = new Dictionary<int, HoverPickupLocation>();
-        private readonly Dictionary<int, MinebotPickupView> fallbackHoverViews = new Dictionary<int, MinebotPickupView>();
+        private readonly Dictionary<long, HoverPickupLocation> hoverLocations = new Dictionary<long, HoverPickupLocation>();
+        private readonly Dictionary<long, MinebotPickupView> fallbackHoverViews = new Dictionary<long, MinebotPickupView>();
         private readonly List<MinebotPickupView> activeAbsorbViews = new List<MinebotPickupView>();
         private readonly Queue<MinebotPickupView> pooledViews = new Queue<MinebotPickupView>();
         private MinebotPresentationAssets assets;
@@ -89,22 +95,27 @@ namespace Minebot.Presentation
             }
 
             Sprite icon = assets.PickupIconFor(pickup.Type);
-            Vector3 startPosition = ComputeHoverPosition(pickup.Id, pickup.Age, GridToWorldCenter(pickup.Origin), pickup.Drift);
-            if (TryRemoveHoverPickup(pickup.Id, out HoverPickupVisual visual))
+            Vector3 startPosition = ComputeHoverPosition(CreateVisualKey(pickup.Id, 0), pickup.Age, GridToWorldCenter(pickup.Origin), pickup.Drift);
+            List<HoverPickupVisual> removedVisuals = RemoveHoverPickupVisuals(pickup.Id);
+            if (removedVisuals.Count > 0)
             {
-                startPosition = ComputeHoverPosition(visual.Id, visual.Age, visual.OriginWorld, visual.Drift);
+                HoverPickupVisual visual = removedVisuals[0];
+                startPosition = ComputeHoverPosition(visual.VisualKey, visual.Age, visual.OriginWorld, visual.Drift);
             }
 
             MinebotPickupView view = null;
-            if (fallbackHoverViews.TryGetValue(pickup.Id, out MinebotPickupView hoverView))
+            long primaryVisualKey = CreateVisualKey(pickup.Id, 0);
+            if (fallbackHoverViews.TryGetValue(primaryVisualKey, out MinebotPickupView hoverView))
             {
                 view = hoverView;
-                fallbackHoverViews.Remove(pickup.Id);
+                fallbackHoverViews.Remove(primaryVisualKey);
             }
 
+            int amount = removedVisuals.Count > 0 ? removedVisuals[0].Amount : pickup.Amount;
             view ??= AcquireView(pickup.Type);
-            view.BeginAbsorbVisual(icon, startPosition, playerWorldPosition, PickupSortingOrder);
+            view.BeginAbsorbVisual(icon, startPosition, playerWorldPosition, PickupAbsorbSortingOrder, ComputeAmountScale(amount));
             activeAbsorbViews.Add(view);
+            ReleaseRemovedHoverViews(removedVisuals, primaryVisualKey);
             PushHoverVisuals();
         }
 
@@ -115,7 +126,7 @@ namespace Minebot.Presentation
             energyBucket.Visuals.Clear();
             experienceBucket.Visuals.Clear();
 
-            foreach (KeyValuePair<int, MinebotPickupView> pair in fallbackHoverViews)
+            foreach (KeyValuePair<long, MinebotPickupView> pair in fallbackHoverViews)
             {
                 ReleaseView(pair.Value);
             }
@@ -156,7 +167,7 @@ namespace Minebot.Presentation
                 }
             }
 
-            foreach (KeyValuePair<int, MinebotPickupView> pair in fallbackHoverViews)
+            foreach (KeyValuePair<long, MinebotPickupView> pair in fallbackHoverViews)
             {
                 if (pair.Value != null)
                 {
@@ -183,10 +194,17 @@ namespace Minebot.Presentation
 
         private void UpsertHoverPickup(WorldPickupState pickup, Vector3 originWorld)
         {
-            if (hoverLocations.TryGetValue(pickup.Id, out HoverPickupLocation location))
+            UpsertHoverPickupVisual(pickup, originWorld);
+        }
+
+        private void UpsertHoverPickupVisual(WorldPickupState pickup, Vector3 originWorld)
+        {
+            long visualKey = CreateVisualKey(pickup.Id, 0);
+            if (hoverLocations.TryGetValue(visualKey, out HoverPickupLocation location))
             {
                 List<HoverPickupVisual> visuals = BucketFor(location.Type).Visuals;
                 HoverPickupVisual visual = visuals[location.Index];
+                visual.Amount = pickup.Amount;
                 visual.OriginWorld = originWorld;
                 visual.Drift = pickup.Drift;
                 visual.Age = pickup.Age;
@@ -198,13 +216,16 @@ namespace Minebot.Presentation
             PickupBucket bucket = BucketFor(pickup.Type);
             bucket.Visuals.Add(new HoverPickupVisual
             {
-                Id = pickup.Id,
+                VisualKey = visualKey,
+                PickupId = pickup.Id,
+                VisualIndex = 0,
+                Amount = pickup.Amount,
                 OriginWorld = originWorld,
                 Drift = pickup.Drift,
                 Age = pickup.Age,
                 SyncVersion = syncVersion
             });
-            hoverLocations[pickup.Id] = new HoverPickupLocation(pickup.Type, bucket.Visuals.Count - 1);
+            hoverLocations[visualKey] = new HoverPickupLocation(pickup.Type, bucket.Visuals.Count - 1);
         }
 
         private void RemoveStaleHoverPickups(PickupBucket bucket)
@@ -217,10 +238,10 @@ namespace Minebot.Presentation
                     continue;
                 }
 
-                int removedId = visuals[i].Id;
-                if (fallbackHoverViews.TryGetValue(removedId, out MinebotPickupView view))
+                long removedKey = visuals[i].VisualKey;
+                if (fallbackHoverViews.TryGetValue(removedKey, out MinebotPickupView view))
                 {
-                    fallbackHoverViews.Remove(removedId);
+                    fallbackHoverViews.Remove(removedKey);
                     ReleaseView(view);
                 }
 
@@ -228,18 +249,47 @@ namespace Minebot.Presentation
             }
         }
 
-        private bool TryRemoveHoverPickup(int pickupId, out HoverPickupVisual visual)
+        private List<HoverPickupVisual> RemoveHoverPickupVisuals(int pickupId)
         {
-            visual = default;
-            if (!hoverLocations.TryGetValue(pickupId, out HoverPickupLocation location))
-            {
-                return false;
-            }
+            var removed = new List<HoverPickupVisual>();
+            RemoveHoverPickupVisualsFromBucket(metalBucket, pickupId, removed);
+            RemoveHoverPickupVisualsFromBucket(energyBucket, pickupId, removed);
+            RemoveHoverPickupVisualsFromBucket(experienceBucket, pickupId, removed);
+            removed.Sort(CompareVisualIndex);
+            return removed;
+        }
 
-            PickupBucket bucket = BucketFor(location.Type);
-            visual = bucket.Visuals[location.Index];
-            RemoveHoverAt(bucket, location.Index);
-            return true;
+        private void RemoveHoverPickupVisualsFromBucket(PickupBucket bucket, int pickupId, List<HoverPickupVisual> removed)
+        {
+            List<HoverPickupVisual> visuals = bucket.Visuals;
+            for (int i = visuals.Count - 1; i >= 0; i--)
+            {
+                if (visuals[i].PickupId != pickupId)
+                {
+                    continue;
+                }
+
+                removed.Add(visuals[i]);
+                RemoveHoverAt(bucket, i);
+            }
+        }
+
+        private void ReleaseRemovedHoverViews(List<HoverPickupVisual> removedVisuals, long retainedVisualKey)
+        {
+            for (int i = 0; i < removedVisuals.Count; i++)
+            {
+                long visualKey = removedVisuals[i].VisualKey;
+                if (visualKey == retainedVisualKey)
+                {
+                    continue;
+                }
+
+                if (fallbackHoverViews.TryGetValue(visualKey, out MinebotPickupView view))
+                {
+                    fallbackHoverViews.Remove(visualKey);
+                    ReleaseView(view);
+                }
+            }
         }
 
         private void RemoveHoverAt(PickupBucket bucket, int index)
@@ -251,11 +301,11 @@ namespace Minebot.Presentation
             {
                 HoverPickupVisual swapped = visuals[lastIndex];
                 visuals[index] = swapped;
-                hoverLocations[swapped.Id] = new HoverPickupLocation(bucket.Type, index);
+                hoverLocations[swapped.VisualKey] = new HoverPickupLocation(bucket.Type, index);
             }
 
             visuals.RemoveAt(lastIndex);
-            hoverLocations.Remove(removed.Id);
+            hoverLocations.Remove(removed.VisualKey);
         }
 
         private static void AdvanceHoverAges(PickupBucket bucket, float deltaTime)
@@ -293,13 +343,17 @@ namespace Minebot.Presentation
             for (int i = 0; i < visuals.Count; i++)
             {
                 HoverPickupVisual visual = visuals[i];
-                if (!fallbackHoverViews.TryGetValue(visual.Id, out MinebotPickupView view) || view == null)
+                if (!fallbackHoverViews.TryGetValue(visual.VisualKey, out MinebotPickupView view) || view == null)
                 {
                     view = AcquireView(bucket.Type);
-                    fallbackHoverViews[visual.Id] = view;
+                    fallbackHoverViews[visual.VisualKey] = view;
                 }
 
-                view.ShowHoverVisual(icon, ComputeHoverPosition(visual.Id, visual.Age, visual.OriginWorld, visual.Drift), PickupSortingOrder);
+                view.ShowHoverVisual(
+                    icon,
+                    ComputeHoverPosition(visual.VisualKey, visual.Age, visual.OriginWorld, visual.Drift),
+                    ComputeHoverSortingOrder(visual),
+                    ComputeAmountScale(visual.Amount));
             }
         }
 
@@ -373,11 +427,32 @@ namespace Minebot.Presentation
             }
         }
 
-        private static Vector3 ComputeHoverPosition(int pickupId, float age, Vector3 originWorld, Vector2 drift)
+        private static Vector3 ComputeHoverPosition(long visualKey, float age, Vector3 originWorld, Vector2 drift)
         {
             float launch = Mathf.Clamp01(age / 0.24f);
-            float hover = 0.16f + Mathf.Sin((age + pickupId * 0.17f) * 6.2f) * 0.04f;
+            float hover = 0.16f + Mathf.Sin((age + (visualKey & 0xffff) * 0.17f) * 6.2f) * 0.04f;
             return originWorld + new Vector3(drift.x, Mathf.Lerp(0.02f, 0.28f, launch) + hover, 0f);
+        }
+
+        private static int ComputeHoverSortingOrder(HoverPickupVisual visual)
+        {
+            int layer = Mathf.Abs((visual.PickupId * 3) + visual.VisualIndex) % PickupHoverSortingOrderSpan;
+            return PickupHoverSortingOrderBase + layer;
+        }
+
+        private static float ComputeAmountScale(int amount)
+        {
+            return 1f + Mathf.Max(0, amount) * AmountScaleStep;
+        }
+
+        private static long CreateVisualKey(int pickupId, int visualIndex)
+        {
+            return ((long)pickupId << 32) | (uint)visualIndex;
+        }
+
+        private static int CompareVisualIndex(HoverPickupVisual left, HoverPickupVisual right)
+        {
+            return left.VisualIndex.CompareTo(right.VisualIndex);
         }
 
         private static Vector3 GridToWorldCenter(GridPosition position)

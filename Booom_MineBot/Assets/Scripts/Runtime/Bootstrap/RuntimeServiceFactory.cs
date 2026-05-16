@@ -21,10 +21,11 @@ namespace Minebot.Bootstrap
                 ? config.GeneratedMapConfig.ToSettings()
                 : MapGenerationSettings.CreateDefault();
             RewardConfig? rewardConfig = balance != null ? CreateRewardConfig(balance) : null;
+            HazardRules hazardRules = config != null ? config.HazardRules : null;
+            int gameSeed = hazardRules != null ? hazardRules.BombSeed : HazardRules.DefaultBombSeed;
             LogicalGridState grid = config != null && config.DefaultMap != null
                 ? config.DefaultMap.CreateGridState()
-                : MapGenerator.Generate(generatedMapSettings, rewardConfig);
-            HazardRules hazardRules = config != null ? config.HazardRules : null;
+                : MapGenerator.Generate(generatedMapSettings);
             MiningRules miningRules = config != null ? config.MiningRules : null;
             WaveConfig waveConfig = config != null ? config.WaveConfig : null;
             UpgradePoolConfig upgradePool = config != null ? config.UpgradePool : null;
@@ -70,7 +71,11 @@ namespace Minebot.Bootstrap
                 c.Resolve<LogicalGridState>().PlayerSpawn,
                 HardnessTier.Soil,
                 playerMarkerCapacity));
-            container.RegisterSingleton<MiningService>();
+            container.RegisterSingleton(c => new MiningService(
+                c.Resolve<LogicalGridState>(),
+                c.Resolve<MiningRules>(),
+                rewardConfig ?? RewardConfig.Default,
+                gameSeed));
             container.RegisterSingleton<HazardService>();
             container.RegisterSingleton(c => new RobotAutomationService(
                 c.Resolve<LogicalGridState>(),
@@ -106,7 +111,7 @@ namespace Minebot.Bootstrap
             Debug.Log(
                 $"[RuntimeServiceFactory] 配置检查 - HazardRules: {(hazardRules != null ? hazardRules.name : "null")}, " +
                 $"BombSpawnChance: {(hazardRules?.BombSpawnChance ?? HazardRules.DefaultBombSpawnChance):F4}, " +
-                $"BombSeed: {(hazardRules?.BombSeed ?? HazardRules.DefaultBombSeed)}, " +
+                $"BombSeed: {gameSeed}, " +
                 $"BombSafeRadius: {(hazardRules?.BombSafeRadius ?? HazardRules.DefaultBombSafeRadius)}, " +
                 $"ScanFrontierRange: {(hazardRules?.ScanFrontierRange ?? HazardRules.DefaultScanFrontierRange)}, " +
                 $"ScanUsesEightWayNeighbors: {(hazardRules?.ScanUsesEightWayNeighbors ?? HazardRules.DefaultScanUsesEightWayNeighbors)}, " +
@@ -118,7 +123,7 @@ namespace Minebot.Bootstrap
                 $"PlayerBaseAttack: {(miningRules != null ? miningRules.PlayerBaseAttack : MiningRules.DefaultPlayerBaseAttack)}");
             if (usingGeneratedMap)
             {
-                int seed = hazardRules != null ? hazardRules.BombSeed : HazardRules.DefaultBombSeed;
+                int seed = gameSeed;
                 float chance = hazardRules != null ? hazardRules.BombSpawnChance : HazardRules.DefaultBombSpawnChance;
                 int safeRadius = hazardRules != null ? hazardRules.BombSafeRadius : HazardRules.DefaultBombSafeRadius;
                 Debug.Log($"[RuntimeServiceFactory] 正在生成炸弹 - Seed: {seed}, Chance: {chance:F4}, SafeRadius: {safeRadius}");

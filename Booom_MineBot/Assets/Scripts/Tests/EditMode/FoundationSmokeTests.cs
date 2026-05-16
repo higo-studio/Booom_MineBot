@@ -75,15 +75,142 @@ namespace Minebot.Tests.EditMode
             }
 
             var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
-            var mining = new MiningService(grid);
+            ResourceAmount fixedReward = new ResourceAmount(2, 0, 3);
+            var mining = new MiningService(grid, CreateFixedRewardConfig(fixedReward), rewardSeed: 17);
 
             MineResolution resolution = mining.TryMineDetailed(player, new GridPosition(3, 4));
 
             Assert.That(resolution.Result, Is.EqualTo(MineInteractionResult.Mined));
             Assert.That(resolution.ClearedCells.Count, Is.EqualTo(walls.Length));
+            Assert.That(resolution.TotalReward, Is.EqualTo(new ResourceAmount(
+                fixedReward.Metal * walls.Length,
+                fixedReward.Energy * walls.Length,
+                fixedReward.Experience * walls.Length)));
             for (int i = 0; i < walls.Length; i++)
             {
                 Assert.That(grid.GetCell(walls[i]).TerrainKind, Is.EqualTo(TerrainKind.Empty));
+                Assert.That(resolution.ClearedCells[i].Reward, Is.EqualTo(fixedReward));
+            }
+        }
+
+        [Test]
+        public void GeneratedMapDoesNotStorePrecomputedRewards()
+        {
+            var spawn = new GridPosition(3, 3);
+            LogicalGridState grid = MapGenerator.Generate(new MapGenerationSettings(new Vector2Int(7, 7), spawn, 1));
+
+            foreach (GridPosition position in grid.Positions())
+            {
+                Assert.That(grid.GetCell(position).Reward, Is.EqualTo(ResourceAmount.Zero));
+            }
+        }
+
+        [Test]
+        public void MiningRewardsAreGeneratedFromHardnessConfigWithReproducibleSequence()
+        {
+            RewardConfig rewardConfig = CreateTierRewardConfig(
+                HardnessTier.Stone,
+                metal: new Vector2Int(5, 7),
+                energy: new Vector2Int(1, 3),
+                experience: new Vector2Int(8, 10));
+
+            MineResolution[] firstRun = MineTwoNumberedStoneWalls(rewardConfig, rewardSeed: 913);
+            MineResolution[] secondRun = MineTwoNumberedStoneWalls(rewardConfig, rewardSeed: 913);
+
+            Assert.That(firstRun[0].TotalReward, Is.EqualTo(secondRun[0].TotalReward));
+            Assert.That(firstRun[1].TotalReward, Is.EqualTo(secondRun[1].TotalReward));
+            for (int i = 0; i < firstRun.Length; i++)
+            {
+                AssertRewardInRange(firstRun[i].TotalReward, rewardConfig, HardnessTier.Stone);
+            }
+        }
+
+        [Test]
+        public void AuthoredMapDefinitionRewardFieldIsIgnoredWhenMining()
+        {
+            var definition = ScriptableObject.CreateInstance<MapDefinition>();
+            var cells = new MapCellDefinition[25];
+            for (int i = 0; i < cells.Length; i++)
+            {
+                cells[i] = new MapCellDefinition
+                {
+                    terrainKind = TerrainKind.Empty,
+                    hardnessTier = HardnessTier.Soil,
+                    staticFlags = CellStaticFlags.None,
+                    reward = new ResourceAmount(9, 9, 9)
+                };
+            }
+
+            GridPosition spawn = new GridPosition(2, 2);
+            GridPosition target = spawn + GridPosition.Up;
+            cells[target.Y * 5 + target.X] = new MapCellDefinition
+            {
+                terrainKind = TerrainKind.MineableWall,
+                hardnessTier = HardnessTier.Soil,
+                staticFlags = CellStaticFlags.None,
+                reward = new ResourceAmount(9, 9, 9)
+            };
+            definition.SetData(
+                "legacy-reward-map",
+                new Vector2Int(5, 5),
+                cells,
+                new[] { new MapMarkerDefinition { markerKind = MapMarkerKind.Spawn, position = spawn, size = Vector2Int.one } });
+            LogicalGridState grid = definition.CreateGridState();
+            var mining = new MiningService(grid, CreateFixedRewardConfig(new ResourceAmount(1, 0, 2)), rewardSeed: 21);
+
+            MineResolution resolution = mining.TryMineDetailed(new PlayerMiningState(spawn, HardnessTier.Soil), target);
+
+            Assert.That(resolution.Result, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(resolution.TotalReward, Is.EqualTo(new ResourceAmount(1, 0, 2)));
+            Object.DestroyImmediate(definition);
+        }
+
+        [Test]
+        public void WorldPickupSpawnRewardScattersRepeatedDropsFromSameOrigin()
+        {
+            var pickups = new WorldPickupService();
+            GridPosition origin = new GridPosition(2, 2);
+
+            Assert.That(pickups.SpawnReward(origin, new ResourceAmount(1, 1, 1), WorldPickupSource.PlayerMining), Is.True);
+            Assert.That(pickups.SpawnReward(origin, new ResourceAmount(1, 0, 0), WorldPickupSource.HelperRobotMining), Is.True);
+
+            IReadOnlyList<WorldPickupState> active = pickups.ActivePickups;
+            Assert.That(active.Count, Is.EqualTo(4));
+            Assert.That(active[0].Drift.x, Is.LessThan(0f));
+            Assert.That(active[1].Drift.x, Is.GreaterThan(0f));
+            Assert.That(active[2].Drift.y, Is.GreaterThan(0f));
+            Assert.That(active[3].Drift, Is.Not.EqualTo(active[0].Drift));
+        }
+
+        [Test]
+        public void PickupRendererScalesSingleHoverIconByRewardAmount()
+        {
+            var pickups = new WorldPickupService();
+            GridPosition origin = new GridPosition(2, 2);
+            Assert.That(pickups.SpawnReward(origin, new ResourceAmount(0, 0, 5), WorldPickupSource.PlayerMining), Is.True);
+            Assert.That(pickups.ActivePickups.Count, Is.EqualTo(1));
+            Assert.That(pickups.ActivePickups[0].Amount, Is.EqualTo(5));
+
+            var root = new GameObject("PickupRendererTest");
+            try
+            {
+                MinebotPickupRenderer renderer = root.AddComponent<MinebotPickupRenderer>();
+                renderer.Configure(MinebotPresentationAssets.Create(MinebotPresentationAssets.LoadDefaultArtSet()));
+                renderer.SyncActivePickups(pickups.ActivePickups, position => new Vector3(position.X + 0.5f, position.Y + 0.5f, 0f));
+
+                Assert.That(renderer.HoverVisualCount, Is.EqualTo(1));
+                Assert.That(renderer.TotalVisualCount, Is.EqualTo(1));
+                SpriteRenderer[] spriteRenderers = root.GetComponentsInChildren<SpriteRenderer>();
+                Assert.That(spriteRenderers.Length, Is.EqualTo(1));
+                MinebotPickupView view = spriteRenderers[0].GetComponentInParent<MinebotPickupView>();
+                Assert.That(view, Is.Not.Null);
+                Assert.That(view.transform.localScale.x, Is.EqualTo(1.5f).Within(0.001f));
+                Assert.That(view.transform.localScale.y, Is.EqualTo(1.5f).Within(0.001f));
+                Assert.That(spriteRenderers[0].sortingOrder, Is.LessThan(40));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
             }
         }
 
@@ -304,20 +431,63 @@ namespace Minebot.Tests.EditMode
         }
 
         [Test]
-        public void GeneratedMapContainsEnergyRewardPockets()
+        public void MiningGeneratedMapWallCreatesEnergyRewardFromLiveConfig()
         {
-            RuntimeServiceRegistry registry = MinebotServices.Initialize(null);
-            int energyRewardCells = 0;
+            var spawn = new GridPosition(3, 3);
+            LogicalGridState grid = MapGenerator.Generate(new MapGenerationSettings(new Vector2Int(7, 7), spawn, 1));
+            GridPosition target = new GridPosition(3, 5);
+            grid.GetCellRef(new GridPosition(4, 5)).StaticFlags |= CellStaticFlags.Bomb;
+            var player = new PlayerMiningState(spawn + GridPosition.Up, HardnessTier.Soil);
+            RewardConfig rewardConfig = CreateTierRewardConfig(
+                HardnessTier.Soil,
+                metal: new Vector2Int(1, 1),
+                energy: new Vector2Int(1, 1),
+                experience: new Vector2Int(1, 1));
+            var mining = new MiningService(grid, rewardConfig, rewardSeed: 42);
 
-            foreach (GridPosition position in registry.Grid.Positions())
+            MineResolution resolution = mining.TryMineDetailed(player, target);
+
+            Assert.That(resolution.Result, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(resolution.TotalReward.Energy, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RuntimeFactoryUsesGameBalanceAssetRewardRanges()
+        {
+            BootstrapConfig config = AssetDatabase.LoadAssetAtPath<BootstrapConfig>("Assets/Settings/Gameplay/Bootstrap.asset");
+            Assert.That(config, Is.Not.Null);
+            Assert.That(config.BalanceConfig, Is.Not.Null);
+            Assert.That(config.BalanceConfig.name, Is.EqualTo("GameBlance"));
+
+            RuntimeServiceRegistry registry = RuntimeServiceFactory.Create(config);
+            GridPosition target = registry.Grid.PlayerSpawn + GridPosition.Up;
+            ref GridCellState targetCell = ref registry.Grid.GetCellRef(target);
+            targetCell.TerrainKind = TerrainKind.MineableWall;
+            targetCell.HardnessTier = HardnessTier.UltraHard;
+            targetCell.StaticFlags = CellStaticFlags.None;
+            targetCell.IsRevealed = false;
+            ref GridCellState adjacentBomb = ref registry.Grid.GetCellRef(target + GridPosition.Right);
+            adjacentBomb.TerrainKind = TerrainKind.MineableWall;
+            adjacentBomb.StaticFlags |= CellStaticFlags.Bomb;
+
+            MineResolution resolution = default;
+            for (int i = 0; i < 8; i++)
             {
-                if (registry.Grid.GetCell(position).Reward.Energy > 0)
+                resolution = registry.Mining.TryMineDetailedFrom(
+                    registry.Grid.PlayerSpawn,
+                    HardnessTier.UltraHard,
+                    target,
+                    additionalAttackBonus: 100);
+                if (resolution.Result == MineInteractionResult.Mined)
                 {
-                    energyRewardCells++;
+                    break;
                 }
             }
 
-            Assert.That(energyRewardCells, Is.GreaterThan(0));
+            Assert.That(resolution.Result, Is.EqualTo(MineInteractionResult.Mined));
+            Assert.That(resolution.TotalReward.Metal, Is.EqualTo(0));
+            Assert.That(resolution.TotalReward.Energy, Is.EqualTo(0));
+            Assert.That(resolution.TotalReward.Experience, Is.InRange(10, 15));
         }
 
         [Test]
@@ -443,8 +613,14 @@ namespace Minebot.Tests.EditMode
             LogicalGridState grid = CreateOpenGrid(new Vector2Int(7, 7), new GridPosition(3, 3));
             GridPosition target = new GridPosition(3, 5);
             SetMineableWall(grid, target, false);
-            grid.GetCellRef(target).Reward = new ResourceAmount(0, 0, 4);
-            GameSessionService session = CreateSession(grid, ResourceAmount.Zero, out _, out ExperienceService experience);
+            GameSessionService session = CreateSession(
+                grid,
+                ResourceAmount.Zero,
+                out _,
+                out ExperienceService experience,
+                null,
+                null,
+                CreateFixedRewardConfig(new ResourceAmount(0, 0, 4)));
 
             Assert.That(session.Move(GridPosition.Up), Is.EqualTo(MineInteractionResult.Moved));
             MineInteractionResult result = session.Mine(target);
@@ -801,7 +977,7 @@ namespace Minebot.Tests.EditMode
             Assert.That(resolution.PlayerKilled, Is.False);
             Assert.That(collapsed.TerrainKind, Is.EqualTo(TerrainKind.MineableWall));
             Assert.That(collapsed.HardnessTier, Is.EqualTo(HardnessTier.Soil));
-            Assert.That(collapsed.Reward, Is.EqualTo(new ResourceAmount(1, 0, 1)));
+            Assert.That(collapsed.Reward, Is.EqualTo(ResourceAmount.Zero));
             Assert.That(collapsed.IsDangerZone, Is.False);
             Assert.That(collapsed.IsMarked, Is.False);
             Assert.That(collapsed.HasBomb, Is.False);
@@ -2465,6 +2641,70 @@ namespace Minebot.Tests.EditMode
             return Mathf.Sqrt(dx * dx + dy * dy);
         }
 
+        private static RewardConfig CreateFixedRewardConfig(ResourceAmount reward)
+        {
+            var metal = new Vector2Int(reward.Metal, reward.Metal);
+            var energy = new Vector2Int(reward.Energy, reward.Energy);
+            var experience = new Vector2Int(reward.Experience, reward.Experience);
+            return new RewardConfig(
+                metal, energy, experience,
+                metal, energy, experience,
+                metal, energy, experience,
+                metal, energy, experience);
+        }
+
+        private static RewardConfig CreateTierRewardConfig(
+            HardnessTier tier,
+            Vector2Int metal,
+            Vector2Int energy,
+            Vector2Int experience)
+        {
+            Vector2Int zero = Vector2Int.zero;
+            Vector2Int soilMetal = tier == HardnessTier.Soil ? metal : zero;
+            Vector2Int soilEnergy = tier == HardnessTier.Soil ? energy : zero;
+            Vector2Int soilExperience = tier == HardnessTier.Soil ? experience : zero;
+            Vector2Int stoneMetal = tier == HardnessTier.Stone ? metal : zero;
+            Vector2Int stoneEnergy = tier == HardnessTier.Stone ? energy : zero;
+            Vector2Int stoneExperience = tier == HardnessTier.Stone ? experience : zero;
+            Vector2Int hardRockMetal = tier == HardnessTier.HardRock ? metal : zero;
+            Vector2Int hardRockEnergy = tier == HardnessTier.HardRock ? energy : zero;
+            Vector2Int hardRockExperience = tier == HardnessTier.HardRock ? experience : zero;
+            Vector2Int ultraHardMetal = tier == HardnessTier.UltraHard ? metal : zero;
+            Vector2Int ultraHardEnergy = tier == HardnessTier.UltraHard ? energy : zero;
+            Vector2Int ultraHardExperience = tier == HardnessTier.UltraHard ? experience : zero;
+            return new RewardConfig(
+                soilMetal, soilEnergy, soilExperience,
+                stoneMetal, stoneEnergy, stoneExperience,
+                hardRockMetal, hardRockEnergy, hardRockExperience,
+                ultraHardMetal, ultraHardEnergy, ultraHardExperience);
+        }
+
+        private static MineResolution[] MineTwoNumberedStoneWalls(RewardConfig rewardConfig, int rewardSeed)
+        {
+            LogicalGridState grid = CreateOpenGrid(new Vector2Int(8, 8), new GridPosition(3, 3));
+            GridPosition first = grid.PlayerSpawn + GridPosition.Up;
+            GridPosition second = grid.PlayerSpawn + GridPosition.Right;
+            SetMineableWall(grid, first, HardnessTier.Stone, false);
+            SetMineableWall(grid, second, HardnessTier.Stone, false);
+            SetMineableWall(grid, first + GridPosition.Up, HardnessTier.Soil, true);
+            SetMineableWall(grid, second + GridPosition.Right, HardnessTier.Soil, true);
+            MiningRules rules = CreateMiningRules(stoneMaxHealth: 1, stoneDefense: 0, stoneAttackBonus: 1);
+            var mining = new MiningService(grid, rules, rewardConfig, rewardSeed);
+
+            return new[]
+            {
+                mining.TryMineDetailedFrom(grid.PlayerSpawn, HardnessTier.Stone, first),
+                mining.TryMineDetailedFrom(grid.PlayerSpawn, HardnessTier.Stone, second)
+            };
+        }
+
+        private static void AssertRewardInRange(ResourceAmount reward, RewardConfig config, HardnessTier tier)
+        {
+            Assert.That(reward.Metal, Is.InRange(config.GetMetalRange(tier).x, config.GetMetalRange(tier).y));
+            Assert.That(reward.Energy, Is.InRange(config.GetEnergyRange(tier).x, config.GetEnergyRange(tier).y));
+            Assert.That(reward.Experience, Is.InRange(config.GetExperienceRange(tier).x, config.GetExperienceRange(tier).y));
+        }
+
         private static LogicalGridState CreateOpenGrid(Vector2Int size, GridPosition spawn)
         {
             var cells = new List<GridCellState>(size.x * size.y);
@@ -2590,10 +2830,11 @@ namespace Minebot.Tests.EditMode
             out PlayerEconomy economy,
             out ExperienceService experience,
             HazardRules hazardRules,
-            MiningRules miningRules)
+            MiningRules miningRules,
+            RewardConfig? rewardConfig = null)
         {
             var player = new PlayerMiningState(grid.PlayerSpawn, HardnessTier.Soil);
-            var mining = new MiningService(grid, miningRules);
+            var mining = new MiningService(grid, miningRules, rewardConfig ?? RewardConfig.Default, MiningService.DefaultRewardSeed);
             var hazards = new HazardService(grid);
             economy = new PlayerEconomy(startingResources);
             experience = new ExperienceService(4);

@@ -26,7 +26,7 @@ TBD - created by archiving change bootstrap-minebot-foundation. Update Purpose a
 - **THEN** 该岩壁保持完整，且本次交互不会结算成功的挖掘奖励
 
 ### Requirement: 挖掘必须改变地形并发放配置化奖励
-成功挖开可破坏岩壁时，系统 SHALL 将该格转换为可通行空间，并且 SHALL 按岩壁类型发放预设资源与经验。
+成功挖开可破坏岩壁时，系统 SHALL 将该格转换为可通行空间，并且 SHALL 按该格当前硬度与单局奖励配置现场生成资源与经验。挖掘奖励 MUST NOT 作为格子的静态运行时真相预先存储。
 
 #### Scenario: 成功破坏可挖岩壁
 - **WHEN** 玩家完成对一块可破坏岩壁格的挖掘
@@ -34,5 +34,4 @@ TBD - created by archiving change bootstrap-minebot-foundation. Update Purpose a
 
 #### Scenario: 结算挖掘奖励
 - **WHEN** 一块岩壁格被成功破坏
-- **THEN** 游戏会按该岩壁定义发放对应的金属、能量矿石和/或经验奖励
-
+- **THEN** 游戏会按该岩壁被挖开时的硬度和奖励配置生成对应的金属、能量矿石和/或经验奖励

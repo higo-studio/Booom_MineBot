@@ -332,7 +332,6 @@ namespace Minebot.WaveSurvival
 
                 cell.TerrainKind = TerrainKind.MineableWall;
                 cell.HardnessTier = HardnessTier.Soil;
-                cell.Reward = new ResourceAmount(1, 0, 1);
                 cell.IsDangerZone = false;
                 cell.IsMarked = false;
                 cell.IsRevealed = false;

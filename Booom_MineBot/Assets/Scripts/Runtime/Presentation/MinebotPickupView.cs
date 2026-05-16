@@ -14,6 +14,7 @@ namespace Minebot.Presentation
         private float absorbElapsed;
         private Vector3 absorbStart;
         private Vector3 absorbTarget;
+        private Vector3 absorbStartScale = Vector3.one;
 
         public void EnsureDefaultStructure(Sprite sprite, int sortingOrder)
         {
@@ -36,7 +37,7 @@ namespace Minebot.Presentation
             visual.localScale = new Vector3(HoverScale, HoverScale, 1f);
         }
 
-        public void ShowHoverVisual(Sprite icon, Vector3 worldPosition, int sortingOrder)
+        public void ShowHoverVisual(Sprite icon, Vector3 worldPosition, int sortingOrder, float scaleMultiplier = 1f)
         {
             gameObject.SetActive(true);
             EnsureDefaultStructure(icon, sortingOrder);
@@ -48,10 +49,11 @@ namespace Minebot.Presentation
             }
 
             transform.position = worldPosition;
-            transform.localScale = Vector3.one;
+            float scale = Mathf.Max(0.1f, scaleMultiplier);
+            transform.localScale = new Vector3(scale, scale, 1f);
         }
 
-        public void BeginAbsorbVisual(Sprite icon, Vector3 startWorldPosition, Vector3 targetWorldPosition, int sortingOrder)
+        public void BeginAbsorbVisual(Sprite icon, Vector3 startWorldPosition, Vector3 targetWorldPosition, int sortingOrder, float startScaleMultiplier = 1f)
         {
             gameObject.SetActive(true);
             EnsureDefaultStructure(icon, sortingOrder);
@@ -65,8 +67,10 @@ namespace Minebot.Presentation
             absorbElapsed = 0f;
             absorbStart = startWorldPosition;
             absorbTarget = targetWorldPosition;
+            float scale = Mathf.Max(0.1f, startScaleMultiplier);
+            absorbStartScale = new Vector3(scale, scale, 1f);
             transform.position = startWorldPosition;
-            transform.localScale = Vector3.one;
+            transform.localScale = absorbStartScale;
         }
 
         public bool TickAbsorb(float deltaTime)
@@ -74,7 +78,7 @@ namespace Minebot.Presentation
             absorbElapsed += Mathf.Max(0f, deltaTime);
             float progress = Mathf.Clamp01(absorbElapsed / AbsorbDurationSeconds);
             transform.position = Vector3.Lerp(absorbStart, absorbTarget, progress);
-            transform.localScale = Vector3.Lerp(Vector3.one, new Vector3(AbsorbRootScale, AbsorbRootScale, 1f), progress);
+            transform.localScale = Vector3.Lerp(absorbStartScale, new Vector3(AbsorbRootScale, AbsorbRootScale, 1f), progress);
             if (bodyRenderer != null)
             {
                 Color color = bodyRenderer.color;
@@ -93,6 +97,7 @@ namespace Minebot.Presentation
             }
 
             gameObject.SetActive(false);
+            transform.localScale = Vector3.one;
         }
     }
 }

@@ -78,6 +78,10 @@ namespace Minebot.Progression
         public const float DefaultAutoAbsorbRadius = 3f;
         public const float DefaultAbsorbDuration = 0.18f;
         public const float DefaultSpawnGraceSeconds = 0.18f;
+        private const float OriginScatterRadius = 0.14f;
+        private const float OriginScatterRadiusStep = 0.055f;
+        private const float OriginScatterMaxRadius = 0.38f;
+        private const float OriginScatterGoldenAngleRadians = 2.39996323f;
 
         private readonly List<WorldPickupState> activePickups = new List<WorldPickupState>();
         private readonly List<WorldPickupAbsorption> pendingAbsorptions = new List<WorldPickupAbsorption>();
@@ -180,10 +184,32 @@ namespace Minebot.Progression
                 return false;
             }
 
-            var pickup = new WorldPickupState(nextPickupId++, type, amount, origin, drift, source);
+            Vector2 originScatter = CalculateOriginScatter(origin);
+            var pickup = new WorldPickupState(nextPickupId++, type, amount, origin, drift + originScatter, source);
             activePickups.Add(pickup);
             PickupSpawned?.Invoke(pickup);
             return true;
+        }
+
+        private Vector2 CalculateOriginScatter(GridPosition origin)
+        {
+            int sameOriginCount = 0;
+            for (int i = 0; i < activePickups.Count; i++)
+            {
+                if (activePickups[i].Origin.Equals(origin))
+                {
+                    sameOriginCount++;
+                }
+            }
+
+            if (sameOriginCount == 0)
+            {
+                return Vector2.zero;
+            }
+
+            float radius = Mathf.Min(OriginScatterMaxRadius, OriginScatterRadius + OriginScatterRadiusStep * (sameOriginCount / 3));
+            float angle = sameOriginCount * OriginScatterGoldenAngleRadians;
+            return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
         }
 
         private bool IsWithinAutoAbsorbRange(Vector2 playerWorldPosition, WorldPickupState pickup)
