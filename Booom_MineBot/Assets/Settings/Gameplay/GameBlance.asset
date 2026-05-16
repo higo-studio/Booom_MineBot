@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerMaxHealth: 3
   firstUpgradeThreshold: 15
-  upgradeThresholdIncrease: 0
+  upgradeThresholdIncrease: 2
   startingResources:
     metal: 1
     energy: 4
@@ -31,13 +31,13 @@ MonoBehaviour:
   robotActionInterval: 0.35
   robotUsesPlayerDrillTier: 1
   robotFixedDrillTier: 0
-  playerMarkerCapacity: 3
+  playerMarkerCapacity: 5
   soilMetalRange: {x: 0, y: 0}
   soilEnergyRange: {x: 0, y: 0}
-  soilExperienceRange: {x: 1, y: 3}
+  soilExperienceRange: {x: 1, y: 1}
   stoneMetalRange: {x: 0, y: 0}
   stoneEnergyRange: {x: 0, y: 0}
-  stoneExperienceRange: {x: 3, y: 5}
+  stoneExperienceRange: {x: 3, y: 4}
   hardRockMetalRange: {x: 0, y: 0}
   hardRockEnergyRange: {x: 0, y: 0}
   hardRockExperienceRange: {x: 5, y: 10}

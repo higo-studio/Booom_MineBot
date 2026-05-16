@@ -888,7 +888,7 @@ namespace Minebot.Presentation
                 int newMarker = services.PlayerMiningState.MarkerCapacity;
                 
                 var parts = new List<string>();
-                if (selected.maxHealthDelta > 0) parts.Add($"最大生命 {oldMaxHealth}→{newMaxHealth}");
+                if (selected.maxHealthDelta > 0) parts.Add($"护甲容量 {oldMaxHealth}→{newMaxHealth}");
                 if (selected.moveSpeedMultiplierDelta > 0) parts.Add($"移动速度 {Mathf.RoundToInt(oldMoveSpeed * 100)}%→{Mathf.RoundToInt(newMoveSpeed * 100)}%");
                 if (selected.drillTierDelta > 0 || selected.miningDamageDelta > 0) parts.Add($"钻头功率 {oldAttack}→{newAttack}");
                 if (selected.markerCapacityDelta > 0) parts.Add($"标记数量 {oldMarker}→{newMarker}");

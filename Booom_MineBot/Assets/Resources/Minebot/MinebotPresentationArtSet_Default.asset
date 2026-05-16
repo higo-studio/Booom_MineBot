@@ -465,9 +465,9 @@ MonoBehaviour:
       miningFront: {fileID: 11400000, guid: 9cfe5bacd1f044fdbb80c86919a2b78f, type: 2}
       miningBack: {fileID: 11400000, guid: afb026ef3160279489fd57133256328f, type: 2}
       miningSide: {fileID: 11400000, guid: d642c66111d63574bb6b6fee6b5101c2, type: 2}
-      blockedFront: {fileID: 0}
-      blockedBack: {fileID: 0}
-      blockedSide: {fileID: 0}
+      blockedFront: {fileID: 11400000, guid: 9cfe5bacd1f044fdbb80c86919a2b78f, type: 2}
+      blockedBack: {fileID: 11400000, guid: afb026ef3160279489fd57133256328f, type: 2}
+      blockedSide: {fileID: 11400000, guid: d642c66111d63574bb6b6fee6b5101c2, type: 2}
       destroyed: {fileID: 11400000, guid: 3fefcb1ccc8c341a49c322354e7b4403, type: 2}
     helperRobotStates:
       idleFront: {fileID: 0}

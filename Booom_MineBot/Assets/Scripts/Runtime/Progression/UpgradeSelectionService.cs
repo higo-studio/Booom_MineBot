@@ -150,7 +150,7 @@ namespace Minebot.Progression
                 new UpgradeDefinition { id = "health", displayName = "装甲加固", maxHealthDelta = 1, weight = 1 },
                 new UpgradeDefinition { id = "heal", displayName = "应急修复", currentHealthRestoreDelta = 1, weight = 10 },
                 new UpgradeDefinition { id = "drill", displayName = "钻头强化", drillTierDelta = 1, miningDamageDelta = 1, weight = 10 },
-                new UpgradeDefinition { id = "move", displayName = "履带优化", moveSpeedMultiplierDelta = 0.03f, weight = 10 },
+                new UpgradeDefinition { id = "move", displayName = "履带优化", moveSpeedMultiplierDelta = 0.05f, weight = 10 },
                 new UpgradeDefinition { id = "marker", displayName = "分析扩展", markerCapacityDelta = 1, weight = 8 }
             };
         }
