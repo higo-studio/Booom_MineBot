@@ -91,6 +91,8 @@ namespace Minebot.Presentation
         public int PlayerSortingOrder { get; private set; }
         public int RobotSortingOrder { get; private set; }
         public Vector3 FloorDisplayOffset { get; private set; }
+        public Material TransitionMaterial { get; private set; }
+        public float TransitionDuration { get; private set; }
 
         public static MinebotPresentationAssets Create(MinebotPresentationArtSet artSet)
         {
@@ -209,7 +211,9 @@ namespace Minebot.Presentation
                 BuildPreviewSortingOrder = resolvedArtSet?.BuildPreviewSortingOrder ?? 25,
                 PlayerSortingOrder = resolvedArtSet?.PlayerSortingOrder ?? 40,
                 RobotSortingOrder = resolvedArtSet?.RobotSortingOrder ?? 40,
-                FloorDisplayOffset = resolvedArtSet?.FloorDisplayOffset ?? default
+                FloorDisplayOffset = resolvedArtSet?.FloorDisplayOffset ?? default,
+                TransitionMaterial = resolvedArtSet?.TransitionMaterial,
+                TransitionDuration = resolvedArtSet?.TransitionDuration ?? 1f
             };
 
             ReportMissingResources(assets, resolvedArtSet, dualGridProfileOverride);

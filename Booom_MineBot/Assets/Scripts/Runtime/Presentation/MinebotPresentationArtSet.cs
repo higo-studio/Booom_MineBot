@@ -195,6 +195,15 @@ namespace Minebot.Presentation
         [InspectorLabel("界面资源")]
         private MinebotPresentationHudResources hudResources = new MinebotPresentationHudResources();
 
+        [Header("转场效果")]
+        [SerializeField]
+        [InspectorLabel("转场材质")]
+        private Material transitionMaterial;
+
+        [SerializeField]
+        [InspectorLabel("转场时长（秒）")]
+        private float transitionDuration = 1f;
+
         [Header("Debug")]
         [SerializeField]
         [InspectorLabel("显示雾层")]
@@ -308,6 +317,8 @@ namespace Minebot.Presentation
         public int PlayerSortingOrder => playerSortingOrder;
         public int RobotSortingOrder => robotSortingOrder;
         public Vector3 FloorDisplayOffset => floorDisplayOffset;
+        public Material TransitionMaterial => transitionMaterial;
+        public float TransitionDuration => transitionDuration;
 
         private TileBase[] ResolveDualGridTiles(TerrainRenderLayerId layerId, TileBase[] configuredTiles)
         {

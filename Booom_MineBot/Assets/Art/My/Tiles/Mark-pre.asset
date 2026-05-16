@@ -13,14 +13,10 @@ MonoBehaviour:
   m_Name: Mark-pre
   m_EditorClassIdentifier: 
   m_AnimatedSprites:
-  - {fileID: 8920183555732569567, guid: bb2ccdf5288145d4daf8858e117265fe, type: 3}
-  - {fileID: -4936304644386735215, guid: bb2ccdf5288145d4daf8858e117265fe, type: 3}
-  - {fileID: 3520956638201143914, guid: bb2ccdf5288145d4daf8858e117265fe, type: 3}
-  - {fileID: -8111566839488433796, guid: bb2ccdf5288145d4daf8858e117265fe, type: 3}
-  - {fileID: 7815416028348301672, guid: bb2ccdf5288145d4daf8858e117265fe, type: 3}
-  - {fileID: -898562562480163101, guid: bb2ccdf5288145d4daf8858e117265fe, type: 3}
-  m_MinSpeed: 10
-  m_MaxSpeed: 10
+  - {fileID: 8784950036645719253, guid: ae5041924ebcd02429ec08f9b8241c99, type: 3}
+  - {fileID: -2581526914935765131, guid: ae5041924ebcd02429ec08f9b8241c99, type: 3}
+  m_MinSpeed: 2
+  m_MaxSpeed: 2
   m_AnimationStartTime: 0
   m_AnimationStartFrame: 0
   m_TileColliderType: 0

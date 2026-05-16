@@ -424,7 +424,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 46dfd4c21825d492fbdebdf3ad9fd37f, type: 2}
   dangerTile: {fileID: 11400000, guid: 6683ea565f0ba34439b9e239b0bb4c91, type: 2}
   markerTile: {fileID: 11400000, guid: 28d43456ba3e7224b8e5ebede2849918, type: 2}
-  markerHoverTile: {fileID: 11400000, guid: dc538e1a5ace83e4fbf85d8fa913d93e, type: 2}
+  markerHoverTile: {fileID: 11400000, guid: fe8b97f38e171294a875c985fb505057, type: 2}
   scanHintTile: {fileID: 11400000, guid: 749469656695a49dfbbcd0a1c1c1c093, type: 2}
   dangerOutlineTiles:
   - {fileID: 11400000, guid: 0a30322d070c8409bb118aee73bdfd43, type: 2}
@@ -511,6 +511,8 @@ MonoBehaviour:
     upgradeIcon: {fileID: 21300000, guid: 6cb0cfede0cfa4084b3cd684b4b2eb63, type: 3}
     buildIcon: {fileID: 21300000, guid: 855fdf92ef49f463687f11ee6acbcaaa, type: 3}
     buildingInteractionIcon: {fileID: 21300000, guid: ce2119b45e7fd4e73b1beaba9e6e9818, type: 3}
+  transitionMaterial: {fileID: 2100000, guid: 7ffb85916e6e80a44ab053f8968fe77d, type: 2}
+  transitionDuration: 3
   debugShowFog: 0
   floorSortingOrder: 0
   wallSortingOrder: 10

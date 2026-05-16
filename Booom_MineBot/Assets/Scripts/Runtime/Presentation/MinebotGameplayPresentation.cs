@@ -13,6 +13,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
+using DG.Tweening;
 
 namespace Minebot.Presentation
 {
@@ -143,6 +144,11 @@ namespace Minebot.Presentation
         private bool leaderboardSubmitted;
         private MinebotRankPageView rankPageView;
         private int rankPageShownFrame = -1;
+
+        // 转场动画系统
+        private const float TransitionIntensityStart = 0f;
+        private const float TransitionIntensityEnd = 10f;
+        private const string TransitionIntensityProperty = "_Intensity";
 
         // 事件日志系统
         private const int MaxEventLogLines = 20;
@@ -355,6 +361,7 @@ namespace Minebot.Presentation
             EnsureInitialized();
             EnsureSceneInfrastructure();
             RefreshAll();
+            StartTransitionAnimation();
         }
 
         private void OnEnable()
@@ -401,7 +408,7 @@ namespace Minebot.Presentation
                 if (Input.anyKeyDown || Input.GetMouseButtonDown(0))
                 {
                     rankPageView.SetVisible(false);
-                    LoadBootstrapScene();
+                    PlayGameOverTransitionWithSceneLoad();
                 }
             }
         }
@@ -3464,5 +3471,92 @@ namespace Minebot.Presentation
             progressBuilder.Append('%');
             return progressBuilder.ToString();
         }
+
+        // ==================== 转场动画系统 ====================
+
+        private void StartTransitionAnimation()
+        {
+            if (assets?.TransitionMaterial == null)
+            {
+                return;
+            }
+
+            Material mat = assets.TransitionMaterial;
+            var intensity = 0f;
+            DOTween.To(() => intensity, x => intensity = x, 10f, assets.TransitionDuration)
+                .OnUpdate(() =>
+                {
+                    if (mat.HasProperty(TransitionIntensityProperty))
+                    {
+                        mat.SetFloat(TransitionIntensityProperty, intensity);
+                    }
+                });
+        }
+
+        /// <summary>
+        /// GameOver回退动画：10 → 0，动画结束后加载场景
+        /// </summary>
+        public void PlayGameOverTransitionWithSceneLoad()
+        {
+            // 隐藏所有UI界面
+            HideAllUIPanels();
+
+            if (assets?.TransitionMaterial == null)
+            {
+                // 没有材质时直接加载场景
+                LoadBootstrapScene();
+                return;
+            }
+
+            Material mat = assets.TransitionMaterial;
+            var intensity = 10f;
+            DOTween.To(() => intensity, x => intensity = x, 0f, assets.TransitionDuration)
+                .OnUpdate(() =>
+                {
+                    if (mat.HasProperty(TransitionIntensityProperty))
+                    {
+                        mat.SetFloat(TransitionIntensityProperty, intensity);
+                    }
+                })
+                .OnComplete(() =>
+                {
+                    // 动画完成后加载Bootstrap场景
+                    LoadBootstrapScene();
+                });
+        }
+
+        /// <summary>
+        /// 隐藏所有UI面板
+        /// </summary>
+        private void HideAllUIPanels()
+        {
+            // 隐藏排行榜页面
+            if (rankPageView != null)
+            {
+                rankPageView.SetVisible(false);
+            }
+
+            // 隐藏HUD
+            if (hudView != null)
+            {
+                hudView.gameObject.SetActive(false);
+            }
+
+            // 隐藏所有Canvas子物体（排除相机Rig和Grid根节点）
+            Canvas[] allCanvases = FindObjectsOfType<Canvas>();
+            foreach (Canvas canvas in allCanvases)
+            {
+                if (canvas.renderMode == RenderMode.ScreenSpaceOverlay || canvas.renderMode == RenderMode.ScreenSpaceCamera)
+                {
+                    // 不隐藏排行榜的Canvas（已单独处理）
+                    if (canvas.sortingOrder == 300)
+                    {
+                        continue;
+                    }
+                    canvas.gameObject.SetActive(false);
+                }
+            }
+        }
+
     }
 }
