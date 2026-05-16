@@ -15,15 +15,15 @@ MonoBehaviour:
   playerMiningTickIntervalSeconds: 0.1
   miningDisengageGraceSeconds: 0.5
   playerBaseAttack: 100
-  soilMaxHealth: 200
+  soilMaxHealth: 250
   soilDefense: 90
   soilAttackBonus: 1
-  stoneMaxHealth: 200
+  stoneMaxHealth: 250
   stoneDefense: 110
   stoneAttackBonus: 3
-  hardRockMaxHealth: 250
+  hardRockMaxHealth: 300
   hardRockDefense: 120
   hardRockAttackBonus: 5
-  ultraHardMaxHealth: 250
+  ultraHardMaxHealth: 300
   ultraHardDefense: 130
   ultraHardAttackBonus: 7

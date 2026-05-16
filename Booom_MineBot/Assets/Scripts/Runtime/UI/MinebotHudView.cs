@@ -20,6 +20,7 @@ namespace Minebot.UI
         private const string TemplateEnergyCountPath = "Lower Left/Resources/Power/Count";
         private const string TemplateMetalCountPath = "Lower Left/Resources/Metal/Count";
         private const string TemplateExpFillPath = "Lower Left/ExpFill";
+        private const string TemplateExpCountPath = "Lower Left/ExpCount";
         private const string TemplateMarkCountPath = "Lower Left/Resources/Mark/Count";
         private const string TemplateHealth0Path = "Lower Left/HPLayout/HP";
         private const string TemplateHealth1Path = "Lower Left/HPLayout/HP (1)";
@@ -128,6 +129,7 @@ namespace Minebot.UI
         private TMP_Text templateEnergyCountText;
         private TMP_Text templateMetalCountText;
         private TMP_Text templateMarkCountText;
+        private TMP_Text templateExpCountText;
         private Image templateWaveFillImage;
         private Image templateExpFillImage;
         private List<Image> templateHealthImages = new();
@@ -290,6 +292,9 @@ namespace Minebot.UI
                 float fill = nextThreshold > 0 ? Mathf.Clamp01((float)Mathf.Max(0, experience) / nextThreshold) : 0f;
                 templateExpFillImage.fillAmount = fill;
             }
+
+            // 更新经验值文本显示 (当前值/下一级所需值)
+            SetText(templateExpCountText, $"{Mathf.Max(0, experience)}/{Mathf.Max(0, nextThreshold)}");
         }
 
         public void UpdateTemplateMarkCount(int remaining, int total)
@@ -606,6 +611,7 @@ namespace Minebot.UI
             templateMetalCountText = FindComponent<TMP_Text>(TemplateMetalCountPath);
             templateMarkCountText = FindComponent<TMP_Text>(TemplateMarkCountPath);
             templateExpFillImage = FindComponent<Image>(TemplateExpFillPath);
+            templateExpCountText = FindComponent<TMP_Text>(TemplateExpCountPath);
 
             // 获取HPLayout容器
             healthLayoutContainer = transform.Find(TemplateHealth0Path)?.parent;

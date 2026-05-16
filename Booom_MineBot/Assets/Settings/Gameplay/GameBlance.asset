@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GameBlance
   m_EditorClassIdentifier: 
   playerMaxHealth: 3
-  firstUpgradeThreshold: 10
+  firstUpgradeThreshold: 15
   upgradeThresholdIncrease: 0
   startingResources:
     metal: 1

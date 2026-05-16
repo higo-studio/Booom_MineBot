@@ -100,7 +100,7 @@ namespace Minebot.Progression
 
         public int PlayerMaxHealth => Mathf.Max(1, playerMaxHealth);
         public int FirstUpgradeThreshold => Mathf.Max(1, firstUpgradeThreshold);
-        public int UpgradeThresholdIncrease => Mathf.Max(1, upgradeThresholdIncrease);
+        public int UpgradeThresholdIncrease => upgradeThresholdIncrease;
         public ResourceAmount StartingResources => startingResources;
         public ResourceAmount RepairCost => repairCost;
         public ResourceAmount RobotCost => robotCost;

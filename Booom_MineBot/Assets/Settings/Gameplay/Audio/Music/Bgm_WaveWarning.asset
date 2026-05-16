@@ -14,12 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   safeName: 
   presetDescription: 
-  files: []
+  files:
+  - {fileID: 8300000, guid: 73db8ee29bebfa74ea21f7bb7a3b1308, type: 3}
   neverRepeat: 0
   loopStart: 0
   loopEnd: 0
   bpm: 120
-  relativeVolume: 1
+  relativeVolume: 0.3
   spatialize: 0
   maxDistance: 0
   priority: 0
