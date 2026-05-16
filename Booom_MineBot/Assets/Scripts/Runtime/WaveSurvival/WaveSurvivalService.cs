@@ -36,7 +36,7 @@ namespace Minebot.WaveSurvival
 
     public sealed class WaveSurvivalService
     {
-        public const float DangerWarningLeadTime = 5f;
+        public const float DangerWarningLeadTime = 10f;
 
         private readonly LogicalGridState grid;
         private readonly WaveConfig config;
