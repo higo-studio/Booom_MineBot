@@ -2079,6 +2079,52 @@ namespace Minebot.Tests.EditMode
             }
         }
 
+        [Test]
+        public void MarkerHoverPreviewUsesMarkerTilemapTintWithoutExtraLayer()
+        {
+            var root = new GameObject("MarkerHoverPreviewEditModeTest");
+            Tile markerTile = ScriptableObject.CreateInstance<Tile>();
+            MinebotPresentationArtSet artSet = ScriptableObject.CreateInstance<MinebotPresentationArtSet>();
+            try
+            {
+                artSet.Configure(markerTile, markerTile, markerTile, markerTile, markerTile, null, null);
+                Tilemap markerTilemap = CreateTilemap(root.transform, "Marker Test Tilemap", Vector3.zero);
+                TilemapGridPresentation presentation = root.AddComponent<TilemapGridPresentation>();
+                presentation.Configure(
+                    Array.Empty<Tilemap>(),
+                    null,
+                    null,
+                    null,
+                    markerTilemap,
+                    null,
+                    null,
+                    null,
+                    MinebotPresentationAssets.Create(artSet));
+
+                Vector3Int tilePosition = TilemapGridPresentation.ToTilePosition(new GridPosition(2, 3));
+                presentation.ShowMarkerHoverPreview(new GridPosition(2, 3), hasMarkerCapacity: true);
+
+                Assert.That(markerTilemap.GetTile(tilePosition), Is.SameAs(markerTile));
+                Assert.That(markerTilemap.color, Is.EqualTo(Color.white));
+                Assert.That(markerTilemap.GetColor(tilePosition).a, Is.EqualTo(0.45f).Within(0.001f));
+
+                presentation.ShowMarkerHoverPreview(new GridPosition(2, 3), hasMarkerCapacity: false);
+                Color blockedColor = markerTilemap.GetColor(tilePosition);
+                Assert.That(blockedColor.r, Is.EqualTo(1f).Within(0.001f));
+                Assert.That(blockedColor.g, Is.LessThan(0.1f));
+                Assert.That(blockedColor.a, Is.EqualTo(0.45f).Within(0.001f));
+
+                presentation.ClearMarkerHoverPreview();
+                Assert.That(markerTilemap.GetTile(tilePosition), Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(markerTile);
+                Object.DestroyImmediate(artSet);
+            }
+        }
+
         private static RuntimeServiceRegistry CreatePresentationRegistry(LogicalGridState grid)
         {
             return new RuntimeServiceRegistry(

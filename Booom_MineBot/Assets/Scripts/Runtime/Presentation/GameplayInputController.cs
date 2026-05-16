@@ -33,6 +33,7 @@ namespace Minebot.Presentation
         private GridPosition lastDirection = GridPosition.Up;
         private Vector2 currentMoveInput;
         private Vector2 pointerPosition;
+        private bool hasPointerPosition;
         private AutoMineContactState autoMineState = AutoMineContactState.None;
 
         [SerializeField]
@@ -96,6 +97,7 @@ namespace Minebot.Presentation
             player.SelectUpgrade2.performed -= OnSelectUpgrade2Performed;
             player.SelectUpgrade3.performed -= OnSelectUpgrade3Performed;
             player.Pause.performed -= OnPausePerformed;
+            presentation?.ClearMarkerHoverPreview();
             inputActions.Dispose();
             inputActions = null;
         }
@@ -202,6 +204,7 @@ namespace Minebot.Presentation
                 : canToggle && wasMarked
                     ? $"已取消标记 {target}。"
                     : $"无法标记 {target}。");
+            UpdateMarkerHoverPreview();
             return succeeded;
         }
 
@@ -221,7 +224,12 @@ namespace Minebot.Presentation
             presentation.SetInteractionMode(entering ? GameplayInteractionMode.Build : GameplayInteractionMode.Normal);
             if (entering)
             {
+                presentation.ClearMarkerHoverPreview();
                 presentation.SetSelectedBuilding(presentation.GetSelectedBuildingOrDefault());
+            }
+            else
+            {
+                UpdateMarkerHoverPreview();
             }
 
             presentation.AudioController?.PlayBuildModeToggle();
@@ -295,9 +303,11 @@ namespace Minebot.Presentation
                         : wasMarked
                             ? $"已取消标记 {target}。"
                             : $"无法标记 {target}。");
+                    UpdateMarkerHoverPreview();
                     return marked || wasMarked;
                 }
 
+                UpdateMarkerHoverPreview();
                 return false;
             }
         }
@@ -479,12 +489,17 @@ namespace Minebot.Presentation
             using (PointerPositionProfilerMarker.Auto())
             {
                 pointerPosition = context.ReadValue<Vector2>();
+                hasPointerPosition = true;
                 if (presentation != null
                     && presentation.InteractionMode == GameplayInteractionMode.Build
                     && (session == null || !session.IsWaveResolutionActive))
                 {
                     presentation.SetBuildPreview(presentation.ScreenToGridPosition(pointerPosition));
+                    presentation.ClearMarkerHoverPreview();
+                    return;
                 }
+
+                UpdateMarkerHoverPreview();
             }
         }
 
@@ -493,6 +508,7 @@ namespace Minebot.Presentation
             using (PointerClickProfilerMarker.Auto())
             {
                 ClickGridCell(presentation.ScreenToGridPosition(pointerPosition));
+                UpdateMarkerHoverPreview();
             }
         }
 
@@ -515,7 +531,50 @@ namespace Minebot.Presentation
                 presentation.SetInteractionMode(GameplayInteractionMode.Normal);
                 presentation.AudioController?.PlayBuildModeToggle();
                 presentation.ShowFeedback("已退出当前模式。");
+                UpdateMarkerHoverPreview();
             }
+        }
+
+        private void UpdateMarkerHoverPreview()
+        {
+            if (!hasPointerPosition)
+            {
+                presentation?.ClearMarkerHoverPreview();
+                return;
+            }
+
+            if (!EnsureServices())
+            {
+                presentation?.ClearMarkerHoverPreview();
+                return;
+            }
+
+            if (session != null && session.IsWaveResolutionActive)
+            {
+                presentation.ClearMarkerHoverPreview();
+                return;
+            }
+
+            if (vitals.IsDead || experience.HasPendingUpgrade || presentation.IsUpgradePanelShowing)
+            {
+                presentation.ClearMarkerHoverPreview();
+                return;
+            }
+
+            if (presentation.InteractionMode != GameplayInteractionMode.Normal)
+            {
+                presentation.ClearMarkerHoverPreview();
+                return;
+            }
+
+            GridPosition target = presentation.ScreenToGridPosition(pointerPosition);
+            if (!CanPreviewMarker(target))
+            {
+                presentation.ClearMarkerHoverPreview();
+                return;
+            }
+
+            presentation.SetMarkerHoverPreview(target, session.HasMarkerCapacityFor(target));
         }
 
         private void OnSelectUpgrade1Performed(InputAction.CallbackContext context)
@@ -668,6 +727,17 @@ namespace Minebot.Presentation
             GridCellState cell = grid.GetCell(target);
             wasMarked = cell.IsMarked;
             return cell.IsMineable && !cell.IsRevealed;
+        }
+
+        private bool CanPreviewMarker(GridPosition target)
+        {
+            if (grid == null || !grid.IsInside(target))
+            {
+                return false;
+            }
+
+            GridCellState cell = grid.GetCell(target);
+            return cell.IsMineable && !cell.IsRevealed && !cell.IsMarked;
         }
 
         private bool HasServices => grid != null

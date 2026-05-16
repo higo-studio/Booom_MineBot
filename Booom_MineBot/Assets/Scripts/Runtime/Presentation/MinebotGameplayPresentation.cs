@@ -772,6 +772,16 @@ namespace Minebot.Presentation
             RefreshHud();
         }
 
+        public void SetMarkerHoverPreview(GridPosition? position, bool hasMarkerCapacity)
+        {
+            gridPresentation?.ShowMarkerHoverPreview(position, hasMarkerCapacity);
+        }
+
+        public void ClearMarkerHoverPreview()
+        {
+            gridPresentation?.ClearMarkerHoverPreview();
+        }
+
         public CharacterMoveResult2D TryMovePlayerFreeform(Vector2 direction, float deltaTime)
         {
             if (playerFreeform == null || services == null)

@@ -264,6 +264,30 @@ namespace Minebot.Bootstrap
             return marked;
         }
 
+        public int MarkerCapacityRemaining
+        {
+            get
+            {
+                if (player == null || hazards == null)
+                {
+                    return 0;
+                }
+
+                return Mathf.Max(0, player.MarkerCapacity - hazards.CountMarkedCells());
+            }
+        }
+
+        public bool HasMarkerCapacityFor(GridPosition position)
+        {
+            if (grid == null || !grid.IsInside(position))
+            {
+                return false;
+            }
+
+            GridCellState cell = grid.GetCell(position);
+            return cell.IsMarked || MarkerCapacityRemaining > 0;
+        }
+
         public bool BeginWaveResolution()
         {
             if (waves == null || IsWaveResolutionActive)

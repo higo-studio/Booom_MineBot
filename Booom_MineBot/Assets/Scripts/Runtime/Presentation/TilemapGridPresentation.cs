@@ -28,6 +28,8 @@ namespace Minebot.Presentation
         private const float DangerNormalOpacity = 1f;
         private const float DangerLowOpacity = 0f;
         private const float DangerFadeDuration = 0.5f;
+        private static readonly Color MarkerHoverAvailableColor = new Color(1f, 1f, 1f, 0.45f);
+        private static readonly Color MarkerHoverBlockedColor = new Color(1f, 0.08f, 0.08f, 0.45f);
         
         private MinebotPresentationAssets assets;
         private readonly DualGridRenderer terrainRenderer = new DualGridRenderer(new LayeredBinaryTerrainResolver());
@@ -51,6 +53,8 @@ namespace Minebot.Presentation
         private Dictionary<Vector3Int, TileBase> dangerTileCache = new Dictionary<Vector3Int, TileBase>();
         private Dictionary<Vector3Int, TileBase> buildPreviewTileCache = new Dictionary<Vector3Int, TileBase>();
         private HashSet<Vector3Int> lastDangerPositions = new HashSet<Vector3Int>();
+        private GridPosition? markerHoverPosition;
+        private bool markerHoverHasCapacity;
         private int lastDangerWave = -1;
         private float lastFlashTime;
         private bool isFlashingVisible = true;
@@ -90,6 +94,37 @@ namespace Minebot.Presentation
             DangerTilemap = dangerTilemap;
             BuildPreviewTilemap = buildPreviewTilemap;
             assets = presentationAssets;
+        }
+
+        public void ShowMarkerHoverPreview(GridPosition? position, bool hasMarkerCapacity)
+        {
+            if (MarkerTilemap == null || assets == null)
+            {
+                return;
+            }
+
+            GridPosition? previousPosition = markerHoverPosition;
+            markerHoverPosition = position;
+            markerHoverHasCapacity = hasMarkerCapacity;
+
+            if (previousPosition.HasValue && (!position.HasValue || !previousPosition.Value.Equals(position.Value)))
+            {
+                RestoreMarkerTileAt(ToTilePosition(previousPosition.Value));
+            }
+
+            ApplyMarkerHoverPreview();
+        }
+
+        public void ClearMarkerHoverPreview()
+        {
+            if (!markerHoverPosition.HasValue)
+            {
+                return;
+            }
+
+            GridPosition previousPosition = markerHoverPosition.Value;
+            markerHoverPosition = null;
+            RestoreMarkerTileAt(ToTilePosition(previousPosition));
         }
 
         public void SetGmBombRevealEnabled(bool enabled)
@@ -403,7 +438,7 @@ namespace Minebot.Presentation
                 using (RefreshOverlaysProfilerMarker.Auto())
                 {
                     RefreshOverlayTilemapWithFacility(FacilityTilemap, facilityPositions, facilityTileCache, repairStationPosition, robotFactoryPosition);
-                    RefreshOverlayTilemap(MarkerTilemap, markerPositions, markerTileCache, _ => assets.MarkerTile);
+                    RefreshMarkerOverlayTilemap(markerPositions);
                     RefreshGmBombOverlayTilemap(gmBombPositions);
 
                     // Danger zone: always refresh to keep animations in sync
@@ -472,6 +507,88 @@ namespace Minebot.Presentation
                 cache[pos] = newTile;
                 tilemap.SetTile(pos, newTile);
             }
+        }
+
+        private void RefreshMarkerOverlayTilemap(HashSet<Vector3Int> activePositions)
+        {
+            if (MarkerTilemap == null)
+            {
+                return;
+            }
+
+            var toRemove = new List<Vector3Int>();
+            foreach (Vector3Int cachedPosition in markerTileCache.Keys)
+            {
+                if (!activePositions.Contains(cachedPosition))
+                {
+                    toRemove.Add(cachedPosition);
+                }
+            }
+
+            foreach (Vector3Int position in toRemove)
+            {
+                markerTileCache.Remove(position);
+                RestoreMarkerTileAt(position);
+            }
+
+            foreach (Vector3Int position in activePositions)
+            {
+                TileBase tile = assets.MarkerTile;
+                markerTileCache[position] = tile;
+                SetMarkerTile(position, tile, Color.white);
+            }
+
+            ApplyMarkerHoverPreview();
+        }
+
+        private void ApplyMarkerHoverPreview()
+        {
+            if (MarkerTilemap == null || assets == null || !markerHoverPosition.HasValue)
+            {
+                return;
+            }
+
+            Vector3Int tilePosition = ToTilePosition(markerHoverPosition.Value);
+            if (markerTileCache.ContainsKey(tilePosition))
+            {
+                SetMarkerTile(tilePosition, markerTileCache[tilePosition], Color.white);
+                return;
+            }
+
+            Color color = markerHoverHasCapacity ? MarkerHoverAvailableColor : MarkerHoverBlockedColor;
+            SetMarkerTile(tilePosition, assets.MarkerTile, color);
+        }
+
+        private void RestoreMarkerTileAt(Vector3Int tilePosition)
+        {
+            if (MarkerTilemap == null)
+            {
+                return;
+            }
+
+            if (markerTileCache.TryGetValue(tilePosition, out TileBase tile))
+            {
+                SetMarkerTile(tilePosition, tile, Color.white);
+                return;
+            }
+
+            SetMarkerTile(tilePosition, null, Color.white);
+        }
+
+        private void SetMarkerTile(Vector3Int tilePosition, TileBase tile, Color color)
+        {
+            if (MarkerTilemap == null)
+            {
+                return;
+            }
+
+            if (MarkerTilemap.GetTile(tilePosition) != tile)
+            {
+                MarkerTilemap.SetTile(tilePosition, tile);
+            }
+
+            MarkerTilemap.SetTileFlags(tilePosition, TileFlags.None);
+            MarkerTilemap.SetColor(tilePosition, color);
         }
 
         private void ClearOverlayTilemap(Tilemap tilemap, Dictionary<Vector3Int, TileBase> cache)
@@ -624,13 +741,15 @@ namespace Minebot.Presentation
                 if (tile != null)
                 {
                     markerTileCache[tilePosition] = tile;
-                    MarkerTilemap.SetTile(tilePosition, tile);
+                    SetMarkerTile(tilePosition, tile, Color.white);
                     continue;
                 }
 
                 markerTileCache.Remove(tilePosition);
-                MarkerTilemap.SetTile(tilePosition, null);
+                RestoreMarkerTileAt(tilePosition);
             }
+
+            ApplyMarkerHoverPreview();
         }
 
         private void RefreshGmBombRevealCells(LogicalGridState grid, ICollection<GridPosition> changedCells)
