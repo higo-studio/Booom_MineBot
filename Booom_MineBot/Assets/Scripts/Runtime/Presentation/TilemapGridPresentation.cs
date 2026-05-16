@@ -28,8 +28,8 @@ namespace Minebot.Presentation
         private const float DangerNormalOpacity = 1f;
         private const float DangerLowOpacity = 0f;
         private const float DangerFadeDuration = 0.5f;
-        private static readonly Color MarkerHoverAvailableColor = new Color(1f, 1f, 1f, 0.45f);
-        private static readonly Color MarkerHoverBlockedColor = new Color(1f, 0.08f, 0.08f, 0.45f);
+        private static readonly Color MarkerHoverAvailableColor = new Color(1f, 1f, 1f, 0.2f);
+        private static readonly Color MarkerHoverBlockedColor = new Color(1f, 0.08f, 0.08f, 0.2f);
         
         private MinebotPresentationAssets assets;
         private readonly DualGridRenderer terrainRenderer = new DualGridRenderer(new LayeredBinaryTerrainResolver());
@@ -555,8 +555,10 @@ namespace Minebot.Presentation
                 return;
             }
 
-            Color color = markerHoverHasCapacity ? MarkerHoverAvailableColor : MarkerHoverBlockedColor;
-            SetMarkerTile(tilePosition, assets.MarkerTile, color);
+            // 使用专门的悬停预览瓦片 + 半透明颜色
+            TileBase hoverTile = assets.MarkerHoverTile ?? assets.MarkerTile;
+            Color hoverColor = markerHoverHasCapacity ? MarkerHoverAvailableColor : MarkerHoverBlockedColor;
+            SetMarkerTile(tilePosition, hoverTile, hoverColor);
         }
 
         private void RestoreMarkerTileAt(Vector3Int tilePosition)

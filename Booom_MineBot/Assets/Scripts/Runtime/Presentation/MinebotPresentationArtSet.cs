@@ -76,6 +76,10 @@ namespace Minebot.Presentation
         private TileBase markerTile;
 
         [SerializeField]
+        [InspectorLabel("标记悬停预览瓦片")]
+        private TileBase markerHoverTile;
+
+        [SerializeField]
         [InspectorLabel("探测提示瓦片")]
         private TileBase scanHintTile;
 
@@ -262,6 +266,7 @@ namespace Minebot.Presentation
         public TileBase[] FogDeepDualGridTiles => ResolveFogDualGridTiles(fogDeepDualGridTiles);
         public TileBase DangerTile => dangerTile;
         public TileBase MarkerTile => markerTile;
+        public TileBase MarkerHoverTile => markerHoverTile;
         public TileBase ScanHintTile => scanHintTile;
         public TileBase[] DangerOutlineTiles => dangerOutlineTiles ?? Array.Empty<TileBase>();
         public TileBase[] WallContourTiles => ResolveWallContourTiles();

@@ -22,6 +22,7 @@ namespace Minebot.Presentation
         public TileBase[] FogDeepDualGridTiles { get; private set; }
         public TileBase DangerTile { get; private set; }
         public TileBase MarkerTile { get; private set; }
+        public TileBase MarkerHoverTile { get; private set; }
         public TileBase RepairStationTile { get; private set; }
         public TileBase RobotFactoryTile { get; private set; }
         public TileBase ScanHintTile { get; private set; }
@@ -140,6 +141,7 @@ namespace Minebot.Presentation
                 FogDeepDualGridTiles = NormalizeIndexedTiles(fogDeepTiles, missingDefaults.FogDeepDualGridTiles),
                 DangerTile = resolvedArtSet != null ? resolvedArtSet.DangerTile : missingDefaults.DangerTile,
                 MarkerTile = resolvedArtSet != null ? resolvedArtSet.MarkerTile : missingDefaults.MarkerTile,
+                MarkerHoverTile = resolvedArtSet != null ? resolvedArtSet.MarkerHoverTile : missingDefaults.MarkerHoverTile,
                 RepairStationTile = resolvedArtSet != null ? resolvedArtSet.RepairStationTile : missingDefaults.RepairStationTile,
                 RobotFactoryTile = resolvedArtSet != null ? resolvedArtSet.RobotFactoryTile : missingDefaults.RobotFactoryTile,
                 ScanHintTile = resolvedArtSet != null ? resolvedArtSet.ScanHintTile : missingDefaults.ScanHintTile,
