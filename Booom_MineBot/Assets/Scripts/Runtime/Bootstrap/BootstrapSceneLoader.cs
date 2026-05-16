@@ -81,7 +81,8 @@ namespace Minebot.Bootstrap
         {
             runtimeContext?.InjectIntoScene(scene);
 
-            if (!showStartPage || scene.name == GameplaySceneName)
+            // 当加载 Gameplay 或 Story 场景时，销毁启动页
+            if (!showStartPage || scene.name == GameplaySceneName || scene.name == StorySceneName)
             {
                 DestroyStartPageView();
                 return;
@@ -119,7 +120,7 @@ namespace Minebot.Bootstrap
                 }
             }
 
-            startPageView.BindButtons(HandleStartClicked, HandleQuitClicked, HandleLeaderboardClicked);
+            startPageView.BindButtons(HandleStartClicked, HandleSkipStoryClicked, HandleQuitClicked, HandleLeaderboardClicked);
             startPageView.SetVisible(true);
         }
 
@@ -216,6 +217,8 @@ namespace Minebot.Bootstrap
             return component != null ? component : target.AddComponent<T>();
         }
 
+        private string StorySceneName => config != null ? config.StorySceneName : "Story";
+
         private void HandleStartClicked()
         {
             if (gameplayLoadRequested)
@@ -224,6 +227,21 @@ namespace Minebot.Bootstrap
             }
 
             gameplayLoadRequested = true;
+            // 销毁启动页UI，防止叠加显示
+            DestroyStartPageView();
+            // 开始游戏：先播放 Story 场景（完全替换当前场景）
+            SceneManager.LoadScene(StorySceneName, LoadSceneMode.Single);
+        }
+
+        private void HandleSkipStoryClicked()
+        {
+            if (gameplayLoadRequested)
+            {
+                return;
+            }
+
+            gameplayLoadRequested = true;
+            // 跳过演出：直接加载 Gameplay 场景
             SceneManager.LoadSceneAsync(GameplaySceneName, LoadSceneMode.Single);
         }
 

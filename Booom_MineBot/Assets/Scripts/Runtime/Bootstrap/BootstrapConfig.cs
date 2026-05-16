@@ -12,6 +12,10 @@ namespace Minebot.Bootstrap
     public sealed class BootstrapConfig : ScriptableObject
     {
         [SerializeField]
+        [InspectorLabel("开场动画场景名")]
+        private string storySceneName = "Story";
+
+        [SerializeField]
         [InspectorLabel("玩法场景名")]
         private string gameplaySceneName = "Gameplay";
 
@@ -59,6 +63,7 @@ namespace Minebot.Bootstrap
         [InspectorLabel("音频配置")]
         private MinebotAudioConfig audioConfig;
 
+        public string StorySceneName => string.IsNullOrWhiteSpace(storySceneName) ? "Story" : storySceneName;
         public string GameplaySceneName => string.IsNullOrWhiteSpace(gameplaySceneName) ? "Gameplay" : gameplaySceneName;
         public InputActionAsset InputActions => inputActions;
         public MapDefinition DefaultMap => defaultMap;

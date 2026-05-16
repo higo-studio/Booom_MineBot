@@ -26,6 +26,9 @@ namespace Minebot.UI
         private Button startButton;
 
         [SerializeField]
+        private Button skipStoryButton;
+
+        [SerializeField]
         private Button quitButton;
 
         [SerializeField]
@@ -41,6 +44,7 @@ namespace Minebot.UI
         private TMP_Text leaderboardEntriesText;
 
         public Button StartButton => startButton;
+        public Button SkipStoryButton => skipStoryButton;
         public Button QuitButton => quitButton;
         public Button LeaderboardButton => leaderboardButton;
         public TMP_Text LeaderboardEntriesText => leaderboardEntriesText;
@@ -85,10 +89,21 @@ namespace Minebot.UI
 
         public void BindButtons(Action onStart, Action onQuit, Action onLeaderboard)
         {
+            BindButtons(onStart, null, onQuit, onLeaderboard);
+        }
+
+        public void BindButtons(Action onStart, Action onSkipStory, Action onQuit, Action onLeaderboard)
+        {
             if (startButton != null)
             {
                 startButton.onClick.RemoveAllListeners();
                 startButton.onClick.AddListener(() => onStart?.Invoke());
+            }
+
+            if (skipStoryButton != null)
+            {
+                skipStoryButton.onClick.RemoveAllListeners();
+                skipStoryButton.onClick.AddListener(() => onSkipStory?.Invoke());
             }
 
             if (quitButton != null)
